@@ -109,7 +109,6 @@ function decorate(scope) {
     const pre = block.querySelector('pre code') || block.querySelector('pre');
     const code = pre ? (pre.textContent || '') : '';
     if (!code.trim()) return;
-
     // Решаем, «наш» ли это блок:
     // - язык в баннере `cuckoo` (некоторые рендереры оставляют как есть), ИЛИ
     // - язык `js`/`javascript` и в коде есть вызовы tool-функций (await read/write/edit/...).

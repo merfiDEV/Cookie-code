@@ -116,6 +116,12 @@ const KEYS = {
   // ---- Настройки: общее ----
   'settings.title':             { ru: 'Cookie Code',               en: 'Cookie Code' },
   'settings.subtitle':          { ru: 'Настройки интерфейса и фонового изображения', en: 'Interface and background settings' },
+  'settings.section.customization': { ru: 'Кастомизация Cookie Code', en: 'Cookie Code customization' },
+  'settings.customization.enabled': { ru: 'Кастомизация включена', en: 'Customization enabled' },
+  'settings.customization.disabled': { ru: 'Кастомизация выключена', en: 'Customization disabled' },
+  'settings.customization.enable': { ru: 'Включить всё', en: 'Enable everything' },
+  'settings.customization.disable': { ru: 'Выключить всё', en: 'Disable everything' },
+  'settings.customization.reloading': { ru: 'Применение...', en: 'Applying...' },
   'settings.section.blur':      { ru: 'Размытие',                  en: 'Blur' },
   'settings.section.opacity':   { ru: 'Прозрачность панелей',      en: 'Panel opacity' },
   'settings.section.effects':   { ru: 'Эффекты',                   en: 'Effects' },

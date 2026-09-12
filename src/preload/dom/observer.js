@@ -11,11 +11,6 @@ const { getJsCodeBlocksFromMarkdown, looksLikeIncompleteCodeError, FENCE } = req
 const toolRender = require('./tool-render');
 const responseMeta = require('./response-meta');
 
-// Запускаем устойчивый watcher для оборачивания cuckoo-блоков
-try { toolRender.startWatch(); } catch (e) { console.error('[Cookie Code] tool-render startWatch failed:', e.message); }
-
-// Watcher меты (время + токены под ответом AI)
-try { responseMeta.startWatch(); } catch (e) { console.error('[Cookie Code] response-meta startWatch failed:', e.message); }
 const { sendToolResultToChat, sendCombinedJsResultsToChat, sendMessageToChat } = require('./chat-input');
 const { isAIResponseComplete } = require('./ai-response');
 const { getProviderByUrl } = require('../../../src/providers');
@@ -537,6 +532,9 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 function startObserver() {
+  try { toolRender.startWatch(); } catch (e) { console.error('[Cookie Code] tool-render startWatch failed:', e.message); }
+  try { responseMeta.startWatch(); } catch (e) { console.error('[Cookie Code] response-meta startWatch failed:', e.message); }
+
   const observer = new MutationObserver((mutations) => {
     // 节流：避免页面高频 DOM 变化导致日志与检测刷屏。
     // 800ms 平衡响应速度与 CPU：завершение ответа дублируется childList-мутацией

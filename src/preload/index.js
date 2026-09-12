@@ -22,10 +22,6 @@ const reasoningGlass = require('./dom/reasoning-glass');
 const i18n = require('./i18n/i18n');
 const { getProviderByUrl } = require('../providers');
 
-// 注册主进程消息监听（与原 preload.js 顶层注册时机一致）
-chatInput.registerIpcListeners();
-askUserQuestion.registerAskUserQuestionListener();
-
 // ========== 初始化 ==========
 
 /**
@@ -36,6 +32,21 @@ async function init() {
   try {
     // Загружаем язык до инъекции HTML — тексты в template.js строятся через t()
     try { await i18n.loadLanguage(); } catch (_) {}
+
+    let customizationEnabled = true;
+    try {
+      const settings = await window.electronAPI.getCuckooSettings();
+      customizationEnabled = !settings || settings.customizationEnabled !== false;
+    } catch (_) {}
+
+    if (!customizationEnabled) {
+      settingsTab.start();
+      return;
+    }
+
+    // 注册主进程消息监听（仅在 Cookie Code кастомизация включена）
+    chatInput.registerIpcListeners();
+    askUserQuestion.registerAskUserQuestionListener();
 
     ui.injectCSS();
     ui.injectOverlay();

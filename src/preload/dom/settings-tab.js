@@ -74,6 +74,9 @@ function activateCuckooTab() {
     // Telegram-бот
     bindTelegramSettings();
     refreshTelegramSettings();
+    // Глобальный переключатель кастомизации
+    bindCustomizationToggle();
+    refreshCustomizationToggle();
     // Кнопка сброса
     bindResetButton();
   }
@@ -130,6 +133,11 @@ function buildContentHTML() {
     '<div>' +
     '  <div class="cuckoo-settings-title">Cookie Code</div>' +
     '  <div class="cuckoo-settings-subtitle">' + t('settings.subtitle') + '</div>' +
+    '</div>' +
+    '<div>' +
+    '  <div class="cuckoo-section-title">' + t('settings.section.customization') + '</div>' +
+    '  <button id="cuckoo-customization-toggle" style="width:100%;padding:10px 14px;border:1px solid rgba(139,147,255,0.5);border-radius:10px;background:rgba(139,147,255,0.12);color:#cfd3ff;font-weight:600;font-size:13px;cursor:pointer;">' +
+    '  </button>' +
     '</div>' +
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.language') + '</div>' +
@@ -489,6 +497,40 @@ function bindRgbCheckbox() {
       console.error('[Cookie Code] Ошибка сохранения rgbUsername:', err.message);
     }
   });
+}
+
+function bindCustomizationToggle() {
+  const btn = document.getElementById('cuckoo-customization-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = t('settings.customization.reloading');
+    try {
+      const settings = await window.electronAPI.getCuckooSettings();
+      const enabled = !settings || settings.customizationEnabled !== false;
+      await window.electronAPI.setCuckooSetting('customizationEnabled', !enabled);
+      location.reload();
+    } catch (err) {
+      console.error('[Cookie Code] Ошибка переключения кастомизации:', err.message);
+      btn.disabled = false;
+      refreshCustomizationToggle();
+    }
+  });
+}
+
+async function refreshCustomizationToggle() {
+  const btn = document.getElementById('cuckoo-customization-toggle');
+  if (!btn) return;
+  try {
+    const settings = await window.electronAPI.getCuckooSettings();
+    const enabled = !settings || settings.customizationEnabled !== false;
+    btn.textContent = enabled ? t('settings.customization.disable') : t('settings.customization.enable');
+    btn.style.borderColor = enabled ? 'rgba(255,107,122,0.5)' : 'rgba(93,214,157,0.55)';
+    btn.style.background = enabled ? 'rgba(255,107,122,0.12)' : 'rgba(93,214,157,0.12)';
+    btn.style.color = enabled ? '#ffb0b8' : '#a7f0c9';
+  } catch (_) {
+    btn.textContent = t('settings.customization.disable');
+  }
 }
 
 /**

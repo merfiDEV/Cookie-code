@@ -23,6 +23,7 @@ const DEFAULT_DANGEROUS_PATTERNS = [
 ];
 
 const DEFAULTS = {
+  customizationEnabled: true,
   background: 'miku',
   backgroundBlur: 0,     // px — размытие самой картинки фона
   headerBlur: 12,        // px — стекло верхней панели
