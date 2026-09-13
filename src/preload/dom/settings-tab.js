@@ -236,6 +236,22 @@ function buildContentHTML() {
     '  </label>' +
     '</div>' +
     '<div>' +
+    '  <div class="cuckoo-section-title">' + t('settings.section.inputGlass') + '</div>' +
+    '  <div style="font-size:11px;color:#8a90b8;margin-bottom:8px;">' + t('settings.inputGlass.hint') + '</div>' +
+    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;">' +
+    '    <input type="checkbox" id="cuckoo-input-glass-enabled" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
+    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.inputGlass.enabled') + '</span>' +
+    '  </label>' +
+    '  <div class="cuckoo-blur-row">' +
+    '    <div class="cuckoo-blur-label"><span>' + t('settings.inputGlass.blur') + '</span><span class="cuckoo-blur-value" id="cuckoo-blur-input-val">12 px</span></div>' +
+    '    <input type="range" id="cuckoo-blur-input" class="cuckoo-blur-slider" min="0" max="30" step="1" value="12">' +
+    '  </div>' +
+    '  <div class="cuckoo-blur-row">' +
+    '    <div class="cuckoo-blur-label"><span>' + t('settings.inputGlass.opacity') + '</span><span class="cuckoo-blur-value" id="cuckoo-op-input-val">55 %</span></div>' +
+    '    <input type="range" id="cuckoo-op-input" class="cuckoo-blur-slider" min="0" max="100" step="5" value="55">' +
+    '  </div>' +
+    '</div>' +
+    '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.dangerous') + '</div>' +
     '  <textarea id="cuckoo-dangerous-patterns" rows="8" spellcheck="false" style="' +
     '    width:100%; box-sizing:border-box; padding:10px 12px; font-family:Consolas,monospace; font-size:12px;' +
@@ -413,6 +429,8 @@ function collectCurrentBlurSettings() {
     overlayBgColor:      (document.getElementById('cuckoo-color-overlay-bg') || {}).value || '#111322',
     overlayPrimaryColor: (document.getElementById('cuckoo-color-overlay-btn') || {}).value || '#8b93ff',
     overlayBtnRadius:    Number((document.getElementById('cuckoo-radius-overlay-btn') || {}).value),
+    inputGlassBlur:      Number((document.getElementById('cuckoo-blur-input') || {}).value),
+    inputGlassOpacity:   Number((document.getElementById('cuckoo-op-input') || {}).value),
   };
 }
 
@@ -425,6 +443,9 @@ function bindBlurSliders() {
     { inputId: 'cuckoo-op-sidebar',       valId: 'cuckoo-op-sidebar-val',       key: 'sidebarOpacity',   unit: ' %' },
     { inputId: 'cuckoo-op-toolblock',     valId: 'cuckoo-op-toolblock-val',     key: 'toolBlockOpacity', unit: ' %' },
     { inputId: 'cuckoo-blur-toolblock',   valId: 'cuckoo-blur-toolblock-val',   key: 'toolBlockBlur',    unit: ' px' },
+    // Стеклянное поле ввода
+    { inputId: 'cuckoo-blur-input',       valId: 'cuckoo-blur-input-val',       key: 'inputGlassBlur',   unit: ' px' },
+    { inputId: 'cuckoo-op-input',         valId: 'cuckoo-op-input-val',         key: 'inputGlassOpacity', unit: ' %' },
     // Панель Cookie Code
     { inputId: 'cuckoo-op-overlay',         valId: 'cuckoo-op-overlay-val',         key: 'overlayOpacity',     unit: ' %' },
     { inputId: 'cuckoo-blur-overlay',       valId: 'cuckoo-blur-overlay-val',       key: 'overlayBlur',        unit: ' px' },
@@ -456,6 +477,20 @@ function bindBlurSliders() {
       }
     });
   });
+
+  // Чекбокс «Стекло поля ввода включено»
+  const inputGlassCb = document.getElementById('cuckoo-input-glass-enabled');
+  if (inputGlassCb) {
+    inputGlassCb.addEventListener('change', async () => {
+      const enabled = inputGlassCb.checked;
+      background.applyInputGlassEnabled(enabled);
+      try {
+        await window.electronAPI.setCuckooSetting('inputGlassEnabled', enabled);
+      } catch (err) {
+        console.error('[Cookie Code] Не удалось сохранить inputGlassEnabled:', err.message);
+      }
+    });
+  }
 
   // Цвет фона панели
   const bgInput = document.getElementById('cuckoo-color-overlay-bg');
@@ -868,6 +903,10 @@ async function refreshBlurValues() {
     setSlider('cuckoo-op-sidebar',       'cuckoo-op-sidebar-val',       Number(s && s.sidebarOpacity != null ? s.sidebarOpacity : 45), ' %');
     setSlider('cuckoo-op-toolblock',     'cuckoo-op-toolblock-val',     Number(s && s.toolBlockOpacity != null ? s.toolBlockOpacity : 55), ' %');
     setSlider('cuckoo-blur-toolblock',   'cuckoo-blur-toolblock-val',   Number(s && s.toolBlockBlur != null ? s.toolBlockBlur : 0), ' px');
+    setSlider('cuckoo-blur-input',       'cuckoo-blur-input-val',       Number(s && s.inputGlassBlur != null ? s.inputGlassBlur : 12), ' px');
+    setSlider('cuckoo-op-input',         'cuckoo-op-input-val',         Number(s && s.inputGlassOpacity != null ? s.inputGlassOpacity : 55), ' %');
+    const igCb = document.getElementById('cuckoo-input-glass-enabled');
+    if (igCb) igCb.checked = Boolean(s && s.inputGlassEnabled === true);
 
     // Панель Cookie Code
     setSlider('cuckoo-op-overlay',         'cuckoo-op-overlay-val',         Number(s && s.overlayOpacity != null ? s.overlayOpacity : 72), ' %');

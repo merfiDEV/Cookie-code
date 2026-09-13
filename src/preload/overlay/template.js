@@ -491,6 +491,8 @@ const OVERLAY_CSS = [
 '  --cuckoo-sidebar-opacity: 45%;',   // плотность фона сайдбара (0 = прозрачно)
 '  --cuckoo-toolblock-opacity: 55%;', // плотность фона tool-блоков
 '  --cuckoo-toolblock-blur: 0px;',    // стекло tool-блоков
+'  --cuckoo-input-glass-opacity: 55%;', // плотность фона поля ввода
+'  --cuckoo-input-glass-blur: 12px;',   // стекло поля ввода
 '}',
 // ========== 页面背景：базовый цвет + стили (картинка ставится через JS) ==========
 // При выключенной кастомизации (класс cuckoo-customization-off на <html>)
@@ -586,6 +588,60 @@ const OVERLAY_CSS = [
 // Приглушаем фон-маску, чтобы под модалкой просвечивала страница
 '.ds-modal-mask {',
 '  background: rgba(0, 0, 0, 0.35) !important;',
+'}',
+// ========== Матовое стекло для поля ввода сообщения DeepSeek ==========
+// Приём тот же, что у плашки «Размышление»: backdrop-filter не работает,
+// потому что контейнер инпута лежит внутри виртуализированного списка с
+// transform. Поэтому стекло рисуем сами: ::before показывает тот же фон
+// страницы, размытый и спозиционированный под вьюпорт; ::after добавляет
+// лёгкую затемняющую плёнку. Координаты считает input-glass.js.
+// Селекторы из DOM: внешняя обёртка блока ввода _77cefa5 (у неё непрозрачный
+// фон), внутренний контейнер _020ab5b, textarea[name="search"].
+// Внешняя обёртка блока ввода — именно у неё непрозрачный фон (белый/тёмный)
+// и border-radius 24px. Именно её делаем стеклянной.
+// Дополнительно правило отключается классом cuckoo-input-glass-off на <html>
+// (чекбокс «Стекло поля ввода включено» в настройках).
+'html:not(.cuckoo-customization-off):not(.cuckoo-input-glass-off) ._77cefa5 {',
+'  position: relative !important;',
+'  overflow: hidden !important;',
+'  border-radius: 24px !important;',
+'  border: 1px solid rgba(139, 147, 255, 0.22) !important;',
+'  background: transparent !important;',
+'  backdrop-filter: none !important;',
+'  -webkit-backdrop-filter: none !important;',
+'}',
+// Псевдоэлемент рисует тот же фон страницы, размытый (backdrop-filter не
+// работает: предки внутри виртуализированного списка с transform).
+'html:not(.cuckoo-customization-off):not(.cuckoo-input-glass-off) ._77cefa5::before {',
+'  content: "" !important;',
+'  position: absolute !important;',
+'  inset: calc(-1 * var(--cuckoo-input-pad, 40px)) !important;',
+'  background-image: var(--cuckoo-bg-image, none) !important;',
+'  background-size: var(--cuckoo-input-bg-size, cover) !important;',
+'  background-repeat: no-repeat !important;',
+'  background-position: var(--cuckoo-input-bg-pos, 0 0) !important;',
+'  filter: blur(var(--cuckoo-input-glass-blur, 12px)) !important;',
+'  -webkit-filter: blur(var(--cuckoo-input-glass-blur, 12px)) !important;',
+'  pointer-events: none !important;',
+'  z-index: 0 !important;',
+'}',
+'html:not(.cuckoo-customization-off):not(.cuckoo-input-glass-off) ._77cefa5::after {',
+'  content: "" !important;',
+'  position: absolute !important;',
+'  inset: 0 !important;',
+'  background: rgba(15, 18, 32, var(--cuckoo-input-glass-opacity, 55%)) !important;',
+'  pointer-events: none !important;',
+'  z-index: 0 !important;',
+'}',
+// Внутренний контейнер ввода — прозрачный, контент поверх стекла.
+'html:not(.cuckoo-customization-off):not(.cuckoo-input-glass-off) ._020ab5b {',
+'  position: relative !important;',
+'  background: transparent !important;',
+'  z-index: 1 !important;',
+'}',
+'html:not(.cuckoo-customization-off):not(.cuckoo-input-glass-off) ._020ab5b textarea[name="search"],',
+'html:not(.cuckoo-customization-off):not(.cuckoo-input-glass-off) ._020ab5b ._24fad49 {',
+'  background: transparent !important;',
 '}',
 // ========== Кнопка «Новый чат» в сайдбаре — матовое стекло ==========
 '._5a8ac7a.a084f19e {',

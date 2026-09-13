@@ -20,6 +20,7 @@ const settingsTab = require('./dom/settings-tab');
 const commands = require('./dom/commands');
 const background = require('./dom/background');
 const reasoningGlass = require('./dom/reasoning-glass');
+const inputGlass = require('./dom/input-glass');
 const forceDarkTheme = require('./dom/force-dark-theme');
 const i18n = require('./i18n/i18n');
 const state = require('./dom/state');
@@ -97,6 +98,9 @@ async function init() {
 
       // Матовое стекло для плашки «Размышление N секунд»
       reasoningGlass.startWatch();
+
+      // Матовое стекло для поля ввода сообщения
+      try { inputGlass.startWatch(); } catch (e) { console.error('[Cookie Code] input-glass startWatch failed:', e.message); }
     } else {
       // Сбрасываем возможные визуальные эффекты (фон, блюры, RGB-ник)
       background.apply('none');
