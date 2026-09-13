@@ -5,6 +5,7 @@
 const { ipcRenderer } = require('electron');
 const state = require('./state');
 const { BT } = require('./js-detector');
+const { isDenialError } = require('./approval');
 const { getProviderByUrl } = require('../../../src/providers');
 
 /**
@@ -91,6 +92,8 @@ function sendMessageToChat(msg, tag) {
  */
 function sendToolResultToChat(toolCall, result) {
   // 构造回传消息（明确的成功/失败信息，AI 可据此修正并继续）
+  // 拒绝类失败（denied）单独措辞：告诉 AI 不要重试，等待用户指示。
+  const denied = result.denied === true || isDenialError(result.error);
   let msg;
   if (result.success) {
     const data = result.data || {};
@@ -100,6 +103,9 @@ function sendToolResultToChat(toolCall, result) {
     }
     msg = '【工具执行结果】' + toolCall.toolName + ' 执行成功 (callId: ' + (toolCall.callId || '') + ')' + String.fromCharCode(10) +
       JSON.stringify(data, null, 2);
+  } else if (denied) {
+    msg = '【工具执行结果】' + toolCall.toolName + ' 被用户拒绝 (callId: ' + (toolCall.callId || '') + ')' + String.fromCharCode(10) +
+      '执行已被用户否决。请不要重新调用该工具，等待用户的进一步指示。';
   } else {
     msg = '【工具执行结果】' + toolCall.toolName + ' 执行失败 (callId: ' + (toolCall.callId || '') + ')' + String.fromCharCode(10) +
       '错误原因: ' + (result.error || '未知错误') + String.fromCharCode(10) +
@@ -130,9 +136,15 @@ function sendCombinedJsResultsToChat(results) {
       }
       msg += '✅ 成功' + sep + (out || '(脚本执行完成，无输出)');
     } else {
+      const denied = !!(item && item.result && (item.result.denied || isDenialError(item.result.error)));
       msg += '❌ 失败' + sep + '错误原因: ' + ((item && item.result && item.result.error) || '未知错误') + sep;
-      msg += '本次实际执行的代码(前300字符):' + sep + String((item && item.code) || '').slice(0, 300) + sep;
-      msg += '请修正 JavaScript 代码后重新输出完整的 ' + BT + BT + BT + 'cuckoo 代码块。';
+      if (denied) {
+        // 用户拒绝执行：明确告诉 AI 不要重发同一代码块
+        msg += '执行已被用户否决。请不要重新输出该代码块，等待用户的进一步指示。' + sep;
+      } else {
+        msg += '本次实际执行的代码(前300字符):' + sep + String((item && item.code) || '').slice(0, 300) + sep;
+        msg += '请修正 JavaScript 代码后重新输出完整的 ' + BT + BT + BT + 'cuckoo 代码块。';
+      }
     }
     msg += sep + sep;
   }

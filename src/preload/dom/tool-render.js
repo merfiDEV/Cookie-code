@@ -159,6 +159,9 @@ function decorate(scope) {
 
   // Если есть отложенные ошибки — применить их к свежеобёрнутым блокам.
   try { applyPendingErrors(); } catch (_) {}
+  // Если есть отложенные результаты — прикрепить их к свежеобёрнутым блокам
+  // (инлайн-результат внутри карточки, см. tool-result-inline.js).
+  try { require('./tool-result-inline').applyPendingResults(); } catch (_) {}
 }
 
 function escapeHtml(s) {

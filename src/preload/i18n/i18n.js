@@ -66,6 +66,9 @@ const KEYS = {
   'overlay.output.scriptDone':   { ru: '(скрипт выполнен, без вывода)', en: '(script finished, no output)' },
   'overlay.output.unknownError': { ru: 'Неизвестная ошибка',       en: 'Unknown error' },
   'overlay.output.execFailed':   { ru: 'Ошибка выполнения',        en: 'Execution failed' },
+  'toolResult.success':          { ru: 'Результат',                en: 'Result' },
+  'toolResult.error':            { ru: 'Ошибка выполнения',        en: 'Execution error' },
+  'toolResult.denied':           { ru: 'Отклонено пользователем',  en: 'Denied by user' },
   'overlay.output.systemException': { ru: 'Системное исключение: {msg}', en: 'System exception: {msg}' },
 
   // ---- Оверлей: сессии ----
@@ -195,6 +198,27 @@ const KEYS = {
   'cmd.menu.title':             { ru: 'Команды',                    en: 'Commands' },
   'cmd.menu.files':             { ru: 'Файлы проекта',              en: 'Project files' },
   'cmd.plan.description':       { ru: 'Войти в режим плана и вставить план-промпт', en: 'Enter plan mode and inject the plan prompt' },
+
+  // ---- Подтверждение tool-вызовов (approval gate) ----
+  'approval.title.tool':        { ru: 'Подтверждение вызова инструмента', en: 'Tool call approval' },
+  'approval.title.js':          { ru: 'Подтверждение JS-скрипта',   en: 'JS script approval' },
+  'approval.subtitle':          { ru: 'Cookie Code запрашивает разрешение перед выполнением', en: 'Cookie Code asks for permission before executing' },
+  'approval.label.params':      { ru: 'Параметры',                  en: 'Parameters' },
+  'approval.label.code':        { ru: 'Код',                        en: 'Code' },
+  'approval.name.js':           { ru: '[JS-скрипт]',                en: '[JS script]' },
+  'approval.approve':           { ru: 'Разрешить (Enter)',          en: 'Approve (Enter)' },
+  'approval.always':            { ru: 'Разрешать «{name}» до перезагрузки', en: 'Always allow "{name}" (this session)' },
+  'approval.deny':              { ru: 'Отклонить (Esc)',            en: 'Deny (Esc)' },
+
+  // ---- Настройки: агент и приватность ----
+  'settings.section.agent':     { ru: 'Агент и приватность',        en: 'Agent & Privacy' },
+  'settings.approval.off':      { ru: 'Выкл',                       en: 'Off' },
+  'settings.approval.risky':    { ru: 'Рискованные',                en: 'Risky only' },
+  'settings.approval.all':      { ru: 'Все вызовы',                 en: 'All calls' },
+  'settings.approval.hint':     { ru: 'Запрашивать подтверждение перед выполнением: рискованные инструменты (bash, запись файлов, SQL) или все вызовы', en: 'Ask before executing: risky tools (bash, file writes, SQL) or every call' },
+  'settings.approval.saved':    { ru: '✅ Режим сохранён',          en: '✅ Mode saved' },
+  'settings.hideSystemMessages': { ru: 'Скрывать служебные сообщения в чате', en: 'Hide service messages in chat' },
+  'settings.hideSystemMessages.hint': { ru: 'Результаты инструментов, JS-сводки и системный промпт по-прежнему уходят в AI, но не отображаются в чате', en: 'Tool results, JS digests and the system prompt still reach the AI but stay invisible in the chat' },
 };
 
 // ========== Состояние ==========

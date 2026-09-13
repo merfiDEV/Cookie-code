@@ -14,6 +14,7 @@
  *   .d316d158                             ← контейнер кнопок вкладок
  */
 const background = require('./background');
+const state = require('./state');
 const { t } = require('../i18n/i18n');
 
 const TAB_BUTTON_ID = 'cuckoo-settings-tab-btn';
@@ -81,6 +82,9 @@ function activateCuckooTab() {
     refreshCustomizationToggle();
     // Кнопка сброса
     bindResetButton();
+    // Подтверждение инструментов + скрытие служебных сообщений
+    bindAgentSettings();
+    refreshAgentSettings();
   }
   ourContent.style.display = '';
 
@@ -246,6 +250,23 @@ function buildContentHTML() {
     '      cursor: pointer; transition: all 0.18s;' +
     '    ">' + t('settings.dangerous.save') + '</button>' +
     '  </div>' +
+    '</div>' +
+    '<div>' +
+    '  <div class="cuckoo-section-title">' + t('settings.section.agent') + '</div>' +
+    '  <div class="cuckoo-blur-row">' +
+    '    <div class="cuckoo-blur-label"><span>' + t('settings.approval.hint') + '</span></div>' +
+    '    <div style="display:flex;gap:8px;">' +
+    '      <button class="cuckoo-approval-btn" data-mode="off" style="flex:1; padding:9px 10px; border-radius:10px; font-weight:600; font-size:12px; cursor:pointer; border:1px solid rgba(139,147,255,0.4); background:rgba(139,147,255,0.12); color:#cfd3ff; transition: all 0.18s;">' + t('settings.approval.off') + '</button>' +
+    '      <button class="cuckoo-approval-btn" data-mode="risky" style="flex:1; padding:9px 10px; border-radius:10px; font-weight:600; font-size:12px; cursor:pointer; border:1px solid rgba(139,147,255,0.4); background:rgba(139,147,255,0.12); color:#cfd3ff; transition: all 0.18s;">' + t('settings.approval.risky') + '</button>' +
+    '      <button class="cuckoo-approval-btn" data-mode="all" style="flex:1; padding:9px 10px; border-radius:10px; font-weight:600; font-size:12px; cursor:pointer; border:1px solid rgba(139,147,255,0.4); background:rgba(139,147,255,0.12); color:#cfd3ff; transition: all 0.18s;">' + t('settings.approval.all') + '</button>' +
+    '    </div>' +
+    '  </div>' +
+    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;">' +
+    '    <input type="checkbox" id="cuckoo-hide-system-messages" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
+    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.hideSystemMessages') +
+    '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.hideSystemMessages.hint') + '</span>' +
+    '    </span>' +
+    '  </label>' +
     '</div>' +
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.background') + '</div>' +
@@ -738,6 +759,82 @@ async function bindDangerousPatterns() {
       setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1500);
     }
   });
+}
+
+/**
+ * Секция «Агент и приватность»:
+ *  - режим подтверждения tool-вызовов (off / risky / all);
+ *  - скрытие служебных сообщений в чате.
+ * Оба параметра применяются мгновенно (через общий state) и сохраняются
+ * в cuckoo-settings.json — перезагрузка страницы не требуется.
+ */
+function bindAgentSettings() {
+  const buttons = document.querySelectorAll('.cuckoo-approval-btn');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const mode = btn.getAttribute('data-mode');
+      if (!mode) return;
+      // Мгновенно применяем в рантайме
+      state.toolApprovalMode = mode;
+      // Подсветка активного режима
+      applyApprovalActiveStyle(mode);
+      // Сохраняем в settings.json
+      try {
+        await window.electronAPI.setCuckooSetting('toolApprovalMode', mode);
+      } catch (err) {
+        console.error('[Cookie Code] Не удалось сохранить toolApprovalMode:', err.message);
+      }
+    });
+  });
+
+  const cb = document.getElementById('cuckoo-hide-system-messages');
+  if (cb) {
+    cb.addEventListener('change', async () => {
+      const enabled = cb.checked;
+      // Мгновенно применяем: stealth-модуль читает state при каждом проходе
+      state.hideSystemMessages = enabled;
+      try {
+        await window.electronAPI.setCuckooSetting('hideSystemMessages', enabled);
+      } catch (err) {
+        console.error('[Cookie Code] Не удалось сохранить hideSystemMessages:', err.message);
+      }
+    });
+  }
+}
+
+/**
+ * Подсветить активный режим подтверждения (как кнопки языка RU/EN).
+ */
+function applyApprovalActiveStyle(mode) {
+  const buttons = document.querySelectorAll('.cuckoo-approval-btn');
+  buttons.forEach(btn => {
+    if (btn.getAttribute('data-mode') === mode) {
+      btn.style.background = 'rgba(139,147,255,0.35)';
+      btn.style.color = '#fff';
+      btn.style.borderColor = 'rgba(139,147,255,0.8)';
+    } else {
+      btn.style.background = 'rgba(139,147,255,0.12)';
+      btn.style.color = '#cfd3ff';
+      btn.style.borderColor = 'rgba(139,147,255,0.4)';
+    }
+  });
+}
+
+/**
+ * Загрузить сохранённые значения секции «Агент и приватность».
+ */
+async function refreshAgentSettings() {
+  try {
+    const s = await window.electronAPI.getCuckooSettings();
+    const mode = (s && s.toolApprovalMode) || 'off';
+    state.toolApprovalMode = mode;
+    applyApprovalActiveStyle(mode);
+    const cb = document.getElementById('cuckoo-hide-system-messages');
+    if (cb) {
+      cb.checked = !s || s.hideSystemMessages !== false;
+      state.hideSystemMessages = cb.checked;
+    }
+  } catch (_) {}
 }
 
 /**

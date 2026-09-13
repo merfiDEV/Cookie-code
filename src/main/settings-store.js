@@ -48,6 +48,15 @@ const DEFAULTS = {
   telegramChatId: '',       // id твоего чата с ботом
   telegramNotifyTools: false, // присылать уведомления о результате tool
   telegramChatFeed: false,  // принимать сообщения из TG в чат DeepSeek
+  // ===== Подтверждение tool-вызовов (approval gate) =====
+  // 'off'    — выполнять всё автоматически (прежнее поведение)
+  // 'risky'  — спрашивать подтверждение только для рискованных инструментов
+  //            (bash/pwsh/write/edit/mysql/inject_js/...)
+  // 'all'    — спрашивать подтверждение для каждого tool-вызова и JS-блока
+  toolApprovalMode: 'off',
+  // Скрывать служебные сообщения в чате (результаты инструментов, JS-сводки,
+  // системный промпт) — они по-прежнему уходят в AI, но не показываются в UI.
+  hideSystemMessages: true,
 };
 
 let cachedPath = null;

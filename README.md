@@ -58,6 +58,26 @@ Every `cuckoo` block in the chat is decorated into a collapsible card with the t
 
 The same applies after page reload — the styles are restored from `localStorage`.
 
+### Tool call approval
+
+Tool execution can be gated behind explicit user confirmation (Settings → Cookie Code → **Agent & Privacy**):
+
+- **Off** — tools run automatically (previous behavior).
+- **Risky only** — confirmation is requested for dangerous tools (`bash`, `pwsh`, `write`, `edit`, `deleteFile`, `mysql`, `webFetch`, `injectJS`, `mcpCall`, …). Read-only tools (`read`, `glob`, `grep`, `todo`, …) run without asking.
+- **All calls** — every tool call and every ```cuckoo JS block asks first.
+
+Each pending call shows a modal card with the tool name and a params/code preview. Buttons: **Deny (Esc)**, **Approve (Enter)**, and **Always allow `<tool>`** (remembered for the current page session only). Denials are reported back to the AI through the regular tool-result channel with an explicit "do not retry" instruction, so the agent waits for your guidance instead of looping.
+
+### Clean chat (hidden service messages)
+
+Service traffic — tool result payloads, JS result digests, the initial system prompt, XML-format hints — still reaches the AI, but is no longer displayed in the chat window:
+
+- After being sent, such user messages are automatically hidden in the DOM (`.cuckoo-hidden-msg`), leaving only the real conversation visible.
+- **Tool results are shown inline**: each ```cuckoo tool call card gets a collapsible **Result** section right below the call code — expand the card to see the raw output (`✓ Result`), execution error (`⚠ Execution error`) or a user denial (`⛔ Denied by user`). Results survive page reloads (persisted in `localStorage`) and re-attach to their cards automatically.
+- Messages remain in the DOM (just `display: none`), so history parsing, reload restoration, and AI context detection keep working.
+- Hidden messages are re-hidden after page reloads via a lightweight observer + periodic rescan.
+- Toggle in **Settings → Cookie Code → Agent & Privacy → Hide service messages in chat** (applies instantly, no reload needed).
+
 ### Response meta
 
 Under each AI reply you get an automatic badge:
@@ -243,6 +263,7 @@ Everything visual lives in **Settings → Cookie Code** and persists in `cuckoo-
 
 ## Safety
 
+- Optional approval gate for tool calls (off / risky tools only / all calls)
 - 30 s command timeout, 60 s sandbox timeout
 - 1 MB output buffer
 - Dangerous command blocklist (rm -rf /, format, diskpart, …)
@@ -265,6 +286,8 @@ User settings live in `cuckoo-settings.json` under the app's userData directory:
   "toolBlockOpacity": 55,
   "toolBlockBlur": 0,
   "rgbUsername": true,
+  "toolApprovalMode": "off",
+  "hideSystemMessages": true,
   "telegramEnabled": false,
   "telegramBotToken": "",
   "telegramChatId": "",

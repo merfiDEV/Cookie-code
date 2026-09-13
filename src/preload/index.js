@@ -15,6 +15,7 @@ const observer = require('./dom/observer');
 const chatExport = require('./dom/chat-export');
 const chatInput = require('./dom/chat-input');
 const askUserQuestion = require('./dom/ask-user-question');
+const stealth = require('./dom/stealth');
 const settingsTab = require('./dom/settings-tab');
 const commands = require('./dom/commands');
 const background = require('./dom/background');
@@ -39,6 +40,10 @@ async function init() {
     try {
       const settings = await window.electronAPI.getCuckooSettings();
       customizationEnabled = !settings || settings.customizationEnabled !== false;
+      // Approval gate: режим подтверждения tool-вызовов ('off' | 'risky' | 'all')
+      state.toolApprovalMode = (settings && settings.toolApprovalMode) || 'off';
+      // Скрытие служебных сообщений (по умолчанию включено)
+      state.hideSystemMessages = !settings || settings.hideSystemMessages !== false;
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,
@@ -68,6 +73,10 @@ async function init() {
 
     // 延迟启动观察器，等待页面框架渲染
     setTimeout(observer.startObserver, 2000);
+
+    // Скрытие служебных сообщений (результаты инструментов, системный промпт).
+    // Поведенческая фича — работает независимо от customizationEnabled.
+    try { stealth.startStealthWatcher(); } catch (e) { console.error('[Cookie Code] stealth start failed:', e.message); }
 
     // 启动设置面板标签注入
     settingsTab.start();
