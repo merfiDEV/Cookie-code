@@ -383,6 +383,7 @@ function registerIpcHandlers() {
         const notification = new Notification({
           title: windowName + ' - ' + notifText.title,
           body: notifText.body,
+          icon: require('path').join(__dirname, '..', '..', 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
         });
         notification.show();
 
