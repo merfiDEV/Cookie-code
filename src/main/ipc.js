@@ -514,6 +514,24 @@ function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('telegram-approval-request', async (_event, { requestId, info } = {}) => {
+    try {
+      const bot = require('../../botsrc');
+      return await bot.requestApproval(requestId, info || {});
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('telegram-approval-cancel', async (_event, { requestId } = {}) => {
+    try {
+      const bot = require('../../botsrc');
+      return bot.cancelApproval(requestId);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // ========== Экспорт ответа AI в PDF / DOCX ==========
   ipcMain.handle('cuckoo-chat-export', async (_event, payload) => {
     try {

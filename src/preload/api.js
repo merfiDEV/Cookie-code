@@ -31,6 +31,8 @@ let electronAPI = {
   telegramPing: () => ipcRenderer.invoke('telegram-ping'),
   telegramTest: () => ipcRenderer.invoke('telegram-test'),
   telegramNotifyAI: (text) => ipcRenderer.invoke('telegram-notify-ai', { text }),
+  telegramApprovalRequest: (requestId, info) => ipcRenderer.invoke('telegram-approval-request', { requestId, info }),
+  telegramApprovalCancel: (requestId) => ipcRenderer.invoke('telegram-approval-cancel', { requestId }),
   sendEnterToChat: () => {
     return ipcRenderer.invoke('chat-send-enter');
   },

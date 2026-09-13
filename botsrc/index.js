@@ -22,6 +22,7 @@ function _read() {
     chatId: s.telegramChatId || '',
     notifyTools: !!s.telegramNotifyTools,
     chatFeed: !!s.telegramChatFeed,
+    approvalMode: s.toolApprovalMode || 'off',
   };
 }
 
@@ -98,6 +99,8 @@ const _pendingQuestions = new Map();
  * используем короткий числовой токен.
  */
 const _callbackTokens = new Map();
+const _pendingApprovals = new Map();
+const _approvalCallbackTokens = new Map();
 let _cbTokenCounter = 0;
 let _onQuestionAnswered = null;
 
@@ -169,6 +172,11 @@ async function askQuestion(requestId, questions) {
 /** Обработать нажатие inline-кнопки с ответом на вопрос. */
 async function _handleCallback(chatId, data, cbq) {
   const token = String(data || '');
+  const approvalRef = _approvalCallbackTokens.get(token);
+  if (approvalRef) {
+    await _handleApprovalCallback(approvalRef, cbq);
+    return;
+  }
   const ref = _callbackTokens.get(token);
   if (!ref) {
     await telegramBot.answerCallbackQuery(cbq.id);
@@ -207,6 +215,86 @@ async function _handleCallback(chatId, data, cbq) {
       }
     }
   }
+}
+
+/** Отправить запрос подтверждения tool-вызова в Telegram. */
+async function requestApproval(requestId, info) {
+  const cfg = _read();
+  if (!cfg.enabled || !cfg.token || !cfg.chatId || cfg.approvalMode === 'off') {
+    return { success: false, skipped: true };
+  }
+  const id = String(requestId || '');
+  if (!id) return { success: false, error: 'requestId не задан' };
+
+  const isJs = info && info.kind === 'js';
+  const name = isJs ? 'JS-скрипт' : String((info && info.toolName) || 'инструмент');
+  let details = '';
+  try {
+    details = isJs
+      ? String((info && info.code) || '')
+      : JSON.stringify((info && info.params) || {}, null, 2);
+  } catch (_) { details = ''; }
+  const body = escapeHtml(details.slice(0, 3000));
+  const token = 'a' + (++_cbTokenCounter);
+  const entry = { messageId: null, token, resolve: null };
+  const promise = new Promise((resolve) => { entry.resolve = resolve; });
+  _pendingApprovals.set(id, entry);
+  _approvalCallbackTokens.set(token, { requestId: id, approved: true });
+
+  const msg = '🔐 <b>Подтверждение команды</b>\n<b>' + escapeHtml(name) + '</b>' +
+    (body ? '\n<pre>' + body + '</pre>' : '') +
+    '\n<i>Разрешить выполнение?</i>';
+  const res = await telegramBot.sendMessage(msg, {
+    parseMode: 'HTML',
+    replyMarkup: { inline_keyboard: [[
+      { text: '✅ Разрешить', callback_data: token },
+      { text: '❌ Отклонить', callback_data: token + 'd' },
+    ]] },
+  });
+  if (!res.success) {
+    _pendingApprovals.delete(id);
+    _approvalCallbackTokens.delete(token);
+    return res;
+  }
+  entry.messageId = res.messageId || null;
+  _approvalCallbackTokens.set(token + 'd', { requestId: id, approved: false });
+  return promise;
+}
+
+async function _handleApprovalCallback(ref, cbq) {
+  const entry = _pendingApprovals.get(ref.requestId);
+  if (!entry) {
+    await telegramBot.answerCallbackQuery(cbq.id, { text: 'Запрос уже закрыт' });
+    return;
+  }
+  _pendingApprovals.delete(ref.requestId);
+  _approvalCallbackTokens.delete(entry.token);
+  _approvalCallbackTokens.delete(entry.token + 'd');
+  await telegramBot.answerCallbackQuery(cbq.id, {
+    text: ref.approved ? 'Команда разрешена' : 'Команда отклонена',
+  });
+  if (entry.messageId) {
+    const status = ref.approved ? '✅ Разрешено' : '❌ Отклонено';
+    await telegramBot.editMessageText(entry.messageId, '🔐 <b>Подтверждение команды</b>\n' + status, {
+      parseMode: 'HTML',
+      replyMarkup: { inline_keyboard: [] },
+    });
+  }
+  if (typeof entry.resolve === 'function') {
+    entry.resolve({ success: true, approved: ref.approved });
+  }
+}
+
+/** Отменить запрос, если подтверждение уже получено в окне приложения. */
+function cancelApproval(requestId) {
+  const id = String(requestId || '');
+  const entry = _pendingApprovals.get(id);
+  if (!entry) return { success: true, skipped: true };
+  _pendingApprovals.delete(id);
+  _approvalCallbackTokens.delete(entry.token);
+  _approvalCallbackTokens.delete(entry.token + 'd');
+  if (typeof entry.resolve === 'function') entry.resolve({ success: false, skipped: true });
+  return { success: true };
 }
 
 /** Перерисовать сообщение с вопросами: отметить выбранное, убрать лишние кнопки. */
@@ -441,6 +529,8 @@ module.exports = {
   notifyToolResult,
   notifyAIResponse,
   notifyAllDone,
+  requestApproval,
+  cancelApproval,
   askQuestion,
   setOnQuestionAnswered,
   _handleIncoming,

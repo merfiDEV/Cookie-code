@@ -109,6 +109,7 @@ function resetSessionAllowances() {
 
 // ===== Очередь запросов подтверждения (FIFO) =====
 let queueTail = Promise.resolve();
+let activeCancel = null;
 
 function ensureStyles() {
   if (document.getElementById(STYLE_ID)) return;
@@ -174,6 +175,7 @@ function requestApproval(info) {
     document.body.appendChild(dialog);
 
     const finish = (approved, alwaysAllow) => {
+      activeCancel = null;
       document.removeEventListener('keydown', onKey, true);
       dialog.remove();
       resolve({ approved: !!approved, alwaysAllow: !!alwaysAllow });
@@ -183,6 +185,7 @@ function requestApproval(info) {
       else if (event.key === 'Enter') { event.preventDefault(); finish(true, false); }
     };
     document.addEventListener('keydown', onKey, true);
+    activeCancel = () => finish(false, false);
 
     dialog.querySelector('.cuckoo-approval-approve').addEventListener('click', () => finish(true, false));
     const alwaysBtn = dialog.querySelector('.cuckoo-approval-always');
@@ -208,14 +211,39 @@ async function requestApprovalIfNeeded(info) {
     if (isSessionAllowed(info.toolName)) return { approved: true };
   }
 
-  // FIFO: одновременно показываем одну карточку, остальные ждут своей очереди.
-  const run = () => requestApproval(info);
+  // FIFO: одновременно показываем одну карточку и один Telegram-запрос.
+  const run = async () => {
+    const requestId = 'approval_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const local = requestApproval(info);
+    let remoteResolve;
+    const remote = new Promise((resolve) => { remoteResolve = resolve; });
+    const api = typeof window !== 'undefined' ? window.electronAPI : null;
+    if (api && typeof api.telegramApprovalRequest === 'function') {
+      Promise.resolve(api.telegramApprovalRequest(requestId, info)).then((remoteResult) => {
+        if (remoteResult && remoteResult.success && typeof remoteResult.approved === 'boolean') {
+          remoteResolve(remoteResult);
+        }
+      }).catch(() => {});
+    }
+
+    const winner = await Promise.race([
+      local.then((localResult) => ({ source: 'local', result: localResult })),
+      remote.then((remoteResult) => ({ source: 'remote', result: remoteResult })),
+    ]);
+    if (winner.source === 'remote') {
+      if (typeof activeCancel === 'function') activeCancel();
+      return { approved: !!winner.result.approved, alwaysAllow: false };
+    }
+    if (api && typeof api.telegramApprovalCancel === 'function') {
+      Promise.resolve(api.telegramApprovalCancel(requestId)).catch(() => {});
+    }
+    return winner.result;
+  };
   const result = queueTail.then(run, run);
   queueTail = result.then(
     () => undefined,
     () => undefined
   );
-
   const res = await result;
   if (res && res.approved && res.alwaysAllow && info.kind === 'tool') {
     rememberSessionAllowed(info.toolName);
@@ -240,5 +268,6 @@ module.exports = {
   rememberSessionAllowed,
   resetSessionAllowances,
   requestApproval,
+  cancelActiveApproval: () => { if (typeof activeCancel === 'function') activeCancel(); },
   requestApprovalIfNeeded,
 };
