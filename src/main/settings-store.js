@@ -56,7 +56,7 @@ const DEFAULTS = {
   toolApprovalMode: 'off',
   // Скрывать служебные сообщения в чате (результаты инструментов, JS-сводки,
   // системный промпт) — они по-прежнему уходят в AI, но не показываются в UI.
-  hideSystemMessages: true,
+  hideSystemMessages: false,
 };
 
 let cachedPath = null;

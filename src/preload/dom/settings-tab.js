@@ -831,7 +831,7 @@ async function refreshAgentSettings() {
     applyApprovalActiveStyle(mode);
     const cb = document.getElementById('cuckoo-hide-system-messages');
     if (cb) {
-      cb.checked = !s || s.hideSystemMessages !== false;
+      cb.checked = Boolean(s && s.hideSystemMessages === true);
       state.hideSystemMessages = cb.checked;
     }
   } catch (_) {}

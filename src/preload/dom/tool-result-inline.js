@@ -90,14 +90,14 @@ function ensureStyles() {
   style.id = STYLE_ID;
   style.textContent =
     // результат виден только в развёрнутой карточке
-    '.' + RESULT_CLASS + ' { margin-top: 8px; border-top: 1px solid rgba(128,128,160,.25); padding-top: 6px; }' +
+    '.' + RESULT_CLASS + ' { margin: 6px 8px 0; padding-top: 4px; }' +
     '.cuckoo-tool-block[data-expanded="false"] .cuckoo-tool-result { display: none !important; }' +
-    '.cuckoo-tool-result-bar { font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; opacity: .9; margin-bottom: 4px; }' +
+    '.cuckoo-tool-result-bar { display: flex; align-items: center; min-height: 18px; font-size: 10px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; opacity: .82; margin: 0 2px 3px; }' +
     '.cuckoo-tool-result[data-status="success"] .cuckoo-tool-result-bar { color: #34d399; }' +
     '.cuckoo-tool-result[data-status="error"] .cuckoo-tool-result-bar { color: #f87171; }' +
     '.cuckoo-tool-result[data-status="denied"] .cuckoo-tool-result-bar { color: #fbbf24; }' +
-    '.cuckoo-tool-result-content { margin: 0; padding: 8px 10px; background: rgba(128,128,160,.08); ' +
-    'border: 1px solid rgba(128,128,160,.18); border-radius: 8px; ' +
+    '.cuckoo-tool-result-content { margin: 0; padding: 7px 9px; background: rgba(128,128,160,.055); ' +
+    'border: 1px solid rgba(128,128,160,.14); border-radius: 6px; ' +
     'font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; ' +
     'white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; color: inherit; }';
   document.head.appendChild(style);

@@ -42,8 +42,8 @@ async function init() {
       customizationEnabled = !settings || settings.customizationEnabled !== false;
       // Approval gate: режим подтверждения tool-вызовов ('off' | 'risky' | 'all')
       state.toolApprovalMode = (settings && settings.toolApprovalMode) || 'off';
-      // Скрытие служебных сообщений (по умолчанию включено)
-      state.hideSystemMessages = !settings || settings.hideSystemMessages !== false;
+      // Скрытие служебных сообщений (по умолчанию выключено)
+      state.hideSystemMessages = Boolean(settings && settings.hideSystemMessages === true);
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,

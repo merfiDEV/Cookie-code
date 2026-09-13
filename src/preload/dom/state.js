@@ -21,5 +21,5 @@ module.exports = {
   toolApprovalMode: 'off',
   // Скрывать ли служебные сообщения (результаты инструментов, системный промпт)
   // в чате. Загружается из настроек при init() и переключается на лету.
-  hideSystemMessages: true,
+  hideSystemMessages: false,
 };
