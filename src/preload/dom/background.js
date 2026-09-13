@@ -182,6 +182,14 @@ function applyBlur(settings) {
   root.style.setProperty('--cuckoo-sidebar-opacity', sbOpVal + '%');
   root.style.setProperty('--cuckoo-toolblock-opacity', tbOpVal + '%');
   root.style.setProperty('--cuckoo-toolblock-blur', tbBlurVal + 'px');
+  // ===== Стеклянное поле ввода сообщения =====
+  const inBlur = Number(settings && settings.inputGlassBlur);
+  const inBlurVal = isNaN(inBlur) ? 12 : inBlur;
+  const inOp = Number(settings && settings.inputGlassOpacity);
+  const inOpVal = isNaN(inOp) ? 55 : inOp;
+  root.style.setProperty('--cuckoo-input-glass-blur', inBlurVal + 'px');
+  root.style.setProperty('--cuckoo-input-glass-opacity', inOpVal + '%');
+
   // Плашка «Размышление» использует свой blur (дефолт 12px, если настройка toolBlockBlur = 0).
   root.style.setProperty('--cuckoo-reasoning-blur', (tbBlurVal > 0 ? tbBlurVal : 12) + 'px');
   // И свою (более лёгкую) плотность плёнки — тонкая плашка не должна выглядеть чёрной.
@@ -238,11 +246,13 @@ async function loadAndApply() {
     apply(bgId);
     applyBlur(settings);
     applyRgbUsername(settings ? settings.rgbUsername : true);
+    applyInputGlassEnabled(Boolean(settings && settings.inputGlassEnabled === true));
   } catch (err) {
     console.error('[Cookie Code] Не удалось загрузить настройки:', err.message);
     apply(DEFAULT_ID);
     applyBlur(null);
     applyRgbUsername(true);
+    applyInputGlassEnabled(false);
   }
 }
 
@@ -259,12 +269,15 @@ const RESET_DEFAULTS = {
   toolBlockOpacity: 55,
   toolBlockBlur: 0,
   rgbUsername: true,
+  inputGlassEnabled: false,
   overlayOpacity: 72,
   overlayBlur: 12,
   overlayWidth: 300,
   overlayBgColor: '#111322',
   overlayPrimaryColor: '#8b93ff',
   overlayBtnRadius: 10,
+  inputGlassBlur: 12,
+  inputGlassOpacity: 55,
 };
 
 /**
@@ -274,6 +287,7 @@ async function resetAll() {
   apply(RESET_DEFAULTS.background);
   applyBlur(RESET_DEFAULTS);
   applyRgbUsername(RESET_DEFAULTS.rgbUsername);
+  applyInputGlassEnabled(RESET_DEFAULTS.inputGlassEnabled);
   try {
     for (const key of Object.keys(RESET_DEFAULTS)) {
       await window.electronAPI.setCuckooSetting(key, RESET_DEFAULTS[key]);
@@ -298,6 +312,23 @@ function applyCustomizationEnabled(enabled) {
     }
   } catch (err) {
     console.error('[Cookie Code] Не удалось применить состояние кастомизации:', err.message);
+  }
+}
+
+/**
+ * Применить состояние стекла поля ввода.
+ * Если enabled=false — на <html> вешается класс cuckoo-input-glass-off,
+ * который снимает CSS-стекло (см. template.js).
+ */
+function applyInputGlassEnabled(enabled) {
+  try {
+    if (enabled === false) {
+      document.documentElement.classList.add('cuckoo-input-glass-off');
+    } else {
+      document.documentElement.classList.remove('cuckoo-input-glass-off');
+    }
+  } catch (err) {
+    console.error('[Cookie Code] Не удалось применить состояние стекла поля ввода:', err.message);
   }
 }
 
@@ -344,6 +375,7 @@ module.exports = {
   apply,
   applyBlur,
   applyRgbUsername,
+  applyInputGlassEnabled,
   applyCustomizationEnabled,
   loadAndApply,
   getPreviewUri,

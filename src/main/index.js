@@ -6,6 +6,10 @@ const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Иконка приложения (окно + системные уведомления).
+// build/icon.ico (Windows) и build/icon.png включаются в сборку (см. package.json → files).
+const APP_ICON = path.join(__dirname, '..', '..', 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png');
+
 const windowState = require('./window');
 const profileManager = require('./profile-manager');
 const { createSessionStore } = require('./session-store');
@@ -66,6 +70,7 @@ function createWindow(profile) {
     width: 1280,
     height: 900,
     title: 'Cookie Code Pro - ' + provider.name + ' - ' + profileData.name,
+    icon: APP_ICON,
     webPreferences: {
       preload: path.join(__dirname, '..', '..', 'preload.js'),
       contextIsolation: true,
