@@ -104,6 +104,7 @@ test('outputOf: строка вывода, JSON-объект и текст ош�
   assert.strictEqual(toolResultInline.outputOf({ success: true, output: 'file1\nfile2' }), 'file1\nfile2');
   assert.strictEqual(toolResultInline.outputOf({ success: true, data: { a: 1 } }), '{\n  "a": 1\n}');
   assert.strictEqual(toolResultInline.outputOf({ success: false, error: 'boom' }), 'boom');
+  assert.strictEqual(toolResultInline.outputOf({ success: false, denied: true, error: 'User denied this JS block' }), 'Отклонено пользователем');
   assert.strictEqual(toolResultInline.outputOf(null), '');
 });
 
@@ -122,7 +123,8 @@ test('markToolBlockResult: секция результата добавляет�
     assert.strictEqual(section.getAttribute('data-status'), 'success');
     const bar = section.children[0];
     const content = section.children[1];
-    assert.ok(bar.textContent.length > 0, 'подпись статуса не пустая');
+    assert.ok(bar.innerHTML.indexOf('<svg') !== -1, 'иконка статуса добавлена');
+    assert.strictEqual(bar.children[0].textContent, 'Результат');
     assert.strictEqual(content.textContent, 'src\nREADME.md');
     // свёрнутая карточка не разворачивается для успешного результата
     assert.strictEqual(block.getAttribute('data-expanded'), 'false');
@@ -185,7 +187,7 @@ test('ошибка: карточка разворачивается, легас�
   });
 });
 
-test('отказ (denied): статус denied, содержимое — текст отказа', () => {
+test('отказ (denied): статус denied, содержимое — короткая подпись', () => {
   toolResultInline.resetForTests();
   const code = "await bash('rm -rf /');";
   const block = makeBlock(code);
@@ -193,7 +195,7 @@ test('отказ (denied): статус denied, содержимое — тек�
     toolResultInline.markToolBlockResult(code, { success: false, denied: true, error: 'User denied this JS block. ...' });
     const section = block.children.find((c) => c.className === 'cuckoo-tool-result');
     assert.strictEqual(section.getAttribute('data-status'), 'denied');
-    assert.ok(section.children[1].textContent.indexOf('User denied') !== -1);
+    assert.strictEqual(section.children[1].textContent, 'Отклонено пользователем');
   });
 });
 

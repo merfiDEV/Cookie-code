@@ -62,6 +62,7 @@ function statusOf(result) {
  */
 function outputOf(result) {
   if (!result) return '';
+  if (result.denied === true) return t('toolResult.denied');
   if (result.success) {
     if (typeof result.output === 'string') return result.output;
     const data = result.data !== undefined ? result.data : result.output;
@@ -72,9 +73,13 @@ function outputOf(result) {
 }
 
 function statusIcon(status) {
-  if (status === 'success') return '✓';
-  if (status === 'denied') return '⛔';
-  return '⚠';
+  if (status === 'success') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
+  }
+  if (status === 'denied') {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 8 8 8M16 8l-8 8"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>';
 }
 
 function statusLabel(status) {
@@ -92,10 +97,11 @@ function ensureStyles() {
     // результат виден только в развёрнутой карточке
     '.' + RESULT_CLASS + ' { margin: 6px 8px 0; padding-top: 4px; }' +
     '.cuckoo-tool-block[data-expanded="false"] .cuckoo-tool-result { display: none !important; }' +
-    '.cuckoo-tool-result-bar { display: flex; align-items: center; min-height: 18px; font-size: 10px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; opacity: .82; margin: 0 2px 3px; }' +
+    '.cuckoo-tool-result-bar { display: flex; align-items: center; gap: 5px; min-height: 18px; font-size: 10px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; opacity: .82; margin: 0 2px 3px; }' +
+    '.cuckoo-tool-result-bar svg { width: 14px; height: 14px; flex: 0 0 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }' +
     '.cuckoo-tool-result[data-status="success"] .cuckoo-tool-result-bar { color: #34d399; }' +
     '.cuckoo-tool-result[data-status="error"] .cuckoo-tool-result-bar { color: #f87171; }' +
-    '.cuckoo-tool-result[data-status="denied"] .cuckoo-tool-result-bar { color: #fbbf24; }' +
+    '.cuckoo-tool-result[data-status="denied"] .cuckoo-tool-result-bar { color: #fbbf24; text-transform: none; }' +
     '.cuckoo-tool-result-content { margin: 0; padding: 7px 9px; background: rgba(128,128,160,.055); ' +
     'border: 1px solid rgba(128,128,160,.14); border-radius: 6px; ' +
     'font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; ' +
@@ -146,7 +152,10 @@ function injectResult(block, res) {
 
   const bar = document.createElement('div');
   bar.className = 'cuckoo-tool-result-bar';
-  bar.textContent = statusIcon(res.status) + ' ' + statusLabel(res.status);
+  bar.innerHTML = statusIcon(res.status);
+  const label = document.createElement('span');
+  label.textContent = statusLabel(res.status);
+  bar.appendChild(label);
 
   const pre = document.createElement('pre');
   pre.className = 'cuckoo-tool-result-content';

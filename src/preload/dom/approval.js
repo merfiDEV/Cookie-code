@@ -20,6 +20,7 @@ const { t } = require('../i18n/i18n');
 
 const STYLE_ID = 'cuckoo-approval-style';
 const DIALOG_ID = 'cuckoo-approval-dialog';
+const POSITION_KEY = 'cuckoo-approval-pos';
 
 /**
  * Инструменты, требующие подтверждения в режиме 'risky'.
@@ -117,7 +118,8 @@ function ensureStyles() {
   style.id = STYLE_ID;
   style.textContent = `
     #${DIALOG_ID} { position:fixed; inset:0; z-index:2147483647; display:flex; align-items:center; justify-content:center; background:rgba(5,8,18,.62); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    #${DIALOG_ID} .cuckoo-approval-card { width:min(600px,calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:auto; padding:20px 22px; color:#eef1ff; background:#171b2c; border:1px solid rgba(145,158,255,.42); border-radius:12px; box-shadow:0 20px 70px rgba(0,0,0,.55); box-sizing:border-box; }
+    #${DIALOG_ID} .cuckoo-approval-card { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(600px,calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:auto; padding:20px 22px; color:#eef1ff; background:#171b2c; border:1px solid rgba(145,158,255,.42); border-radius:12px; box-shadow:0 20px 70px rgba(0,0,0,.55); box-sizing:border-box; }
+    #${DIALOG_ID} .cuckoo-approval-drag { margin:-20px -22px 14px; padding:16px 22px 0; cursor:move; user-select:none; }
     #${DIALOG_ID} h2 { margin:0 0 6px; font-size:17px; }
     #${DIALOG_ID} .cuckoo-approval-sub { margin:0 0 14px; color:#aeb5cd; font-size:12px; }
     #${DIALOG_ID} .cuckoo-approval-name { display:inline-block; padding:3px 10px; margin-bottom:12px; border-radius:6px; background:rgba(139,147,255,.16); border:1px solid rgba(139,147,255,.4); color:#c3caff; font-family:"Consolas",monospace; font-size:13px; font-weight:600; }
@@ -159,7 +161,7 @@ function requestApproval(info) {
 
     dialog.innerHTML =
       '<div class="cuckoo-approval-card" role="dialog" aria-modal="true">' +
-      '<h2>' + escapeHtml(title) + '</h2>' +
+      '<div class="cuckoo-approval-drag"><h2>' + escapeHtml(title) + '</h2></div>' +
       '<p class="cuckoo-approval-sub">' + escapeHtml(t('approval.subtitle')) + '</p>' +
       '<span class="cuckoo-approval-name">' + escapeHtml(nameText) + '</span>' +
       '<p class="cuckoo-approval-label">' + escapeHtml(isJs ? t('approval.label.code') : t('approval.label.params')) + '</p>' +
@@ -174,8 +176,58 @@ function requestApproval(info) {
     dialog.querySelector('pre').textContent = detailText;
     document.body.appendChild(dialog);
 
+    const card = dialog.querySelector('.cuckoo-approval-card');
+    const dragHandle = dialog.querySelector('.cuckoo-approval-drag');
+    try {
+      const saved = JSON.parse(localStorage.getItem(POSITION_KEY) || 'null');
+      if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
+        card.style.left = saved.left + 'px';
+        card.style.top = saved.top + 'px';
+        card.style.transform = 'none';
+      }
+    } catch (_) {}
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    const onMove = (event) => {
+      if (!dragging) return;
+      const rect = card.getBoundingClientRect();
+      const maxLeft = Math.max(0, window.innerWidth - rect.width);
+      const maxTop = Math.max(0, window.innerHeight - rect.height);
+      const left = Math.max(0, Math.min(maxLeft, startLeft + event.clientX - startX));
+      const top = Math.max(0, Math.min(maxTop, startTop + event.clientY - startY));
+      card.style.left = left + 'px';
+      card.style.top = top + 'px';
+      card.style.transform = 'none';
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      try {
+        const rect = card.getBoundingClientRect();
+        localStorage.setItem(POSITION_KEY, JSON.stringify({ left: rect.left, top: rect.top }));
+      } catch (_) {}
+    };
+    dragHandle.addEventListener('mousedown', (event) => {
+      dragging = true;
+      const rect = card.getBoundingClientRect();
+      startLeft = rect.left;
+      startTop = rect.top;
+      startX = event.clientX;
+      startY = event.clientY;
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      event.preventDefault();
+    });
+
     const finish = (approved, alwaysAllow) => {
       activeCancel = null;
+      onUp();
       document.removeEventListener('keydown', onKey, true);
       dialog.remove();
       resolve({ approved: !!approved, alwaysAllow: !!alwaysAllow });
