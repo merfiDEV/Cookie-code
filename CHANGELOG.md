@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Added
+- **Авто-форматтеры** после `write`/`edit`: файл автоматически приводится к стилю проекта
+  - Встроенный реестр: prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format
+  - Определение по расширению + наличию конфига (`package.json`, `biome.json`, `pyproject.toml`, `.clang-format`) + бинарю в `PATH` или `node_modules/.bin`
+  - Отключается флагом `formattersEnabled: false` в `cuckoo-settings.json`
+  - Ошибки форматтера никогда не ломают `write`/`edit` — это вторичная операция
 - **Telegram-бот** (`botsrc/`): лёгкий клиент без зависимостей (long-polling, без VPS)
   - Уведомления о вызовах инструментов: имя, аргументы, результат; для `edit` — новый код (до 2000 символов)
   - Дублирование ответов AI в Telegram (человекочитаемый текст без code-блоков)

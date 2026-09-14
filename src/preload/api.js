@@ -25,6 +25,12 @@ let electronAPI = {
   executeJs: (code, callId) => {
     return ipcRenderer.invoke('execute-js', { code, callId });
   },
+  setPlanMode: (enabled) => {
+    return ipcRenderer.invoke('set-plan-mode', { enabled });
+  },
+  exitPlanModeResponse: (requestId, approved) => {
+    ipcRenderer.send('exit-plan-mode-response', { requestId, approved });
+  },
   killProcess: () => {
     return ipcRenderer.invoke('kill-process');
   },

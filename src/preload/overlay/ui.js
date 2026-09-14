@@ -4,7 +4,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { OVERLAY_HTML, OVERLAY_CSS } = require('./template');
+const { buildOverlayHTML, OVERLAY_CSS } = require('./template');
 const { getProviderByUrl } = require('../../../src/providers');
 const state = require('../dom/state');
 const { t } = require('../i18n/i18n');
@@ -114,7 +114,7 @@ function makeOverlayDraggable() {
 function injectOverlay() {
   const container = document.createElement('div');
   container.id = 'cuckoo-root';
-  container.innerHTML = OVERLAY_HTML;
+  container.innerHTML = buildOverlayHTML();
   document.body.appendChild(container);
 
   // Вставляем логотип DeepSeek в круглый бейдж (замена текстовой «C»)

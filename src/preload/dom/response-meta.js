@@ -1,10 +1,10 @@
 /**
  * Индикатор мета-информации под ответом AI:
- *   ⏱ 9.2s · ~308 tok · Produced # file.txt
+ *   ⏱ 9.2s · ~308 tok · Затронуто # file.txt
  *
  * Время измеряется локально (от появления нового AI-сообщения до его завершения).
  * Токены — грубая оценка: длина текста / 4.
- * Produced — список файлов, затронутых за этот ответ (write/edit).
+ * Затронуто — список файлов, затронутых за этот ответ (write/edit) — только успешные.
  * Данные сохраняются в localStorage (переживают Ctrl+R).
  */
 
@@ -15,8 +15,54 @@ const STORAGE_KEY = 'cuckoo-response-meta';
 let t = (k) => k;
 try { ({ t } = require('../i18n/i18n')); } catch (_) {}
 
+let state = null;
+try { state = require('./state'); } catch (_) { state = { showProducedFiles: true }; }
+
 // Активные замеры: messageEl -> { start }
-const activeTimers = new WeakMap();
+let activeTimers = new WeakMap();
+
+// Подтверждённые файлы по сообщению: messageEl -> Array<{path, op, status}>
+let confirmedMap = new WeakMap();
+
+// Глобальный флаг вкл/выкл блока «Затронуто»
+let producedEnabled = true;
+try {
+  if (state && typeof state.showProducedFiles === 'boolean') producedEnabled = state.showProducedFiles !== false;
+} catch (_) {}
+
+/**
+ * Включить/выключить отображение блока «Затронуто».
+ * При выключении скрывает уже отрендеренные чипы, при включении — показывает и ресканит.
+ * @param {boolean} on
+ */
+function setEnabled(on) {
+  producedEnabled = on !== false;
+  try { if (state) state.showProducedFiles = producedEnabled; } catch (_) {}
+  if (typeof document === 'undefined') return;
+  const metas = document.querySelectorAll('.' + META_CLASS);
+  for (const meta of metas) {
+    const produced = meta.querySelector('.cuckoo-response-meta-produced');
+    const sep = meta.querySelector('.cuckoo-response-meta-sep-files');
+    if (!produced) continue;
+    if (producedEnabled) {
+      produced.style.display = '';
+      if (sep) sep.style.display = '';
+    } else {
+      produced.style.display = 'none';
+      if (sep) sep.style.display = 'none';
+    }
+  }
+  // При включении — попробуем восстановить из стораджа для сообщений без чипов
+  if (producedEnabled) {
+    try { restoreFromStorage(); } catch (_) {}
+  }
+}
+
+function isProducedEnabled() {
+  if (typeof producedEnabled === 'boolean') return producedEnabled;
+  try { if (state && typeof state.showProducedFiles === 'boolean') return state.showProducedFiles !== false; } catch (_) {}
+  return true;
+}
 
 /**
  * Стабильный ключ сообщения между перезагрузками (текст + длина).
@@ -78,13 +124,73 @@ function shortFileName(filePath) {
 }
 
 /**
+ * Нормализовать запись файла к объекту {path, op, status}
+ * Старый формат — string, новый — {path, op, status}
+ * @param {any} entry
+ * @returns {{path:string, op:string, status:string}}
+ */
+function normalizeFileEntry(entry) {
+  if (typeof entry === 'string') {
+    return { path: entry, op: 'unknown', status: 'pending' };
+  }
+  if (entry && typeof entry.path === 'string') {
+    return {
+      path: String(entry.path),
+      op: entry.op || 'unknown',
+      status: entry.status || 'pending'
+    };
+  }
+  return null;
+}
+
+function denormalizeForStore(files) {
+  // Храним как объекты {path, op, status} — обратно совместимо со string[]
+  return files;
+}
+
+/**
+ * Извлечь файлы из куска кода (строки) с операцией.
+ * @param {string} code
+ * @returns {Array<{path:string, op:string}>}
+ */
+function extractFilesFromCode(code) {
+  const out = [];
+  const seen = new Set();
+  if (!code || typeof code !== 'string') return out;
+  const re1 = /await\s+(write|edit|writeFile|editFile|deleteFile)\s*\(\s*["'`]([^"'`]+)["'`]/g;
+  let m;
+  while ((m = re1.exec(code)) !== null) {
+    const op = (m[1] || 'unknown').trim();
+    const raw = (m[2] || '').trim();
+    if (!raw || raw.length > 500 || raw.includes('...')) continue;
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    out.push({ path: raw, op });
+  }
+  // JSON style fallback внутри того же блока, если есть write/edit маркер
+  if (/await\s+(write|edit|writeFile|editFile|deleteFile)\s*\(/.test(code)) {
+    const re2 = /["']file_path["']\s*:\s*["'`]([^"'`]+)["'`]/g;
+    while ((m = re2.exec(code)) !== null) {
+      const raw = (m[1] || '').trim();
+      if (!raw || raw.length > 500 || raw.includes('...')) continue;
+      if (seen.has(raw)) continue;
+      seen.add(raw);
+      out.push({ path: raw, op: 'write' });
+    }
+  }
+  return out;
+}
+
+/**
  * Извлечь список файлов, затронутых в этом ответе.
  * Ищет вызовы write/edit/writeFile/editFile/deleteFile в <pre> блоках.
  * Поддерживает как JS API `await write("path", ...)` так и JSON `file_path`.
+ * Возвращает массив объектов {path, op, status} — для тестов и рантайма.
+ * Для обратной совместимости также экспортируется string[] версия через extractAffectedFilesPaths.
  * @param {Element} messageEl
- * @returns {string[]}
+ * @returns {Array<{path:string, op:string, status:string}>}
  */
-function extractAffectedFiles(messageEl) {
+function extractFileEntries(messageEl) {
   const files = [];
   const seen = new Set();
   try {
@@ -92,29 +198,13 @@ function extractAffectedFiles(messageEl) {
     for (const pre of pres) {
       const code = pre.textContent || '';
       if (!code) continue;
-      // JS style: await write("..."), await edit("...", ...), etc.
-      const re1 = /await\s+(write|edit|writeFile|editFile|deleteFile)\s*\(\s*["'`]([^"'`]+)["'`]/g;
-      let m;
-      while ((m = re1.exec(code)) !== null) {
-        const raw = (m[2] || '').trim();
-        if (!raw || raw.length > 500 || raw.includes('...')) continue;
-        if (seen.has(raw)) continue;
-        seen.add(raw);
-        files.push(raw);
-      }
-      // JSON style fallback: "file_path": "..." - только если в блоке есть write/edit
-      if (/await\s+(write|edit|writeFile|editFile|deleteFile)\s*\(/.test(code)) {
-        const re2 = /["']file_path["']\s*:\s*["'`]([^"'`]+)["'`]/g;
-        while ((m = re2.exec(code)) !== null) {
-          const raw = (m[1] || '').trim();
-          if (!raw || raw.length > 500 || raw.includes('...')) continue;
-          if (seen.has(raw)) continue;
-          seen.add(raw);
-          files.push(raw);
-        }
+      const entries = extractFilesFromCode(code);
+      for (const e of entries) {
+        if (seen.has(e.path)) continue;
+        seen.add(e.path);
+        files.push({ path: e.path, op: e.op, status: 'pending' });
       }
     }
-    // Также проверяем inline <code> с путями? Не нужно — pre покрывает cuckoo блоки.
     // Fallback: если <pre> ещё не отрендерился, ищем прямо в тексте сообщения
     if (files.length === 0) {
       try {
@@ -124,11 +214,12 @@ function extractAffectedFiles(messageEl) {
           const reText = /await\s+(write|edit|writeFile|editFile|deleteFile)\s*\(\s*["'`]([^"'`]+)["'`]/g;
           let m;
           while ((m = reText.exec(text)) !== null) {
+            const op = (m[1] || 'unknown').trim();
             const raw = (m[2] || '').trim();
             if (!raw || raw.length > 500 || raw.includes('...')) continue;
             if (seen.has(raw)) continue;
             seen.add(raw);
-            files.push(raw);
+            files.push({ path: raw, op, status: 'pending' });
             if (files.length >= 20) break;
           }
         }
@@ -144,39 +235,172 @@ function extractAffectedFiles(messageEl) {
           const reJson2 = /"file_path"\s*:\s*"([^"]+)"[^}]*?"toolName"\s*:\s*"(write|edit|file_write|file_edit)"/g;
           let m;
           while ((m = reJson1.exec(text)) !== null) {
+            const op = (m[1] || 'write').trim();
             const raw = (m[2] || '').trim();
             if (!raw || raw.length > 500 || raw.includes('...')) continue;
             if (seen.has(raw)) continue;
             seen.add(raw);
-            files.push(raw);
+            files.push({ path: raw, op, status: 'pending' });
           }
           while ((m = reJson2.exec(text)) !== null) {
             const raw = (m[1] || '').trim();
+            const op = (m[2] || 'write').trim();
             if (!raw || raw.length > 500 || raw.includes('...')) continue;
             if (seen.has(raw)) continue;
             seen.add(raw);
-            files.push(raw);
+            files.push({ path: raw, op, status: 'pending' });
           }
-          // Если всё ещё пусто, но есть file_path рядом с write/edit — берём любые file_path
           if (files.length === 0) {
             const reAny = /"file_path"\s*:\s*"([^"]+)"/g;
             while ((m = reAny.exec(text)) !== null) {
               const raw = (m[1] || '').trim();
               if (!raw || raw.length > 500 || raw.includes('...')) continue;
               if (seen.has(raw)) continue;
-              // Проверяем что рядом есть маркер записи
               const ctx = text.slice(Math.max(0, m.index - 200), m.index + 200);
               if (!/(write|edit|file_write|file_edit)/.test(ctx)) continue;
               seen.add(raw);
-              files.push(raw);
+              files.push({ path: raw, op: 'write', status: 'pending' });
             }
           }
         }
       } catch (_) {}
     }
   } catch (_) {}
-  // Ограничиваем количество, чтобы UI не разъезжался
   return files.slice(0, 20);
+}
+
+/**
+ * Обратная совместимость: вернуть только пути как string[].
+ * Используется старыми вызовами и тестами на дедуп/лимит.
+ * @param {Element} messageEl
+ * @returns {string[]}
+ */
+function extractAffectedFiles(messageEl) {
+  const entries = extractFileEntries(messageEl);
+  return entries.map(e => e.path);
+}
+
+/**
+ * Записать подтверждённые файлы для сообщения (из реальных успешных вызовов).
+ * Вызывается из observer после выполнения tool.
+ * @param {Element} messageEl
+ * @param {Array<{path:string, op:string, status:string}>} files
+ */
+function setProducedFiles(messageEl, files) {
+  if (!messageEl) return;
+  const normalized = (Array.isArray(files) ? files : []).map(normalizeFileEntry).filter(Boolean).slice(0, 20);
+  confirmedMap.set(messageEl, normalized);
+  // Обновляем UI если мета уже отрендерена
+  try {
+    const meta = messageEl.querySelector('.' + META_CLASS);
+    if (meta) {
+      // Удаляем старую мету и перерисуем с подтверждёнными данными
+      const secondsEl = meta.querySelector('.cuckoo-response-meta-item span');
+      // Пытаемся достать seconds/tokens из текущей меты или из стора
+      let seconds = '0.0';
+      let tokens = 0;
+      try {
+        const key = getMessageKey(messageEl);
+        const store = readMetaStore();
+        const rec = key ? store[key] : null;
+        if (rec) {
+          seconds = rec.seconds != null ? String(rec.seconds) : seconds;
+          tokens = rec.tokens != null ? rec.tokens : tokens;
+        }
+      } catch (_) {}
+      // Снимаем маркировку чтобы render пересоздал
+      messageEl.removeAttribute(ATTR_MARKED);
+      meta.remove();
+      renderMetaPanel(messageEl, seconds, tokens, normalized);
+      // Обновляем сторадж
+      try {
+        const key = getMessageKey(messageEl);
+        if (key) {
+          const store = readMetaStore();
+          const rec = store[key] || {};
+          rec.files = normalized;
+          if (!rec.seconds) rec.seconds = parseFloat(seconds) || 0;
+          if (!rec.tokens) rec.tokens = tokens;
+          store[key] = rec;
+          writeMetaStore(store);
+        }
+      } catch (_) {}
+    } else {
+      // Мета ещё не создана — сохраним для finishTimer/restore
+      // finishTimer проверит confirmedMap
+    }
+  } catch (_) {}
+}
+
+/**
+ * Записать результаты выполнения JS-блоков (batch) — вызывается из observer.
+ * @param {Element} messageEl
+ * @param {Array<{code:string, result:{success?:boolean, denied?:boolean, error?:string}}>} results
+ */
+function recordExecutionResults(messageEl, results) {
+  if (!messageEl || !Array.isArray(results) || results.length === 0) return;
+  const toConfirm = [];
+  const seen = new Set();
+  for (const item of results) {
+    if (!item || typeof item.code !== 'string') continue;
+    const entries = extractFilesFromCode(item.code);
+    // Если в коде нет файлового вызова, но результат success — пропускаем
+    if (entries.length === 0) continue;
+    const status = item.result && item.result.denied ? 'denied' : (item.result && item.result.success ? 'success' : 'error');
+    // Только успешные считаем «затронутыми» — по требованию фильтровать success:true
+    // Но храним и error для отображения красным (опционально). Фильтруем denied/error как не успешные для основного списка,
+    // но сохраняем чтобы UI мог показать ошибку если нужно.
+    for (const e of entries) {
+      if (seen.has(e.path)) continue;
+      seen.add(e.path);
+      // Если статус не success, не добавляем в «затронуто» (только успешные)
+      if (status !== 'success') continue;
+      toConfirm.push({ path: e.path, op: e.op, status });
+    }
+  }
+  if (toConfirm.length > 0) {
+    // Мерджим с уже подтверждёнными
+    const existing = confirmedMap.get(messageEl) || [];
+    const mergedMap = new Map(existing.map(f => [f.path, f]));
+    for (const f of toConfirm) {
+      if (!mergedMap.has(f.path)) mergedMap.set(f.path, f);
+      else {
+        // Обновляем статус если был pending
+        const prev = mergedMap.get(f.path);
+        if (prev.status === 'pending') mergedMap.set(f.path, f);
+      }
+    }
+    const merged = Array.from(mergedMap.values()).slice(0, 20);
+    setProducedFiles(messageEl, merged);
+  }
+}
+
+/**
+ * Записать одиночный JSON tool-вызов (write/edit/delete) — вызывается из observer для file_* tools.
+ * @param {Element} messageEl
+ * @param {string} toolName
+ * @param {{file_path?:string}} params
+ * @param {{success?:boolean, denied?:boolean}} result
+ */
+function recordSingleToolCall(messageEl, toolName, params, result) {
+  if (!messageEl || !params || typeof params.file_path !== 'string') return;
+  const filePath = String(params.file_path).trim();
+  if (!filePath || filePath.length > 500 || filePath.includes('...')) return;
+  const status = result && result.denied ? 'denied' : (result && result.success ? 'success' : 'error');
+  if (status !== 'success') return; // показываем только успешные
+  const opMap = { file_write: 'write', file_edit: 'edit', file_delete: 'deleteFile' };
+  const op = opMap[toolName] || toolName;
+  const allowedOps = ['write', 'edit', 'writeFile', 'editFile', 'deleteFile', 'file_write', 'file_edit', 'file_delete'];
+  if (!allowedOps.includes(toolName) && !allowedOps.includes(op)) return;
+  const entry = { path: filePath, op, status };
+  const existing = confirmedMap.get(messageEl) || [];
+  const mergedMap = new Map(existing.map(f => [f.path, f]));
+  if (!mergedMap.has(entry.path)) mergedMap.set(entry.path, entry);
+  else {
+    const prev = mergedMap.get(entry.path);
+    if (prev.status === 'pending') mergedMap.set(entry.path, entry);
+  }
+  setProducedFiles(messageEl, Array.from(mergedMap.values()).slice(0, 20));
 }
 
 /**
@@ -193,15 +417,28 @@ function renderMetaPanel(messageEl, seconds, tokensEstimate, files) {
     return;
   }
 
-  const safeFiles = Array.isArray(files) ? files.slice(0, 20) : [];
-  const hasFiles = safeFiles.length > 0;
+  // Если есть подтверждённые файлы для этого сообщения — приоритет им
+  let effectiveFiles = files;
+  try {
+    const confirmed = confirmedMap.get(messageEl);
+    if (Array.isArray(confirmed) && confirmed.length > 0) {
+      effectiveFiles = confirmed;
+    }
+  } catch (_) {}
+
+  // Нормализуем к объектам
+  const normalized = (Array.isArray(effectiveFiles) ? effectiveFiles : []).map(normalizeFileEntry).filter(Boolean).slice(0, 20);
+  // Фильтруем только успешные для отображения (pending тоже показываем, т.к. ещё не подтверждено но уже спарсено)
+  // Показываем все, но denied/error можно подсветить
+  const toRender = normalized;
+  const hasFiles = toRender.length > 0 && isProducedEnabled();
 
   const meta = document.createElement('div');
   meta.className = META_CLASS;
   // i18n с фолбэком на русский, если t() недоступен
   let timeTitle = 'Время ответа';
   let tokensTitle = 'Оценка количества токенов (chars / 4)';
-  let producedLabel = 'Produced';
+  let producedLabel = 'Затронуто';
   let producedTitle = 'Файлы, затронутые за этот ответ';
   try {
     const tt = t('meta.time.title'); if (tt && tt !== 'meta.time.title') timeTitle = tt;
@@ -231,9 +468,11 @@ function renderMetaPanel(messageEl, seconds, tokensEstimate, files) {
       '<span class="cuckoo-response-meta-sep cuckoo-response-meta-sep-files">·</span>' +
       '<span class="cuckoo-response-meta-produced" title="' + escapeHtml(producedTitle) + '">' +
       '  <span class="cuckoo-response-meta-produced-label">' + escapeHtml(producedLabel) + '</span>';
-    for (const f of safeFiles) {
-      const short = shortFileName(f);
-      html += '<span class="cuckoo-produced-chip" data-path="' + escapeHtml(f) + '" title="' + escapeHtml(f) + '" tabindex="0" role="button">' +
+    for (const f of toRender) {
+      const short = shortFileName(f.path);
+      const status = f.status || 'pending';
+      const opTitle = f.op !== 'unknown' ? f.op + ': ' + f.path : f.path;
+      html += '<span class="cuckoo-produced-chip" data-path="' + escapeHtml(f.path) + '" data-op="' + escapeHtml(f.op) + '" data-status="' + escapeHtml(status) + '" title="' + escapeHtml(opTitle) + '" tabindex="0" role="button">' +
               '<span class="cuckoo-produced-chip-hash">#</span>' +
               '<span class="cuckoo-produced-chip-name">' + escapeHtml(short) + '</span>' +
               '</span>';
@@ -261,8 +500,8 @@ function renderMetaPanel(messageEl, seconds, tokensEstimate, files) {
           if (!isAbs) {
             let projectDir = null;
             try {
-              const state = require('./state');
-              projectDir = state.currentProjectDir || null;
+              const stateInner = require('./state');
+              projectDir = stateInner.currentProjectDir || null;
             } catch (_) {}
             if (projectDir) {
               const sep = projectDir.includes('\\') ? '\\' : '/';
@@ -304,7 +543,19 @@ function finishTimer(messageEl) {
   const text = markdown ? (markdown.textContent || '') : '';
   const tokensEstimate = Math.max(0, Math.round(text.length / 4));
   const seconds = (elapsedMs / 1000).toFixed(1);
-  const files = extractAffectedFiles(messageEl);
+  // Проверяем подтверждённые файлы (если уже есть успешные выполнения)
+  let files = null;
+  try {
+    const confirmed = confirmedMap.get(messageEl);
+    if (Array.isArray(confirmed) && confirmed.length > 0) {
+      files = confirmed;
+    } else {
+      // Парсим как объекты
+      files = extractFileEntries(messageEl);
+    }
+  } catch (_) {
+    files = extractFileEntries(messageEl);
+  }
 
   renderMetaPanel(messageEl, seconds, tokensEstimate, files);
 
@@ -374,12 +625,19 @@ function restoreFromStorage() {
     const rec = store[key];
     if (!rec) continue;
     try {
-      // Поддержка старого формата без files или когда files пустой, но в DOM уже есть блоки
-      let files = Array.isArray(rec.files) ? rec.files : null;
+      // Поддержка старого формата string[] и нового {path, op, status}[]
+      let files = null;
+      if (Array.isArray(rec.files)) {
+        files = rec.files.map(normalizeFileEntry).filter(Boolean);
+      } else {
+        files = null;
+      }
       let fresh = null;
-      try { fresh = extractAffectedFiles(el); } catch (_) { fresh = []; }
+      try { fresh = extractFileEntries(el); } catch (_) { fresh = []; }
+      // Если в сторе пусто, но в DOM есть — дополняем
       if (!files || files.length === 0) {
         if (fresh && fresh.length > 0) {
+          // Фильтруем только если нет подтверждённых — пока pending
           files = fresh;
           rec.files = fresh;
           try { writeMetaStore(store); } catch (_) {}
@@ -387,11 +645,19 @@ function restoreFromStorage() {
           files = fresh || [];
         }
       } else if (fresh && fresh.length > files.length) {
-        // В DOM появилось больше файлов, чем было сохранено (поздний рендер) — обновляем
-        files = fresh;
-        rec.files = fresh;
-        try { writeMetaStore(store); } catch (_) {}
+        // В DOM появилось больше файлов, чем было сохранено (поздний рендер) — обновляем если нет подтверждённых
+        const hasConfirmed = files.some(f => f.status === 'success');
+        if (!hasConfirmed) {
+          files = fresh;
+          rec.files = fresh;
+          try { writeMetaStore(store); } catch (_) {}
+        }
       }
+      // Если есть подтверждённые в confirmedMap — приоритет им
+      try {
+        const confirmed = confirmedMap.get(el);
+        if (Array.isArray(confirmed) && confirmed.length > 0) files = confirmed;
+      } catch (_) {}
       renderMetaPanel(el, rec.seconds, rec.tokens, files || []);
     } catch (_) {}
   }
@@ -457,4 +723,38 @@ function clearStorage() {
   }
 }
 
-module.exports = { startTimer, finishTimer, findLatestAIMessage, isAIMessage, startWatch, clearStorage, extractAffectedFiles, renderMetaPanel };
+/**
+ * Сброс внутренних карт для тестов (WeakMap не итерируется — пересоздаём).
+ */
+function resetForTests() {
+  activeTimers = new WeakMap();
+  confirmedMap = new WeakMap();
+  cachedStore = null;
+  cachedStoreTime = 0;
+  producedEnabled = true;
+  try { if (state) state.showProducedFiles = true; } catch (_) {}
+  try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+  try { localStorage.removeItem('cuckoo-results'); } catch (_) {}
+}
+
+module.exports = {
+  startTimer,
+  finishTimer,
+  findLatestAIMessage,
+  isAIMessage,
+  startWatch,
+  clearStorage,
+  resetForTests,
+  extractAffectedFiles,
+  extractFileEntries,
+  extractFilesFromCode,
+  renderMetaPanel,
+  shortFileName,
+  normalizeFileEntry,
+  setEnabled,
+  isProducedEnabled,
+  setProducedFiles,
+  recordExecutionResults,
+  recordSingleToolCall,
+  getMessageKey,
+};

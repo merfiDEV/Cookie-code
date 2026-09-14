@@ -158,6 +158,10 @@ const BOOTSTRAP = [
   "  globalThis.read_photo = async function (filePath, caption, send) {",
   "    return await __call('read_photo', { file_path: filePath, caption: caption || '', send: send !== false });",
   "  };",
+  "  globalThis.exitPlanMode = async function (plan) {",
+  "    return await __call('exit_plan_mode', { plan: plan });",
+  "  };",
+  "  globalThis.exit_plan_mode = globalThis.exitPlanMode;",
 "  globalThis.openBrowserWindow = async function (url, options) {",
 "    options = options || {};",
 "    return await __call('open_browser_window', {",
@@ -281,13 +285,14 @@ class JsRunner {
    * @param {string|null} projectDir - 当前项目目录（相对路径基准）
    * @returns {Promise<{success: boolean, output?: string, error?: string}>}
    */
-  async run(code, projectDir, senderId, askUserQuestion, pasteImage) {
+  async run(code, projectDir, senderId, askUserQuestion, pasteImage, exitPlanMode, sessionId) {
     if (!code || typeof code !== 'string' || !code.trim()) {
       return { success: false, error: '无效的 JS 代码' };
     }
 
     const startTime = Date.now();
     const deadlineMs = RUN_DEADLINE;
+    const collectedStats = [];
 
     // 唯一跨域桥接函数：AI 代码中的每个工具调用都通过它回到主进程执行。
     // 注意：该函数绝不向沙箱抛出宿主对象（错误一律包装成 { success:false, error } 结果），
@@ -303,6 +308,17 @@ class JsRunner {
         args = {};
       }
 
+      // Режим плана: блокируем изменяющие операции (кроме записи plan.md).
+      try {
+        const planMode = require('../src/main/plan-mode');
+        if (planMode.isPlanMode(senderId, sessionId)) {
+          const verdict = planMode.checkBlocked(op, args);
+          if (verdict.blocked) {
+            return JSON.stringify({ success: false, error: verdict.error });
+          }
+        }
+      } catch (_) { /* plan-mode недоступен — не блокируем */ }
+
       let result;
       if (op === '__bash') {
         result = await runBash(args, projectDir);
@@ -312,12 +328,24 @@ class JsRunner {
           result = { success: false, error: '未知工具: ' + op };
         } else {
           try {
-            result = await tool.execute(Object.assign({}, args, { projectDir, senderId, askUserQuestion, pasteImage }));
+            result = await tool.execute(Object.assign({}, args, { projectDir, senderId, askUserQuestion, pasteImage, exitPlanMode }));
           } catch (err) {
             result = { success: false, error: '工具 ' + op + ' 执行异常: ' + (err.message || String(err)) };
           }
         }
       }
+      // Собираем diff-статистику для инлайн-счётчика +829 -53
+      try {
+        if (result && result.stats && typeof result.stats.added === 'number') {
+          collectedStats.push({
+            op,
+            path: args.file_path || args.path || '',
+            added: result.stats.added,
+            removed: result.stats.removed,
+            operation: result.stats.operation || ''
+          });
+        }
+      } catch (_) {}
       // Уведомление в Telegram о результате tool (не блокирует выполнение).
       try {
         const { notifyToolResult } = require('../botsrc');
@@ -404,7 +432,9 @@ class JsRunner {
         output = output.slice(0, OUTPUT_LIMIT) + '\n...[输出过长已截断]...';
       }
 
-      return { success: true, output: output || '(脚本执行完成，无输出)\n如需输出请使用 log() 方法' };
+      const finalRes = { success: true, output: output || '(脚本执行完成，无输出)\n如需输出请使用 log() 方法' };
+      if (collectedStats.length > 0) finalRes.stats = collectedStats;
+      return finalRes;
     } catch (err) {
       console.error('[JsRunner] 脚本执行失败:', err && err.stack ? err.stack : String(err));
       console.error('[JsRunner] [诊断] 失败代码(JSON转义): ' + JSON.stringify(code));

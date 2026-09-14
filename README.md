@@ -130,9 +130,12 @@ Control and monitor Cookie Code from your phone:
 - **AI replies** — every AI text response is mirrored to Telegram (human-readable text, code blocks stripped).
 - **Incoming messages** — send a message to the bot and it lands in the DeepSeek chat as if you typed it.
 - **`/todos` command** — get the current task list of the active window from Telegram.
+- **`/help`** — full command reference straight from the chat.
+- **`/settings`** — interactive settings menu with inline buttons. Every Cookie Code option is editable from your phone: appearance (customization toggle, RGB username, UI language), glass & panel (blur, opacity, width, colors), agent & privacy (tool approval mode, hide service messages, auto-formatters, file chips, produced files, dangerous-pattern list), and the Telegram bot itself (token, chat ID, notification toggles). Wallpapers are intentionally excluded.
+- **`/cancel`** — abort a pending text input when editing a value.
 - **All-done notification** — when every task in the list becomes `completed`, the bot sends a one-time "🎉 All tasks completed" message (fires again after the list changes).
 - Lightweight, **dependency-free** client (long-polling, no VPS or webhook needed).
-- Configured in **Settings → Cookie Code → Telegram bot** (token from @BotFather + chat ID).
+- Configured in **Settings → Cookie Code → Telegram bot** (token from @BotFather + chat ID), or right from Telegram via `/settings`.
 
 ### Clean window
 
@@ -149,6 +152,26 @@ Claude Desktop-compatible configuration format. Supports both `stdio` and `http`
 ### Skills
 
 Drop a folder into `.cuckoo/skills/<name>/` with a `SKILL.md` (and optional `tool.js`) and it becomes callable via `skillList`, `skillLoad`, `skillExecute`.
+
+### Auto-formatters
+
+Every `write` and `edit` runs the file through a language-specific formatter so the AI's output matches your project's style automatically — no manual `prettier --write` step, no style noise in the diff.
+
+Built-in formatters:
+
+| Formatter | Trigger | What it needs |
+|-----------|---------|---------------|
+| `prettier` | `.js .jsx .ts .tsx .json .css .md .yaml` … | `prettier` in the nearest `package.json` + binary in `node_modules/.bin` or `PATH` |
+| `biome` | same as prettier | `biome.json` / `biome.jsonc` in the project |
+| `gofmt` | `.go` | `gofmt` in `PATH` |
+| `ruff` | `.py .pyi` | `ruff` in `PATH` + `[tool.ruff]` in `pyproject.toml` (or `ruff.toml`) |
+| `rustfmt` | `.rs` | `rustfmt` in `PATH` |
+| `shfmt` | `.sh .bash` | `shfmt` in `PATH` |
+| `clang-format` | `.c .cpp .h` … | `.clang-format` config + `clang-format` in `PATH` |
+
+- Detection is **config-aware**: ruff won't run in a project without a `[tool.ruff]` section; prettier won't run without a `package.json` dependency. No unexpected reformatting of foreign code.
+- Formatter errors are swallowed — a failed formatter never blocks `write`/`edit`.
+- Disable with `"formattersEnabled": false` in `cuckoo-settings.json`.
 
 ### Session persistence
 
@@ -226,7 +249,7 @@ Cookie Code intercepts it, executes it in a sandbox, and returns the result to t
 | Tool | Description |
 |------|-------------|
 | `read`, `readLines` | Read files (with line numbers, offset/limit) |
-| `write`, `edit` | Create / modify files |
+| `write`, `edit` | Create / modify files (auto-formatted on save — see below) |
 | `deleteFile` | Delete a file |
 | `glob`, `grep` | File search (ripgrep-backed) |
 | `bash`, `pwsh` | Execute shell commands |
@@ -265,10 +288,11 @@ Everything visual lives in **Settings → Cookie Code** and persists in `cuckoo-
 
 ## Safety
 
-- Optional approval gate for tool calls (off / risky tools only / all calls)
+- Optional approval gate for tool calls (off / risky tools only / all calls), configurable in-app or via Telegram `/settings`
 - 30 s command timeout, 60 s sandbox timeout
 - 1 MB output buffer
-- Dangerous command blocklist (rm -rf /, format, diskpart, …)
+- Editable dangerous command blocklist (rm -rf /, format, diskpart, …) — regex patterns, changeable from the Settings tab or via Telegram
+- Auto-formatters run only when the project config requires them (config-aware detection) and never block `write`/`edit`
 - File paths confined to the project directory
 
 ---
@@ -288,8 +312,12 @@ User settings live in `cuckoo-settings.json` under the app's userData directory:
   "toolBlockOpacity": 55,
   "toolBlockBlur": 0,
   "rgbUsername": true,
+  "formattersEnabled": true,
   "toolApprovalMode": "off",
-  "hideSystemMessages": true,
+  "hideSystemMessages": false,
+  "fileChipEnabled": true,
+  "showProducedFiles": true,
+  "language": "ru",
   "telegramEnabled": false,
   "telegramBotToken": "",
   "telegramChatId": "",
@@ -314,11 +342,15 @@ src/
 │   ├── session-store    Session ↔ project dir mapping
 │   ├── mcp-client       MCP SDK integration
 │   ├── skill-manager    Skills loading
+│   ├── format-registry  Built-in formatters (prettier/biome/gofmt/ruff/...)
+│   ├── formatter        Auto-format hook for write/edit
 │   ├── window.js        Window registry
 │   └── ...
 ├── preload/
 │   ├── api.js           contextBridge → electronAPI
 │   ├── index.js         Init & wiring
+│   ├── i18n/
+│   │   └── i18n.js          RU/EN translations, `t(key, params)` helper
 │   ├── dom/             DOM parsers & observers
 │   │   ├── observer.js       Main reply observer
 │   │   ├── tool-render.js    Inline tool blocks
@@ -327,6 +359,9 @@ src/
 │   │   ├── background.js     Wallpaper & blur engine
 │   │   └── ...
 │   └── overlay/         Overlay panel UI
+│       ├── template.js       buildOverlayHTML() + OVERLAY_CSS
+│       ├── diff-panel.js     Git changes / history panel
+│       └── todo-panel.js     Floating task list
 ├── providers/
 │   └── deepseek.js      Platform adapter
 ├── ui/

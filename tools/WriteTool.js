@@ -25,6 +25,15 @@ function formatWriteOutput(displayPath, operation) {
   return '<path>' + displayPath + '</path>\n<type>file</type>\n<content>\n' + verb + ' file\n</content>';
 }
 
+function countLines(str) {
+  if (!str || str.length === 0) return 0;
+  const norm = String(str).replace(/\r\n/g, '\n');
+  const parts = norm.split('\n');
+  // "a\n" -> ["a",""] -> 1 line, "a\nb\n" -> ["a","b",""] -> 2 lines
+  if (parts.length > 0 && parts[parts.length - 1] === '') return parts.length - 1;
+  return parts.length;
+}
+
 /**
  * write 工具 - 仿照 dsh 的 write。
  * 创建或完全覆盖 UTF-8 文本文件。
@@ -87,6 +96,16 @@ class WriteTool extends Tool {
       // 判断是 create 还是 update（最小移植不读 before/after）
       const operation = fs.existsSync(resolvedPath) ? 'update' : 'create';
 
+      // Подсчёт строк для счётчика +added -removed в инлайн-блоке
+      let oldLines = 0;
+      if (operation === 'update') {
+        try {
+          const oldContent = fs.readFileSync(resolvedPath, 'utf-8');
+          oldLines = countLines(oldContent);
+        } catch (_) { oldLines = 0; }
+      }
+      const newLines = countLines(input.content);
+
       // 确保目录存在
       const dir = path.dirname(resolvedPath);
       if (!fs.existsSync(dir)) {
@@ -96,8 +115,22 @@ class WriteTool extends Tool {
       // 写文件
       fs.writeFileSync(resolvedPath, input.content, 'utf-8');
 
+      // Авто-форматирование (prettier/gofmt/ruff/... — по расширению и конфигу проекта).
+      // Опционально, ошибки не пробрасываются.
+      if (projectDir) {
+        const { formatAfterWrite } = require('../src/main/formatter');
+        await formatAfterWrite(resolvedPath, projectDir);
+      }
+
       console.log('[WriteTool] ' + (operation === 'create' ? 'Created' : 'Updated') + ':', resolvedPath);
-      return ToolResult.success(formatWriteOutput(input.filePath, operation));
+      const res = ToolResult.success(formatWriteOutput(input.filePath, operation));
+      // diff-статистика для инлайн-счётчика
+      res.stats = { added: newLines, removed: oldLines, operation };
+      // также в data для общности (AI увидит, но не критично)
+      if (res.data && typeof res.data === 'string') {
+        // сохраняем envelope как data, stats отдельно
+      }
+      return res;
     } catch (err) {
       return ToolResult.error('写入文件失败: ' + err.message);
     }

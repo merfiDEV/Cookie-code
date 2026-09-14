@@ -2,7 +2,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { detectTrigger, boundaryOk } = require('../../src/preload/dom/commands/detect');
-const { COMMANDS, findCommand, searchCommands, PLAN_PROMPT, REVIEW_PROMPT, SUMMARIZE_PROMPT, descOf } = require('../../src/preload/dom/commands/registry');
+const { COMMANDS, findCommand, searchCommands, REVIEW_PROMPT, SUMMARIZE_PROMPT, descOf } = require('../../src/preload/dom/commands/registry');
+const { PLAN_PROMPT } = require('../../src/preload/dom/plan-prompt');
 const { collectReviewDiff, buildReviewPrompt } = require('../../src/preload/dom/commands/review-context');
 
 // ==================== detect ====================
@@ -96,13 +97,6 @@ test('boundaryOk: начало, пробел, пунктуация', () => {
 
 // ==================== registry ====================
 
-test('registry: команда plan зарегистрирована', () => {
-  const cmd = findCommand('plan');
-  assert.ok(cmd);
-  assert.strictEqual(cmd.name, 'plan');
-  assert.ok(cmd.prompt.length > 100);
-});
-
 test('registry: команда review зарегистрирована', () => {
   const cmd = findCommand('review');
   assert.ok(cmd);
@@ -148,8 +142,9 @@ test('review-context: сообщает причину при отсутстви�
 });
 
 test('registry: findCommand нечувствителен к регистру', () => {
-  assert.ok(findCommand('PLAN'));
-  assert.ok(findCommand('Plan'));
+  assert.ok(findCommand('REVIEW'));
+  assert.ok(findCommand('Review'));
+  assert.ok(findCommand('SUMMARIZE'));
 });
 
 test('registry: findCommand неизвестной команды', () => {
@@ -159,15 +154,14 @@ test('registry: findCommand неизвестной команды', () => {
 });
 
 test('registry: searchCommands по префиксу', () => {
-  assert.deepStrictEqual(searchCommands('pl').map((c) => c.name), ['plan']);
-  assert.deepStrictEqual(searchCommands('p').map((c) => c.name), ['plan']);
   assert.deepStrictEqual(searchCommands('re').map((c) => c.name), ['review']);
   assert.deepStrictEqual(searchCommands('sum').map((c) => c.name), ['summarize']);
-  assert.deepStrictEqual(searchCommands('').map((c) => c.name), ['plan', 'review', 'summarize']);
+  assert.deepStrictEqual(searchCommands('s').map((c) => c.name), ['summarize']);
+  assert.deepStrictEqual(searchCommands('').map((c) => c.name), ['review', 'summarize']);
   assert.deepStrictEqual(searchCommands('xyz'), []);
 });
 
-test('registry: PLAN_PROMPT содержит ключевые фразы', () => {
+test('plan-prompt: PLAN_PROMPT содержит ключевые фразы', () => {
   assert.ok(PLAN_PROMPT.includes('计划模式'));
   assert.ok(PLAN_PROMPT.includes('计划 Markdown'));
   assert.ok(PLAN_PROMPT.includes('等待用户确认'));
@@ -183,10 +177,10 @@ test('registry: все команды имеют обязательные пол
 });
 
 test('registry: descOf резолвит через функцию перевода', () => {
-  const cmd = findCommand('plan');
+  const cmd = findCommand('review');
   const fakeT = (key) => 'T:' + key;
-  assert.strictEqual(descOf(cmd, fakeT), 'T:cmd.plan.description');
+  assert.strictEqual(descOf(cmd, fakeT), 'T:cmd.review.description');
   // без t() возвращает ключ
-  assert.strictEqual(descOf(cmd), 'cmd.plan.description');
+  assert.strictEqual(descOf(cmd), 'cmd.review.description');
   assert.strictEqual(descOf(null), '');
 });

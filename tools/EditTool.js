@@ -51,6 +51,14 @@ function formatDryRunOutput(displayPath, oldString, newString, occurrences, repl
     '。old: ' + JSON.stringify(oldString) + ' → new: ' + JSON.stringify(newString);
 }
 
+function countLines(str) {
+  if (!str || str.length === 0) return 0;
+  const norm = String(str).replace(/\r\n/g, '\n');
+  const parts = norm.split('\n');
+  if (parts.length > 0 && parts[parts.length - 1] === '') return parts.length - 1;
+  return parts.length;
+}
+
 /**
  * edit 工具 - 仿照 dsh 的 edit。
  * 对现有 UTF-8 文本文件做精确字符串替换。
@@ -158,8 +166,19 @@ class EditTool extends Tool {
 
       fs.writeFileSync(resolvedPath, newContent, 'utf-8');
 
+      // Авто-форматирование после правки (см. WriteTool).
+      if (projectDir) {
+        const { formatAfterWrite } = require('../src/main/formatter');
+        await formatAfterWrite(resolvedPath, projectDir);
+      }
+
       console.log('[EditTool] 已编辑:', resolvedPath, '替换', occurrences, '处');
-      return ToolResult.success(formatEditOutput(input.filePath, input.replaceAll, occurrences));
+      const res = ToolResult.success(formatEditOutput(input.filePath, input.replaceAll, occurrences));
+      // diff-статистика для инлайн-счётчика: старый vs новый фрагмент
+      const oldLines = countLines(input.oldString);
+      const newLines = countLines(input.newString);
+      res.stats = { added: newLines * (input.replaceAll ? occurrences : 1), removed: oldLines * (input.replaceAll ? occurrences : 1), occurrences };
+      return res;
     } catch (err) {
       return ToolResult.error('编辑文件失败: ' + err.message);
     }

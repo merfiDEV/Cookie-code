@@ -212,7 +212,7 @@ function pick(idx) {
   const isReviewCommand = activeKind === 'command' && item.name === 'review';
 
   // Review отправляется после async-сбора diff. Не вставляем промежуточный
-  // prompt в поле: событие input может повторно открыть меню и выбрать plan.
+  // prompt в поле: событие input может повторно открыть меню и выбрать команду.
   if (isReviewCommand) {
     closeMenu();
     activeHit = null;

@@ -18,6 +18,8 @@ const observer = require('./dom/observer');
 const chatExport = require('./dom/chat-export');
 const chatInput = require('./dom/chat-input');
 const askUserQuestion = require('./dom/ask-user-question');
+const exitPlanMode = require('./dom/exit-plan-mode');
+const planModeToggle = require('./dom/plan-mode-toggle');
 const stealth = require('./dom/stealth');
 const settingsTab = require('./dom/settings-tab');
 const commands = require('./dom/commands');
@@ -53,6 +55,8 @@ async function init() {
       state.hideSystemMessages = Boolean(settings && settings.hideSystemMessages === true);
       // Чипы файловых путей (по умолчанию включено)
       state.fileChipEnabled = !settings || settings.fileChipEnabled !== false;
+      // Блок «Затронуто» под ответом (по умолчанию включено)
+      state.showProducedFiles = !settings || settings.showProducedFiles !== false;
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,
@@ -62,6 +66,8 @@ async function init() {
     // Регистрируем IPC-листенеры всегда — от них зависит ввод и парсинг tool-блоков
     safe('init.registerIpcListeners', () => chatInput.registerIpcListeners());
     safe('init.registerAskUserQuestionListener', () => askUserQuestion.registerAskUserQuestionListener());
+    safe('init.registerExitPlanModeListener', () => exitPlanMode.registerExitPlanModeListener());
+    safe('init.planModeToggleStart', () => planModeToggle.startWatch());
 
     // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события
     safe('init.injectCSS', () => ui.injectCSS());
@@ -90,7 +96,7 @@ async function init() {
     // 启动设置面板标签注入
     safe('init.settingsTabStart', () => settingsTab.start());
 
-    // Slash-команды: автодополнение и /plan
+    // Slash-команды: автодополнение (review/summarize)
     safe('init.commandsStart', () => commands.start());
 
     // Принудительно держим тёмную тему DeepSeek
@@ -102,6 +108,12 @@ async function init() {
     // Стилизация абсолютных путей к файлам как чипов с открытием в системе
     safe('init.fileChipSetEnabled', () => fileChip.setEnabled(state.fileChipEnabled !== false));
     safe('init.fileChipStart', () => fileChip.startWatch());
+
+    // Блок «Затронуто» под ответом AI — вкл/выкл через настройки
+    safe('init.producedFilesSetEnabled', () => {
+      const rm = require('./dom/response-meta');
+      if (typeof rm.setEnabled === 'function') rm.setEnabled(state.showProducedFiles !== false);
+    });
 
     // Кнопка экспорта ответа в PDF/DOCX под каждым ответом AI
     safe('init.chatExportStart', () => chatExport.startWatch());

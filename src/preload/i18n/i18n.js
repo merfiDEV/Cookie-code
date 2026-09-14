@@ -203,9 +203,13 @@ const KEYS = {
   // ---- Slash-команды ----
   'cmd.menu.title':             { ru: 'Команды',                    en: 'Commands' },
   'cmd.menu.files':             { ru: 'Файлы проекта',              en: 'Project files' },
-  'cmd.plan.description':       { ru: 'Войти в режим плана и вставить план-промпт', en: 'Enter plan mode and inject the plan prompt' },
   'cmd.review.description':     { ru: 'Проверить текущие изменения проекта', en: 'Review current project changes' },
   'cmd.summarize.description':  { ru: 'Сделать краткий итог текущей сессии', en: 'Summarize the current session' },
+  'plan.toggle.label':          { ru: 'План',                       en: 'Plan' },
+  'plan.dialog.title':          { ru: 'План на утверждение',        en: 'Plan for approval' },
+  'plan.dialog.deny':           { ru: 'Отказать в плане',           en: 'Reject plan' },
+  'plan.dialog.approve':        { ru: 'Согласиться',                en: 'Approve' },
+  'plan.approve.prompt':        { ru: 'Работай в соответствии с планом', en: 'Work according to the plan' },
 
   // ---- Подтверждение tool-вызовов (approval gate) ----
   'approval.title.tool':        { ru: 'Подтверждение вызова инструмента', en: 'Tool call approval' },
@@ -229,8 +233,36 @@ const KEYS = {
   'settings.hideSystemMessages.hint': { ru: 'Результаты инструментов, JS-сводки и системный промпт по-прежнему уходят в AI, но не отображаются в чате', en: 'Tool results, JS digests and the system prompt still reach the AI but stay invisible in the chat' },
   'settings.fileChip': { ru: 'Файловые пути как кликабельные чипы', en: 'File paths as clickable chips' },
   'settings.fileChip.hint': { ru: 'Абсолютные пути (C:\\…, D:\\…) превращаются в чипы. Клик открывает файл в VS Code (или в проводнике)', en: 'Absolute paths (C:\\…, D:\\…) become chips. Click opens the file in VS Code (or in explorer)' },
-  'settings.fileChip': { ru: 'Файловые пути как кликабельные чипы', en: 'File paths as clickable chips' },
-  'settings.fileChip.hint': { ru: 'Абсолютные пути (C:\\…, D:\\…) превращаются в чипы. Клик открывает файл в VS Code (или в проводнике)', en: 'Absolute paths (C:\\…, D:\\…) become chips. Click opens the file in VS Code (or in explorer)' },
+  'settings.showProducedFiles': { ru: 'Показывать затронутые файлы под ответом', en: 'Show affected files under AI reply' },
+  'settings.showProducedFiles.hint': { ru: 'Блок «Затронуто # файл» под каждым ответом AI — только успешные write/edit/delete', en: '“Affected # file” block under each AI reply — only successful write/edit/delete' },
+  'settings.formatters': { ru: 'Авто-форматирование после write/edit', en: 'Auto-format after write/edit' },
+  'settings.formatters.hint': { ru: 'prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format — по расширению и конфигу проекта', en: 'prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format — by file extension and project config' },
+
+  // ---- Diff-панель ----
+  'diff.btn.title':             { ru: 'Показать diff изменённых файлов', en: 'Show diff of changed files' },
+  'diff.title':                 { ru: 'Изменения (git)',           en: 'Changes (git)' },
+  'diff.btn.refresh':           { ru: 'Обновить',                  en: 'Refresh' },
+  'diff.btn.close':             { ru: 'Закрыть',                   en: 'Close' },
+  'diff.tab.changes':           { ru: 'Изменения',                 en: 'Changes' },
+  'diff.tab.history':           { ru: 'История',                   en: 'History' },
+  'diff.loading':               { ru: 'Загрузка…',                 en: 'Loading…' },
+  'diff.commit.back':           { ru: '← Назад',                   en: '← Back' },
+  'diff.commit.back.title':     { ru: 'Назад к истории',           en: 'Back to history' },
+  'diff.commit.full':           { ru: 'Весь коммит',               en: 'Full commit' },
+  'diff.commit.full.title':     { ru: 'Показать весь коммит',      en: 'Show the full commit' },
+  'diff.commit.titlePrefix':    { ru: 'Весь коммит ',              en: 'Full commit ' },
+  'diff.empty':                 { ru: 'Пустой diff',               en: 'Empty diff' },
+  'diff.noChanges':             { ru: 'Нет изменённых файлов',     en: 'No changed files' },
+  'diff.noCommits':             { ru: 'Нет коммитов',              en: 'No commits' },
+  'diff.noFiles':               { ru: 'Нет файлов',                en: 'No files' },
+  'diff.gitNotFound':           { ru: 'git не найден',             en: 'git not found' },
+  'diff.diffFailed':            { ru: 'Не удалось получить diff',  en: 'Failed to fetch diff' },
+  'diff.error':                 { ru: 'Ошибка',                    en: 'Error' },
+  'diff.errorPrefix':           { ru: 'Ошибка: {msg}',             en: 'Error: {msg}' },
+
+  // ---- Todo-панель ----
+  'todo.btn.hide':              { ru: 'Скрыть',                    en: 'Hide' },
+  'todo.btn.show':              { ru: 'Показать задачи',           en: 'Show tasks' },
 
   // ---- Мета под ответом AI (время / токены / затронутые файлы) ----
   'meta.time.title':           { ru: 'Время ответа',               en: 'Response time' },

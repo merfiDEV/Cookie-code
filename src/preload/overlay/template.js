@@ -7,7 +7,8 @@ const { t } = require('../i18n/i18n');
 // через внутренний протокол cuckoo-asset:// — CSS-правило пустое, скрывает
 // только базовый цвет под картинкой.
 
-const OVERLAY_HTML = [
+function buildOverlayHTML() {
+  return [
 '<div id="cuckoo-overlay" class="cuckoo-overlay cuckoo-hidden">',
 '  <div class="cuckoo-header" id="cuckoo-overlay-drag">',
 '    <span class="cuckoo-title">Cookie Code</span>',
@@ -30,7 +31,7 @@ const OVERLAY_HTML = [
 '    <div class="cuckoo-actions">',
 '      <button id="cuckoo-btn-window-manager" class="cuckoo-btn cuckoo-btn-secondary" title="' + t('overlay.btn.windowManager.title') + '">' + t('overlay.btn.windowManager') + '</button>',
 '      <button id="cuckoo-btn-mcp" class="cuckoo-btn cuckoo-btn-secondary" title="' + t('overlay.btn.mcp.title') + '">MCP</button>',
-'      <button id="cuckoo-btn-diff" class="cuckoo-btn cuckoo-btn-secondary" title="Показать diff изменённых файлов">Diff</button>',
+'      <button id="cuckoo-btn-diff" class="cuckoo-btn cuckoo-btn-secondary" title="' + t('diff.btn.title') + '">Diff</button>',
 '    </div>',
 '    <div class="cuckoo-actions">',
       '<button id="cuckoo-btn-gen-doc" class="cuckoo-btn cuckoo-btn-primary" title="' + t('overlay.btn.genDoc.title') + '">' + t('overlay.btn.genDoc') + '</button>',
@@ -129,26 +130,26 @@ const OVERLAY_HTML = [
 '</div>',
 '<div id="cuckoo-diff-panel" class="cuckoo-window-manager cuckoo-hidden">',
 '  <div class="cuckoo-wm-header">',
-'    <span class="cuckoo-title">Изменения (git)</span>',
+'    <span class="cuckoo-title">' + t('diff.title') + '</span>',
 '    <div style="display:flex;gap:6px;align-items:center;">',
-'      <button id="cuckoo-diff-refresh" class="cuckoo-btn-refresh-sessions" title="Обновить">🔄</button>',
-'      <button id="cuckoo-diff-close" class="cuckoo-btn-icon" title="Закрыть">×</button>',
+'      <button id="cuckoo-diff-refresh" class="cuckoo-btn-refresh-sessions" title="' + t('diff.btn.refresh') + '">🔄</button>',
+'      <button id="cuckoo-diff-close" class="cuckoo-btn-icon" title="' + t('diff.btn.close') + '">×</button>',
 '    </div>',
 '  </div>',
 '  <div class="cuckoo-diff-tabs">',
-'    <button id="cuckoo-diff-tab-changes" class="cuckoo-diff-tab active">Изменения</button>',
-'    <button id="cuckoo-diff-tab-history" class="cuckoo-diff-tab">История</button>',
+'    <button id="cuckoo-diff-tab-changes" class="cuckoo-diff-tab active">' + t('diff.tab.changes') + '</button>',
+'    <button id="cuckoo-diff-tab-history" class="cuckoo-diff-tab">' + t('diff.tab.history') + '</button>',
 '  </div>',
 '  <div class="cuckoo-wm-body cuckoo-diff-body">',
 '    <div id="cuckoo-diff-list" class="cuckoo-diff-list">',
-'      <div class="cuckoo-session-empty">Загрузка…</div>',
+'      <div class="cuckoo-session-empty">' + t('diff.loading') + '</div>',
 '    </div>',
 '    <div id="cuckoo-git-log-list" class="cuckoo-diff-list cuckoo-hidden"></div>',
 '    <div id="cuckoo-commit-files" class="cuckoo-commit-files cuckoo-hidden">',
 '      <div class="cuckoo-commit-files-header">',
-'        <button id="cuckoo-commit-back" class="cuckoo-btn-text" title="Назад к истории">← Назад</button>',
+'        <button id="cuckoo-commit-back" class="cuckoo-btn-text" title="' + t('diff.commit.back.title') + '">' + t('diff.commit.back') + '</button>',
 '        <span id="cuckoo-commit-subject" class="cuckoo-commit-subject"></span>',
-'        <button id="cuckoo-commit-full" class="cuckoo-btn-refresh-sessions" title="Показать весь коммит">Весь коммит</button>',
+'        <button id="cuckoo-commit-full" class="cuckoo-btn-refresh-sessions" title="' + t('diff.commit.full.title') + '">' + t('diff.commit.full') + '</button>',
 '      </div>',
 '      <div id="cuckoo-commit-files-list" class="cuckoo-diff-list"></div>',
 '    </div>',
@@ -157,7 +158,7 @@ const OVERLAY_HTML = [
 '<div id="cuckoo-diff-viewer" class="cuckoo-diff-viewer cuckoo-hidden">',
 '  <div class="cuckoo-wm-header">',
 '    <span id="cuckoo-diff-viewer-title" class="cuckoo-title">diff</span>',
-'    <button id="cuckoo-diff-viewer-close" class="cuckoo-btn-icon" title="Закрыть">×</button>',
+'    <button id="cuckoo-diff-viewer-close" class="cuckoo-btn-icon" title="' + t('diff.btn.close') + '">×</button>',
 '  </div>',
 '  <div id="cuckoo-diff-viewer-body" class="cuckoo-diff-viewer-body"></div>',
 '</div>',
@@ -166,14 +167,14 @@ const OVERLAY_HTML = [
 '    <span class="cuckoo-todo-title">Cookie Code</span>',
 '    <div class="cuckoo-todo-header-right">',
 '      <span id="cuckoo-todo-counter" class="cuckoo-todo-counter">0/0</span>',
-'      <button id="cuckoo-todo-close" class="cuckoo-btn-icon" title="Скрыть">×</button>',
+'      <button id="cuckoo-todo-close" class="cuckoo-btn-icon" title="' + t('todo.btn.hide') + '">×</button>',
 '    </div>',
 '  </div>',
 '  <div class="cuckoo-todo-body">',
 '    <div id="cuckoo-todo-list" class="cuckoo-todo-list"></div>',
 '  </div>',
 '</div>',
-'<button id="cuckoo-todo-tab" class="cuckoo-todo-tab cuckoo-hidden" title="Показать задачи">',
+'<button id="cuckoo-todo-tab" class="cuckoo-todo-tab cuckoo-hidden" title="' + t('todo.btn.show') + '">',
 '  <span>Todo</span>',
 '  <span id="cuckoo-todo-tab-counter" class="cuckoo-todo-tab-counter">0/0</span>',
 '</button>',
@@ -190,7 +191,8 @@ const OVERLAY_HTML = [
 '    </div>',
 '  </div>',
 '</div>',
-].join('\n');
+  ].join('\n');
+}
 
 const OVERLAY_CSS = [
 ':root {',
@@ -702,6 +704,9 @@ const OVERLAY_CSS = [
 '  text-decoration: underline dashed rgba(167, 243, 192, 0.35);',
 '  cursor: pointer;',
 '}',
+'.cuckoo-tool-diff { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-family: "Consolas", "Cascadia Code", monospace; font-size: 11px; font-weight: 600; white-space: nowrap; }',
+'.cuckoo-diff-add { color: #4ade80; }',
+'.cuckoo-diff-del { color: #f87171; }',
 '.cuckoo-tool-block[data-expanded="true"] > .md-code-block {',
 '  display: block !important;',
 '  border-top: 1px solid rgba(255, 255, 255, 0.06);',
@@ -792,6 +797,10 @@ const OVERLAY_CSS = [
 '  background: rgba(139,147,255,0.22); color: #a8afff;',
 '  font-size: 10px; font-weight: 700; line-height: 1;',
 '}',
+'.cuckoo-produced-chip[data-status="error"] { border-color: rgba(255,107,122,0.45); background: rgba(60,15,22,0.65); }',
+'.cuckoo-produced-chip[data-status="error"] .cuckoo-produced-chip-hash { background: rgba(255,107,122,0.28); color: #ff8e9b; }',
+'.cuckoo-produced-chip[data-status="denied"] { border-color: rgba(251,191,36,0.45); background: rgba(60,45,15,0.6); }',
+'.cuckoo-produced-chip[data-status="denied"] .cuckoo-produced-chip-hash { background: rgba(251,191,36,0.28); color: #fbbf24; }',
 '.cuckoo-produced-chip-name { white-space: nowrap; }',
 // ========== RGB-переливание ника пользователя ==========
 // Переливание включается, если у <body> нет класса `cuckoo-rgb-off`.
@@ -1012,4 +1021,4 @@ const OVERLAY_CSS = [
 '.cuckoo-todo-item.in_progress .cuckoo-todo-icon { color: #8b93ff; }',
 ].join('\n');
 
-module.exports = { OVERLAY_HTML, OVERLAY_CSS };
+module.exports = { buildOverlayHTML, OVERLAY_CSS };

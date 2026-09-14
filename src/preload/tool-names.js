@@ -29,6 +29,7 @@ const TOOL_NAMES = [
   'skill_list',
   'skill_load',
   'skill_execute',
+  'exit_plan_mode',
 ];
 
 /** 判断工具名是否存在（原 toolManager.tools.has(name)） */

@@ -201,8 +201,35 @@ async function executeJsBlocksWithRetry(initialBlocks, markdown, force) {
     // чтобы пользователь видел результат под кодом, а не отдельным сообщением.
     for (const item of results) {
       try { toolResultInline.markToolBlockResult(item.code, item.result); } catch (_) {}
+      // Счётчик изменённых строк в шапке инлайн-блока +829 -53
+      try {
+        let added = 0, removed = 0;
+        const r = item.result;
+        if (r) {
+          if (Array.isArray(r.stats)) {
+            for (const s of r.stats) { added += Number(s.added)||0; removed += Number(s.removed)||0; }
+          } else if (r.stats && typeof r.stats.added === 'number') {
+            added = Number(r.stats.added)||0; removed = Number(r.stats.removed)||0;
+          } else if (r.data && r.data.stats) {
+            added = Number(r.data.stats.added)||0; removed = Number(r.data.stats.removed)||0;
+          }
+        }
+        // fallback: если stats нет — попробуем оценить из кода (write/edit) чтобы не оставлять пусто
+        if (added === 0 && removed === 0 && r && r.success) {
+          try {
+            const est = toolRender.detectTool ? null : null;
+            // оставляем пусто — не показываем 0/0
+          } catch (_) {}
+        }
+        if (added || removed) toolRender.markToolBlockDiff(item.code, { added, removed });
+      } catch (_) {}
     }
     sendCombinedJsResultsToChat(results);
+    // Факт-основанный учёт «затронутых файлов» — только успешные write/edit/delete
+    try {
+      const msgEl = (markdown && typeof markdown.closest === 'function' ? markdown.closest('.ds-message') : null) || responseMeta.findLatestAIMessage();
+      if (msgEl) responseMeta.recordExecutionResults(msgEl, results);
+    } catch (_) {}
   }
 }
 /**
@@ -855,6 +882,12 @@ async function handleToolCall(toolCall) {
       output: result.success ? JSON.stringify(result.data, null, 2) : (result.error || t('overlay.output.unknownError')),
       timestamp: Date.now(),
     });
+
+    // Факт-основанный учёт файлов — только успешные file-операции
+    try {
+      const msgEl = responseMeta.findLatestAIMessage();
+      if (msgEl) responseMeta.recordSingleToolCall(msgEl, toolName, params, result);
+    } catch (_) {}
 
     // 将执行结果发送回聊天，让 AI 看到结果并继续工作
     sendToolResultToChat(toolCall, result);
