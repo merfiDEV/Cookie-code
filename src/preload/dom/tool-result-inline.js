@@ -23,6 +23,7 @@
  * скрывается stealth-режимом — пользователь видит результат только здесь.
  */
 const { t } = require('../i18n/i18n');
+const { safe } = require('./safe');
 
 const STYLE_ID = 'cuckoo-tool-result-style';
 const RESULT_CLASS = 'cuckoo-tool-result';
@@ -186,6 +187,10 @@ function injectResult(block, res) {
  * Вызывается из markToolBlockResult и после каждой decorate().
  */
 function applyPendingResults() {
+  safe('tool-result-inline.applyPendingResults', () => applyPendingResultsInner());
+}
+
+function applyPendingResultsInner() {
   if (typeof document === 'undefined') return;
   loadStoredResults();
   if (pendingResults.size === 0) return;
@@ -215,12 +220,14 @@ function applyPendingResults() {
  * @returns {boolean}
  */
 function markToolBlockResult(code, result) {
-  const key = codeKey(code);
-  if (!key) return false;
-  pendingResults.set(key, { status: statusOf(result), output: outputOf(result) });
-  persistResult(key, statusOf(result), outputOf(result));
-  try { applyPendingResults(); } catch (_) {}
-  return true;
+  return safe('tool-result-inline.markToolBlockResult', () => {
+    const key = codeKey(code);
+    if (!key) return false;
+    pendingResults.set(key, { status: statusOf(result), output: outputOf(result) });
+    persistResult(key, statusOf(result), outputOf(result));
+    try { applyPendingResults(); } catch (_) {}
+    return true;
+  }, false);
 }
 
 /**

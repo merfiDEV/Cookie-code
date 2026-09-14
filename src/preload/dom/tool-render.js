@@ -7,6 +7,8 @@
  * При перерисовке React observer вызывает decorate() повторно — идемпотентно.
  */
 
+const { safe } = require('./safe');
+
 const BLOCK_CLASS = 'cuckoo-tool-block';
 const WRAPPED_ATTR = 'data-cuckoo-tool-wrapped';
 
@@ -88,6 +90,10 @@ function extractFileHint(code, toolId) {
  */
 function decorate(scope) {
   if (!scope) return;
+  safe('tool-render.decorate', () => decorateInner(scope));
+}
+
+function decorateInner(scope) {
   const codeBlocks = scope.querySelectorAll('.md-code-block');
   codeBlocks.forEach((block) => {
     if (block.getAttribute(WRAPPED_ATTR) === '1') return;
@@ -215,14 +221,18 @@ function startWatch() {
   };
 
   if (document.body) {
-    const mo = new MutationObserver(runAll);
-    mo.observe(document.body, { childList: true, subtree: true });
-    runAll();
-  } else {
-    document.addEventListener('DOMContentLoaded', () => {
+    safe('tool-render.startWatch.observe', () => {
       const mo = new MutationObserver(runAll);
       mo.observe(document.body, { childList: true, subtree: true });
       runAll();
+    });
+  } else {
+    document.addEventListener('DOMContentLoaded', () => {
+      safe('tool-render.startWatch.observeDelayed', () => {
+        const mo = new MutationObserver(runAll);
+        mo.observe(document.body, { childList: true, subtree: true });
+        runAll();
+      });
     }, { once: true });
   }
 
@@ -234,26 +244,28 @@ function startWatch() {
 const pendingErrors = new Map();
 
 function markToolBlockError(code, errorText) {
-  if (!code) return;
-  const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
-  const key = norm(code).slice(0, 60);
-  if (!key) return;
+  safe('tool-render.markToolBlockError', () => {
+    if (!code) return;
+    const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const key = norm(code).slice(0, 60);
+    if (!key) return;
 
-  // Запоминаем: как только блок с таким кодом появится — пометим.
-  pendingErrors.set(key, String(errorText || '执行失败'));
+    // Запоминаем: как только блок с таким кодом появится — пометим.
+    pendingErrors.set(key, String(errorText || '执行失败'));
 
-  // Сохраняем в localStorage — переживёт Ctrl+R (перезагрузку страницы).
-  try {
-    const raw = localStorage.getItem('cuckoo-errors') || '{}';
-    const store = JSON.parse(raw);
-    store[key] = String(errorText || '执行失败');
-    localStorage.setItem('cuckoo-errors', JSON.stringify(store));
-  } catch (_) {}
+    // Сохраняем в localStorage — переживёт Ctrl+R (перезагрузку страницы).
+    try {
+      const raw = localStorage.getItem('cuckoo-errors') || '{}';
+      const store = JSON.parse(raw);
+      store[key] = String(errorText || '执行失败');
+      localStorage.setItem('cuckoo-errors', JSON.stringify(store));
+    } catch (_) {}
 
-  console.log('[Cookie Code] tool-render: ошибка поставлена в очередь:', key, '→', String(errorText || '').slice(0, 80));
+    console.log('[Cookie Code] tool-render: ошибка поставлена в очередь:', key, '→', String(errorText || '').slice(0, 80));
 
-  // И пробуем применить прямо сейчас (вдруг блок уже в DOM).
-  applyPendingErrors();
+    // И пробуем применить прямо сейчас (вдруг блок уже в DOM).
+    applyPendingErrors();
+  });
 }
 
 /**
@@ -261,6 +273,10 @@ function markToolBlockError(code, errorText) {
  * Вызывается при каждой обёртке (decorate) и через polling.
  */
 function applyPendingErrors() {
+  safe('tool-render.applyPendingErrors', () => applyPendingErrorsInner());
+}
+
+function applyPendingErrorsInner() {
   // Подтягиваем сохранённые из localStorage (после перезагрузки страницы).
   try {
     const raw = localStorage.getItem('cuckoo-errors');

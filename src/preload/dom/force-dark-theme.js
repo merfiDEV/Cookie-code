@@ -6,24 +6,34 @@
  * темы с текстом «Тёмная» (ru) / «Dark» (en).
  *
  * Работает постоянно: MutationObserver на class <body> + interval-страховка.
+ *
+ * Все операции с DOM обёрнуты в safe(): при изменении вёрстки на сайте
+ * модуль просто пропускает шаг и пишет предупреждение в консоль,
+ * не ломая приложение.
  */
+
+const { safe } = require('./safe');
 
 let started = false;
 let clicking = false;
 
 /** Кнопка переключения на тёмную тему. */
 function findDarkButton() {
-  const btns = document.querySelectorAll('div[role="button"], button');
-  for (const b of btns) {
-    const txt = (b.textContent || '').trim();
-    if (txt === 'Тёмная' || txt === 'Dark' || txt === 'Темная') return b;
-  }
-  return null;
+  return safe('force-dark-theme.findDarkButton', () => {
+    const btns = document.querySelectorAll('div[role="button"], button');
+    for (const b of btns) {
+      const txt = (b.textContent || '').trim();
+      if (txt === 'Тёмная' || txt === 'Dark' || txt === 'Темная') return b;
+    }
+    return null;
+  }, null);
 }
 
 /** Тёмная ли сейчас тема. */
 function isDark() {
-  return document.body && document.body.classList.contains('dark');
+  return safe('force-dark-theme.isDark', () => {
+    return document.body && document.body.classList.contains('dark');
+  }, false);
 }
 
 /** Если тема не тёмная — переключить на тёмную. */
@@ -47,20 +57,20 @@ function startWatch() {
   started = true;
 
   // Реакция на смену класса <body> (переключение темы).
-  const bodyMo = new MutationObserver(enforce);
-  try {
+  safe('force-dark-theme.observeBody', () => {
+    const bodyMo = new MutationObserver(enforce);
     bodyMo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  } catch (_) {}
+  });
 
   // На случай, если кнопка появляется позже (SPA-перерисовка).
-  const docMo = new MutationObserver(enforce);
-  try {
+  safe('force-dark-theme.observeDoc', () => {
+    const docMo = new MutationObserver(enforce);
     docMo.observe(document.documentElement, { childList: true, subtree: true });
-  } catch (_) {}
+  });
 
   // Стартовый прогон + интервал-страховка.
-  enforce();
-  setInterval(enforce, 1000);
+  safe('force-dark-theme.enforceStart', enforce);
+  setInterval(() => safe('force-dark-theme.enforceInterval', enforce), 1000);
 }
 
 module.exports = { startWatch, enforce, isDark };

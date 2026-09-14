@@ -19,6 +19,7 @@ const { getProviderByUrl } = require('../../../src/providers');
 const { hasTool, toolNamesList } = require('../tool-names');
 const { t } = require('../i18n/i18n');
 const state = require('./state');
+const { safe } = require('./safe');
 
 /**
  * 手动解析按钮点击处理
@@ -239,9 +240,30 @@ function ensureStabilityTimer() {
  * 回复结束后，获取最新一条 AI 回复的内容并解析工具调用
  * 改为 async：执行前可能需要等待用户确认（approval gate）。
  * 调用方均为 fire-and-forget，不依赖返回值。
+ *
+ * Публичная обёртка ловит синхронные и асинхронные исключения и пишет
+ * предупреждение в консоль: сбой парсинга из-за изменений вёрстки DeepSeek
+ * не должен валить observer/interval-циклы.
  * @param {number} retryCount 当前重试次数（内容不完整时延迟重试）
  */
-async function processLatestAIResponse(retryCount = 0, force = false) {
+function processLatestAIResponse(retryCount = 0, force = false) {
+  try {
+    const p = processLatestAIResponseInner(retryCount, force);
+    if (p && typeof p.catch === 'function') {
+      p.catch((err) => {
+        const msg = err && err.message ? err.message : String(err);
+        try { console.warn('[Cookie Code][safe:observer.processLatestAIResponse] ' + msg); } catch (_) {}
+      });
+    }
+    return p;
+  } catch (err) {
+    const msg = err && err.message ? err.message : String(err);
+    try { console.warn('[Cookie Code][safe:observer.processLatestAIResponse] ' + msg); } catch (_) {}
+    return undefined;
+  }
+}
+
+async function processLatestAIResponseInner(retryCount = 0, force = false) {
   const messages = getMessageCandidates();
   if (messages.length === 0) {
     return;
@@ -572,9 +594,9 @@ function sleep(ms) {
 }
 function startObserver() {
   if (state.customizationEnabled !== false) {
-    try { toolRender.startWatch(); } catch (e) { console.error('[Cookie Code] tool-render startWatch failed:', e.message); }
+    safe('observer.startObserver.toolRender', () => toolRender.startWatch());
   }
-  try { responseMeta.startWatch(); } catch (e) { console.error('[Cookie Code] response-meta startWatch failed:', e.message); }
+  safe('observer.startObserver.responseMeta', () => responseMeta.startWatch());
 
   const observer = new MutationObserver((mutations) => {
     // 节流：避免页面高频 DOM 变化导致日志与检测刷屏。
