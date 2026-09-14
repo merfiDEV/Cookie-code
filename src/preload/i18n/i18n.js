@@ -204,6 +204,7 @@ const KEYS = {
   'cmd.menu.files':             { ru: 'Файлы проекта',              en: 'Project files' },
   'cmd.plan.description':       { ru: 'Войти в режим плана и вставить план-промпт', en: 'Enter plan mode and inject the plan prompt' },
   'cmd.review.description':     { ru: 'Проверить текущие изменения проекта', en: 'Review current project changes' },
+  'cmd.summarize.description':  { ru: 'Сделать краткий итог текущей сессии', en: 'Summarize the current session' },
 
   // ---- Подтверждение tool-вызовов (approval gate) ----
   'approval.title.tool':        { ru: 'Подтверждение вызова инструмента', en: 'Tool call approval' },

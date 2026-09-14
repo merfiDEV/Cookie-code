@@ -2,7 +2,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { detectTrigger, boundaryOk } = require('../../src/preload/dom/commands/detect');
-const { COMMANDS, findCommand, searchCommands, PLAN_PROMPT, REVIEW_PROMPT, descOf } = require('../../src/preload/dom/commands/registry');
+const { COMMANDS, findCommand, searchCommands, PLAN_PROMPT, REVIEW_PROMPT, SUMMARIZE_PROMPT, descOf } = require('../../src/preload/dom/commands/registry');
 const { collectReviewDiff, buildReviewPrompt } = require('../../src/preload/dom/commands/review-context');
 
 // ==================== detect ====================
@@ -112,6 +112,15 @@ test('registry: команда review зарегистрирована', () => {
   assert.ok(REVIEW_PROMPT.includes('CRITICAL、HIGH、MEDIUM 或 LOW'));
 });
 
+test('registry: команда summarize зарегистрирована', () => {
+  const cmd = findCommand('summarize');
+  assert.ok(cmd);
+  assert.strictEqual(cmd.name, 'summarize');
+  assert.strictEqual(cmd.prompt, SUMMARIZE_PROMPT);
+  assert.ok(SUMMARIZE_PROMPT.includes('已完成的任务'));
+  assert.ok(SUMMARIZE_PROMPT.includes('不要编造'));
+});
+
 test('review-context: собирает diff изменённых файлов', async () => {
   const calls = [];
   const result = await collectReviewDiff({
@@ -153,7 +162,8 @@ test('registry: searchCommands по префиксу', () => {
   assert.deepStrictEqual(searchCommands('pl').map((c) => c.name), ['plan']);
   assert.deepStrictEqual(searchCommands('p').map((c) => c.name), ['plan']);
   assert.deepStrictEqual(searchCommands('re').map((c) => c.name), ['review']);
-  assert.deepStrictEqual(searchCommands('').map((c) => c.name), ['plan', 'review']);
+  assert.deepStrictEqual(searchCommands('sum').map((c) => c.name), ['summarize']);
+  assert.deepStrictEqual(searchCommands('').map((c) => c.name), ['plan', 'review', 'summarize']);
   assert.deepStrictEqual(searchCommands('xyz'), []);
 });
 

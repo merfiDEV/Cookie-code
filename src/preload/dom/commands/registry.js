@@ -59,6 +59,22 @@ const REVIEW_PROMPT = [
 ].join('\n');
 
 /**
+ * Промпт краткого итога текущей сессии.
+ */
+const SUMMARIZE_PROMPT = [
+  '请总结当前会话和项目工作的进展。',
+  '',
+  '请简洁列出：',
+  '- 已完成的任务和关键决策；',
+  '- 修改过的文件以及每个文件的作用；',
+  '- 已运行的测试、构建或其他验证及其结果；',
+  '- 尚未完成的问题、风险和下一步建议。',
+  '',
+  '只使用当前会话和项目中可以确认的事实，不要编造没有执行过的操作。',
+  '使用简洁的 Markdown，先给出结论，再列出必要的细节。',
+].join('\n');
+
+/**
  * 已注册的命令列表。
  * @type {Array<{name: string, description: string, prompt: string}>}
  */
@@ -73,6 +89,11 @@ const COMMANDS = [
     name: 'review',
     descriptionKey: 'cmd.review.description',
     prompt: REVIEW_PROMPT,
+  },
+  {
+    name: 'summarize',
+    descriptionKey: 'cmd.summarize.description',
+    prompt: SUMMARIZE_PROMPT,
   },
 ];
 
@@ -115,6 +136,7 @@ module.exports = {
   COMMANDS,
   PLAN_PROMPT,
   REVIEW_PROMPT,
+  SUMMARIZE_PROMPT,
   findCommand,
   searchCommands,
   descOf,
