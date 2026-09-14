@@ -7,7 +7,8 @@ const { t } = require('../i18n/i18n');
 // через внутренний протокол cuckoo-asset:// — CSS-правило пустое, скрывает
 // только базовый цвет под картинкой.
 
-const OVERLAY_HTML = [
+function buildOverlayHTML() {
+  return [
 '<div id="cuckoo-overlay" class="cuckoo-overlay cuckoo-hidden">',
 '  <div class="cuckoo-header" id="cuckoo-overlay-drag">',
 '    <span class="cuckoo-title">Cookie Code</span>',
@@ -190,7 +191,8 @@ const OVERLAY_HTML = [
 '    </div>',
 '  </div>',
 '</div>',
-].join('\n');
+  ].join('\n');
+}
 
 const OVERLAY_CSS = [
 ':root {',
@@ -1016,4 +1018,4 @@ const OVERLAY_CSS = [
 '.cuckoo-todo-item.in_progress .cuckoo-todo-icon { color: #8b93ff; }',
 ].join('\n');
 
-module.exports = { OVERLAY_HTML, OVERLAY_CSS };
+module.exports = { buildOverlayHTML, OVERLAY_CSS };

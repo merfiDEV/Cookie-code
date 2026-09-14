@@ -130,9 +130,12 @@ Control and monitor Cookie Code from your phone:
 - **AI replies** — every AI text response is mirrored to Telegram (human-readable text, code blocks stripped).
 - **Incoming messages** — send a message to the bot and it lands in the DeepSeek chat as if you typed it.
 - **`/todos` command** — get the current task list of the active window from Telegram.
+- **`/help`** — full command reference straight from the chat.
+- **`/settings`** — interactive settings menu with inline buttons. Every Cookie Code option is editable from your phone: appearance (customization toggle, RGB username, UI language), glass & panel (blur, opacity, width, colors), agent & privacy (tool approval mode, hide service messages, auto-formatters, file chips, produced files, dangerous-pattern list), and the Telegram bot itself (token, chat ID, notification toggles). Wallpapers are intentionally excluded.
+- **`/cancel`** — abort a pending text input when editing a value.
 - **All-done notification** — when every task in the list becomes `completed`, the bot sends a one-time "🎉 All tasks completed" message (fires again after the list changes).
 - Lightweight, **dependency-free** client (long-polling, no VPS or webhook needed).
-- Configured in **Settings → Cookie Code → Telegram bot** (token from @BotFather + chat ID).
+- Configured in **Settings → Cookie Code → Telegram bot** (token from @BotFather + chat ID), or right from Telegram via `/settings`.
 
 ### Clean window
 
@@ -285,10 +288,11 @@ Everything visual lives in **Settings → Cookie Code** and persists in `cuckoo-
 
 ## Safety
 
-- Optional approval gate for tool calls (off / risky tools only / all calls)
+- Optional approval gate for tool calls (off / risky tools only / all calls), configurable in-app or via Telegram `/settings`
 - 30 s command timeout, 60 s sandbox timeout
 - 1 MB output buffer
-- Dangerous command blocklist (rm -rf /, format, diskpart, …)
+- Editable dangerous command blocklist (rm -rf /, format, diskpart, …) — regex patterns, changeable from the Settings tab or via Telegram
+- Auto-formatters run only when the project config requires them (config-aware detection) and never block `write`/`edit`
 - File paths confined to the project directory
 
 ---
@@ -310,7 +314,10 @@ User settings live in `cuckoo-settings.json` under the app's userData directory:
   "rgbUsername": true,
   "formattersEnabled": true,
   "toolApprovalMode": "off",
-  "hideSystemMessages": true,
+  "hideSystemMessages": false,
+  "fileChipEnabled": true,
+  "showProducedFiles": true,
+  "language": "ru",
   "telegramEnabled": false,
   "telegramBotToken": "",
   "telegramChatId": "",
@@ -342,6 +349,8 @@ src/
 ├── preload/
 │   ├── api.js           contextBridge → electronAPI
 │   ├── index.js         Init & wiring
+│   ├── i18n/
+│   │   └── i18n.js          RU/EN translations, `t(key, params)` helper
 │   ├── dom/             DOM parsers & observers
 │   │   ├── observer.js       Main reply observer
 │   │   ├── tool-render.js    Inline tool blocks
@@ -350,6 +359,9 @@ src/
 │   │   ├── background.js     Wallpaper & blur engine
 │   │   └── ...
 │   └── overlay/         Overlay panel UI
+│       ├── template.js       buildOverlayHTML() + OVERLAY_CSS
+│       ├── diff-panel.js     Git changes / history panel
+│       └── todo-panel.js     Floating task list
 ├── providers/
 │   └── deepseek.js      Platform adapter
 ├── ui/
