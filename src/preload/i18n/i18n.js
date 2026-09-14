@@ -231,6 +231,8 @@ const KEYS = {
   'settings.fileChip.hint': { ru: 'Абсолютные пути (C:\\…, D:\\…) превращаются в чипы. Клик открывает файл в VS Code (или в проводнике)', en: 'Absolute paths (C:\\…, D:\\…) become chips. Click opens the file in VS Code (or in explorer)' },
   'settings.showProducedFiles': { ru: 'Показывать затронутые файлы под ответом', en: 'Show affected files under AI reply' },
   'settings.showProducedFiles.hint': { ru: 'Блок «Затронуто # файл» под каждым ответом AI — только успешные write/edit/delete', en: '“Affected # file” block under each AI reply — only successful write/edit/delete' },
+  'settings.formatters': { ru: 'Авто-форматирование после write/edit', en: 'Auto-format after write/edit' },
+  'settings.formatters.hint': { ru: 'prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format — по расширению и конфигу проекта', en: 'prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format — by file extension and project config' },
 
   // ---- Мета под ответом AI (время / токены / затронутые файлы) ----
   'meta.time.title':           { ru: 'Время ответа',               en: 'Response time' },

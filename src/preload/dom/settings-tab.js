@@ -295,6 +295,12 @@ function buildContentHTML() {
     '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.showProducedFiles.hint') + '</span>' +
     '    </span>' +
     '  </label>' +
+    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;margin-top:8px;">' +
+    '    <input type="checkbox" id="cuckoo-formatters-enabled" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
+    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.formatters') +
+    '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.formatters.hint') + '</span>' +
+    '    </span>' +
+    '  </label>' +
     '</div>' +
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.background') + '</div>' +
@@ -886,6 +892,19 @@ function bindAgentSettings() {
       }
     });
   }
+
+  const fmtCb = document.getElementById('cuckoo-formatters-enabled');
+  if (fmtCb) {
+    fmtCb.addEventListener('change', async () => {
+      const enabled = fmtCb.checked;
+      // Применяется при следующем write/edit (читается из settings.json на главном процессе).
+      try {
+        await window.electronAPI.setCuckooSetting('formattersEnabled', enabled);
+      } catch (err) {
+        console.error('[Cookie Code] Не удалось сохранить formattersEnabled:', err.message);
+      }
+    });
+  }
 }
 
 /**
@@ -929,6 +948,10 @@ async function refreshAgentSettings() {
     if (producedCb) {
       producedCb.checked = !s || s.showProducedFiles !== false;
       state.showProducedFiles = producedCb.checked;
+    }
+    const fmtCb = document.getElementById('cuckoo-formatters-enabled');
+    if (fmtCb) {
+      fmtCb.checked = !s || s.formattersEnabled !== false;
     }
   } catch (_) {}
 }
