@@ -163,6 +163,56 @@ async function insertImageToChat(sender, filePath, caption, send) {
   }
 }
 
+/**
+ * Попытаться открыть файл в VS Code (команда code --goto <path>).
+ * @param {string} filePath — абсолютный путь
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+function tryOpenInVSCode(filePath) {
+  return new Promise((resolve) => {
+    const { exec } = require('child_process');
+    // Обёртка: code --goto "путь" — откроет файл в VS Code.
+    // На Windows 'code' — это code.cmd, доступный через cmd.exe.
+    const safePath = String(filePath).replace(/"/g, '""');
+    const cmd = process.platform === 'win32'
+      ? `cmd /c code --goto "${safePath}"`
+      : `code --goto "${safePath}"`;
+
+    exec(cmd, { timeout: 5000 }, (error, _stdout, stderr) => {
+      if (error) {
+        resolve({ success: false, error: (stderr || error.message || 'code не найден').trim() });
+        return;
+      }
+      resolve({ success: true });
+    });
+  });
+}
+
+/**
+ * Попытаться открыть файл в VS Code (команда code --goto <path>).
+ * @param {string} filePath — абсолютный путь
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+function tryOpenInVSCode(filePath) {
+  return new Promise((resolve) => {
+    const { exec } = require('child_process');
+    // Обёртка: code --goto "путь" — откроет файл в VS Code.
+    // На Windows 'code' — это code.cmd, доступный через cmd.exe.
+    const safePath = String(filePath).replace(/"/g, '""');
+    const cmd = process.platform === 'win32'
+      ? `cmd /c code --goto "${safePath}"`
+      : `code --goto "${safePath}"`;
+
+    exec(cmd, { timeout: 5000 }, (error, _stdout, stderr) => {
+      if (error) {
+        resolve({ success: false, error: (stderr || error.message || 'code не найден').trim() });
+        return;
+      }
+      resolve({ success: true });
+    });
+  });
+}
+
 function registerIpcHandlers() {
   // Мост Telegram → окно: ответ на вопрос из TG резолвит тот же promise.
   try {
@@ -185,6 +235,47 @@ function registerIpcHandlers() {
       return;
     }
     pending.resolve(Array.isArray(answers) ? answers : []);
+  });
+
+  // Открыть файл/папку в системе (из file-chip в ответе AI)
+  ipcMain.handle('open-path', async (_event, payload) => {
+    const targetPath = payload && payload.path;
+    if (!targetPath || typeof targetPath !== 'string') {
+      return { success: false, error: 'Путь не указан' };
+    }
+    try {
+      const fs = require('fs');
+      if (!fs.existsSync(targetPath)) {
+        return { success: false, error: 'Файл не найден: ' + targetPath };
+      }
+
+      const ext = path.extname(targetPath).toLowerCase();
+      const CODE_EXTS = new Set(['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs']);
+
+      // Скриптовые файлы Windows ассоциирует с Windows Script Host (WSH),
+      // который пытается их ВЫПОЛНИТЬ и падает с синтаксической ошибкой.
+      // Поэтому для них приоритетно открываем VS Code, при неудаче — проводник.
+      if (CODE_EXTS.has(ext)) {
+        const opened = await tryOpenInVSCode(targetPath);
+        if (opened.success) return { success: true, openedWith: 'vscode' };
+        // VS Code недоступен — показываем файл в проводнике (безопасно).
+        try {
+          shell.showItemInFolder(targetPath);
+          return { success: true, openedWith: 'explorer', note: opened.error };
+        } catch (err) {
+          return { success: false, error: err.message };
+        }
+      }
+
+      // Остальные файлы — обычным способом
+      const errorMsg = await shell.openPath(targetPath);
+      if (errorMsg) {
+        return { success: false, error: errorMsg };
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 
   // 初始化项目
@@ -411,6 +502,20 @@ function registerIpcHandlers() {
           body: notifText.body,
           icon: require('path').join(__dirname, '..', '..', 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
         });
+
+        // Клик по уведомлению — сфокусировать окно (восстановить из свёрнутого/трея).
+        notification.on('click', () => {
+          try {
+            if (!win || win.isDestroyed()) return;
+            if (win.isMinimized()) win.restore();
+            if (!win.isVisible()) win.show();
+            win.focus();
+            win.flashFrame(false);
+          } catch (err) {
+            console.error('[Cookie Code] notification click focus error:', err.message);
+          }
+        });
+
         notification.show();
 
         win.flashFrame(true);

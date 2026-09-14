@@ -22,4 +22,6 @@ module.exports = {
   // Скрывать ли служебные сообщения (результаты инструментов, системный промпт)
   // в чате. Загружается из настроек при init() и переключается на лету.
   hideSystemMessages: false,
+  fileChipEnabled: true,
+  fileChipEnabled: true,
 };

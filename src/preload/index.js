@@ -26,6 +26,7 @@ const reasoningGlass = require('./dom/reasoning-glass');
 const inputGlass = require('./dom/input-glass');
 const forceDarkTheme = require('./dom/force-dark-theme');
 const qrOverride = require('./dom/qr-override');
+const fileChip = require('./dom/file-chip');
 const i18n = require('./i18n/i18n');
 const state = require('./dom/state');
 const { getProviderByUrl } = require('../providers');
@@ -50,6 +51,8 @@ async function init() {
       state.toolApprovalMode = (settings && settings.toolApprovalMode) || 'off';
       // Скрытие служебных сообщений (по умолчанию выключено)
       state.hideSystemMessages = Boolean(settings && settings.hideSystemMessages === true);
+      // Чипы файловых путей (по умолчанию включено)
+      state.fileChipEnabled = !settings || settings.fileChipEnabled !== false;
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,
@@ -95,6 +98,10 @@ async function init() {
 
     // Подмена QR-кода в попапе «Скачать приложение»
     safe('init.qrOverrideStart', () => qrOverride.startWatch());
+
+    // Стилизация абсолютных путей к файлам как чипов с открытием в системе
+    safe('init.fileChipSetEnabled', () => fileChip.setEnabled(state.fileChipEnabled !== false));
+    safe('init.fileChipStart', () => fileChip.startWatch());
 
     // Кнопка экспорта ответа в PDF/DOCX под каждым ответом AI
     safe('init.chatExportStart', () => chatExport.startWatch());
