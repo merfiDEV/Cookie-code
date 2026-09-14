@@ -18,6 +18,8 @@ const observer = require('./dom/observer');
 const chatExport = require('./dom/chat-export');
 const chatInput = require('./dom/chat-input');
 const askUserQuestion = require('./dom/ask-user-question');
+const exitPlanMode = require('./dom/exit-plan-mode');
+const planModeToggle = require('./dom/plan-mode-toggle');
 const stealth = require('./dom/stealth');
 const settingsTab = require('./dom/settings-tab');
 const commands = require('./dom/commands');
@@ -64,6 +66,8 @@ async function init() {
     // Регистрируем IPC-листенеры всегда — от них зависит ввод и парсинг tool-блоков
     safe('init.registerIpcListeners', () => chatInput.registerIpcListeners());
     safe('init.registerAskUserQuestionListener', () => askUserQuestion.registerAskUserQuestionListener());
+    safe('init.registerExitPlanModeListener', () => exitPlanMode.registerExitPlanModeListener());
+    safe('init.planModeToggleStart', () => planModeToggle.startWatch());
 
     // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события
     safe('init.injectCSS', () => ui.injectCSS());

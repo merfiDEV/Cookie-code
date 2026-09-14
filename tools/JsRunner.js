@@ -158,6 +158,10 @@ const BOOTSTRAP = [
   "  globalThis.read_photo = async function (filePath, caption, send) {",
   "    return await __call('read_photo', { file_path: filePath, caption: caption || '', send: send !== false });",
   "  };",
+  "  globalThis.exitPlanMode = async function (plan) {",
+  "    return await __call('exit_plan_mode', { plan: plan });",
+  "  };",
+  "  globalThis.exit_plan_mode = globalThis.exitPlanMode;",
 "  globalThis.openBrowserWindow = async function (url, options) {",
 "    options = options || {};",
 "    return await __call('open_browser_window', {",
@@ -281,7 +285,7 @@ class JsRunner {
    * @param {string|null} projectDir - 当前项目目录（相对路径基准）
    * @returns {Promise<{success: boolean, output?: string, error?: string}>}
    */
-  async run(code, projectDir, senderId, askUserQuestion, pasteImage) {
+  async run(code, projectDir, senderId, askUserQuestion, pasteImage, exitPlanMode) {
     if (!code || typeof code !== 'string' || !code.trim()) {
       return { success: false, error: '无效的 JS 代码' };
     }
@@ -304,6 +308,17 @@ class JsRunner {
         args = {};
       }
 
+      // Режим плана: блокируем изменяющие операции (кроме записи plan.md).
+      try {
+        const planMode = require('../src/main/plan-mode');
+        if (planMode.isPlanMode(senderId)) {
+          const verdict = planMode.checkBlocked(op, args);
+          if (verdict.blocked) {
+            return JSON.stringify({ success: false, error: verdict.error });
+          }
+        }
+      } catch (_) { /* plan-mode недоступен — не блокируем */ }
+
       let result;
       if (op === '__bash') {
         result = await runBash(args, projectDir);
@@ -313,7 +328,7 @@ class JsRunner {
           result = { success: false, error: '未知工具: ' + op };
         } else {
           try {
-            result = await tool.execute(Object.assign({}, args, { projectDir, senderId, askUserQuestion, pasteImage }));
+            result = await tool.execute(Object.assign({}, args, { projectDir, senderId, askUserQuestion, pasteImage, exitPlanMode }));
           } catch (err) {
             result = { success: false, error: '工具 ' + op + ' 执行异常: ' + (err.message || String(err)) };
           }

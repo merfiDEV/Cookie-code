@@ -16,6 +16,7 @@ const chatExport = require('./chat-export');
 const { decodeOutput, normalizeCommand } = require('../../tools/decodeOutput');
 const gitDiff = require('./git-diff');
 const todoStore = require('./todo-store');
+const planMode = require('./plan-mode');
 
 /**
  * Если у окна все задачи выполнены (и список непустой) — пингуем Telegram один раз.
@@ -76,6 +77,25 @@ function resolveUserQuestionFromTelegram(requestId, answers) {
     }
   }
   return false;
+}
+
+// ===== Режим плана =====
+const pendingPlanApprovals = new Map();
+let planApprovalCounter = 0;
+
+/**
+ * Показать план пользователю и дождаться решения (согласие/отказ).
+ * @param {Electron.WebContents} sender
+ * @param {string} plan — markdown плана
+ * @returns {Promise<{approved: boolean}>}
+ */
+function requestExitPlanMode(sender, plan) {
+  const requestId = 'plan_' + Date.now() + '_' + (++planApprovalCounter);
+  const key = sender.id + ':' + requestId;
+  return new Promise((resolve, reject) => {
+    pendingPlanApprovals.set(key, { resolve, reject });
+    try { sender.send('exit-plan-mode', { requestId, plan: String(plan || '') }); } catch (_) {}
+  });
 }
 
 function maybeNotifyAllDone(senderId) {
@@ -223,6 +243,23 @@ function registerIpcHandlers() {
       });
     }
   } catch (_) {}
+
+  // Решение пользователя по плану (согласие/отказ из окна).
+  ipcMain.on('exit-plan-mode-response', (event, { requestId, approved } = {}) => {
+    if (!requestId) return;
+    const key = event.sender.id + ':' + requestId;
+    const pending = pendingPlanApprovals.get(key);
+    if (!pending) return;
+    pendingPlanApprovals.delete(key);
+    if (approved) planMode.clearPlanMode(event.sender.id);
+    pending.resolve({ approved: !!approved });
+  });
+
+  // Включение/выключение режима плана (кнопка-тумблер «План»).
+  ipcMain.handle('set-plan-mode', async (event, { enabled } = {}) => {
+    planMode.setPlanMode(event.sender.id, !!enabled);
+    return { success: true, planMode: planMode.isPlanMode(event.sender.id) };
+  });
 
   ipcMain.on('ask-user-question-response', (event, { requestId, answers, canceled } = {}) => {
     if (!requestId) return;
@@ -429,6 +466,15 @@ function registerIpcHandlers() {
     const ctx = windowState.getContextByWebContents(event.sender);
     const store = ctx ? ctx.sessionStore : null;
     const selectedDir = store ? store.state.selectedProjectDir : null;
+
+    // Режим плана: блокируем изменяющие инструменты (кроме записи plan.md).
+    if (planMode.isPlanMode(event.sender.id)) {
+      const verdict = planMode.checkBlocked(toolName, params || {});
+      if (verdict.blocked) {
+        return { callId, success: false, error: verdict.error };
+      }
+    }
+
     const taskToken = beginTask(event.sender.id);
     try {
       const result = await toolRegistry.execute(toolName, {
@@ -437,6 +483,7 @@ function registerIpcHandlers() {
         senderId: event.sender.id,
         askUserQuestion: (questions) => requestUserQuestion(event.sender, questions),
         pasteImage: (filePath, caption, send) => insertImageToChat(event.sender, filePath, caption, send),
+        exitPlanMode: (plan) => requestExitPlanMode(event.sender, plan),
       });
       if (isTaskCanceled(event.sender.id, taskToken)) {
         return { callId, success: false, canceled: true, error: '执行已被用户停止' };
@@ -565,7 +612,8 @@ function registerIpcHandlers() {
         selectedDir,
         event.sender.id,
         (questions) => requestUserQuestion(event.sender, questions),
-        (filePath, caption, send) => insertImageToChat(event.sender, filePath, caption, send)
+        (filePath, caption, send) => insertImageToChat(event.sender, filePath, caption, send),
+        (plan) => requestExitPlanMode(event.sender, plan)
       );
       if (isTaskCanceled(event.sender.id, taskToken)) {
         return { callId, success: false, canceled: true, error: '执行已被用户停止' };

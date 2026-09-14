@@ -24,4 +24,7 @@ module.exports = {
   hideSystemMessages: false,
   fileChipEnabled: true,
   showProducedFiles: true,
+  // Режим плана: пока включён — изменяющие инструменты заблокированы,
+  // модель пишет plan.md и завершает режим через exit_plan_mode().
+  planMode: false,
 };

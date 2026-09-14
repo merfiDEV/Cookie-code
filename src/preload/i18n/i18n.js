@@ -206,6 +206,10 @@ const KEYS = {
   'cmd.plan.description':       { ru: 'Войти в режим плана и вставить план-промпт', en: 'Enter plan mode and inject the plan prompt' },
   'cmd.review.description':     { ru: 'Проверить текущие изменения проекта', en: 'Review current project changes' },
   'cmd.summarize.description':  { ru: 'Сделать краткий итог текущей сессии', en: 'Summarize the current session' },
+  'plan.dialog.title':          { ru: 'План на утверждение',        en: 'Plan for approval' },
+  'plan.dialog.deny':           { ru: 'Отказать в плане',           en: 'Reject plan' },
+  'plan.dialog.approve':        { ru: 'Согласиться',                en: 'Approve' },
+  'plan.approve.prompt':        { ru: 'Работай в соответствии с планом', en: 'Work according to the plan' },
 
   // ---- Подтверждение tool-вызовов (approval gate) ----
   'approval.title.tool':        { ru: 'Подтверждение вызова инструмента', en: 'Tool call approval' },
