@@ -231,6 +231,12 @@ const KEYS = {
   'settings.fileChip.hint': { ru: 'Абсолютные пути (C:\\…, D:\\…) превращаются в чипы. Клик открывает файл в VS Code (или в проводнике)', en: 'Absolute paths (C:\\…, D:\\…) become chips. Click opens the file in VS Code (or in explorer)' },
   'settings.fileChip': { ru: 'Файловые пути как кликабельные чипы', en: 'File paths as clickable chips' },
   'settings.fileChip.hint': { ru: 'Абсолютные пути (C:\\…, D:\\…) превращаются в чипы. Клик открывает файл в VS Code (или в проводнике)', en: 'Absolute paths (C:\\…, D:\\…) become chips. Click opens the file in VS Code (or in explorer)' },
+
+  // ---- Мета под ответом AI (время / токены / затронутые файлы) ----
+  'meta.time.title':           { ru: 'Время ответа',               en: 'Response time' },
+  'meta.tokens.title':         { ru: 'Оценка количества токенов (chars / 4)', en: 'Estimated tokens (chars / 4)' },
+  'meta.produced':             { ru: 'Создано',                    en: 'Produced' },
+  'meta.produced.title':       { ru: 'Файлы, затронутые за этот ответ', en: 'Files touched in this response' },
 };
 
 // ========== Состояние ==========
