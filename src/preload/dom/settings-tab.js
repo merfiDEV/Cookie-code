@@ -277,10 +277,16 @@ function buildContentHTML() {
     '      <button class="cuckoo-approval-btn" data-mode="all" style="flex:1; padding:9px 10px; border-radius:10px; font-weight:600; font-size:12px; cursor:pointer; border:1px solid rgba(139,147,255,0.4); background:rgba(139,147,255,0.12); color:#cfd3ff; transition: all 0.18s;">' + t('settings.approval.all') + '</button>' +
     '    </div>' +
     '  </div>' +
-    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;">' +
+    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;margin-bottom:8px;">' +
     '    <input type="checkbox" id="cuckoo-hide-system-messages" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
     '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.hideSystemMessages') +
     '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.hideSystemMessages.hint') + '</span>' +
+    '    </span>' +
+    '  </label>' +
+    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;">' +
+    '    <input type="checkbox" id="cuckoo-file-chip-enabled" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
+    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.fileChip') +
+    '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.fileChip.hint') + '</span>' +
     '    </span>' +
     '  </label>' +
     '</div>' +
@@ -835,6 +841,26 @@ function bindAgentSettings() {
       }
     });
   }
+
+  const chipCb = document.getElementById('cuckoo-file-chip-enabled');
+  if (chipCb) {
+    chipCb.addEventListener('change', async () => {
+      const enabled = chipCb.checked;
+      // Мгновенно применяем в рантайме: модуль file-chip снимет/применит чипы.
+      state.fileChipEnabled = enabled;
+      try {
+        const fileChip = require('./file-chip');
+        fileChip.setEnabled(enabled);
+      } catch (err) {
+        console.error('[Cookie Code] fileChip.setEnabled error:', err.message);
+      }
+      try {
+        await window.electronAPI.setCuckooSetting('fileChipEnabled', enabled);
+      } catch (err) {
+        console.error('[Cookie Code] Не удалось сохранить fileChipEnabled:', err.message);
+      }
+    });
+  }
 }
 
 /**
@@ -868,6 +894,11 @@ async function refreshAgentSettings() {
     if (cb) {
       cb.checked = Boolean(s && s.hideSystemMessages === true);
       state.hideSystemMessages = cb.checked;
+    }
+    const chipCb = document.getElementById('cuckoo-file-chip-enabled');
+    if (chipCb) {
+      chipCb.checked = !s || s.fileChipEnabled !== false;
+      state.fileChipEnabled = chipCb.checked;
     }
   } catch (_) {}
 }

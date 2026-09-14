@@ -227,6 +227,16 @@ const KEYS = {
   'settings.approval.saved':    { ru: '✅ Режим сохранён',          en: '✅ Mode saved' },
   'settings.hideSystemMessages': { ru: 'Скрывать служебные сообщения в чате', en: 'Hide service messages in chat' },
   'settings.hideSystemMessages.hint': { ru: 'Результаты инструментов, JS-сводки и системный промпт по-прежнему уходят в AI, но не отображаются в чате', en: 'Tool results, JS digests and the system prompt still reach the AI but stay invisible in the chat' },
+  'settings.fileChip': { ru: 'Файловые пути как кликабельные чипы', en: 'File paths as clickable chips' },
+  'settings.fileChip.hint': { ru: 'Абсолютные пути (C:\\…, D:\\…) превращаются в чипы. Клик открывает файл в VS Code (или в проводнике)', en: 'Absolute paths (C:\\…, D:\\…) become chips. Click opens the file in VS Code (or in explorer)' },
+  'settings.fileChip': { ru: 'Файловые пути как кликабельные чипы', en: 'File paths as clickable chips' },
+  'settings.fileChip.hint': { ru: 'Абсолютные пути (C:\\…, D:\\…) превращаются в чипы. Клик открывает файл в VS Code (или в проводнике)', en: 'Absolute paths (C:\\…, D:\\…) become chips. Click opens the file in VS Code (or in explorer)' },
+
+  // ---- Мета под ответом AI (время / токены / затронутые файлы) ----
+  'meta.time.title':           { ru: 'Время ответа',               en: 'Response time' },
+  'meta.tokens.title':         { ru: 'Оценка количества токенов (chars / 4)', en: 'Estimated tokens (chars / 4)' },
+  'meta.produced':             { ru: 'Затронуто',                 en: 'Affected' },
+  'meta.produced.title':       { ru: 'Файлы, затронутые за этот ответ', en: 'Files touched in this response' },
 };
 
 // ========== Состояние ==========

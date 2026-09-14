@@ -2,6 +2,9 @@
  * Cookie Code preload 入口
  * 原 preload.js 的全部逻辑拆分为本目录下的模块，此处负责组装与初始化，
  * 初始化时序与原文件保持一致。
+ *
+ * Каждый шаг обёрнут в safe(): сбой одного модуля (например, из-за изменений
+ * вёрстки DeepSeek) не валит init() и не мешает остальным модулям.
  */
 console.log('[Cookie Code] Preload script 开始执行');
 
@@ -22,9 +25,12 @@ const background = require('./dom/background');
 const reasoningGlass = require('./dom/reasoning-glass');
 const inputGlass = require('./dom/input-glass');
 const forceDarkTheme = require('./dom/force-dark-theme');
+const qrOverride = require('./dom/qr-override');
+const fileChip = require('./dom/file-chip');
 const i18n = require('./i18n/i18n');
 const state = require('./dom/state');
 const { getProviderByUrl } = require('../providers');
+const { safe } = require('./dom/safe');
 
 // ========== 初始化 ==========
 
@@ -35,7 +41,7 @@ const { getProviderByUrl } = require('../providers');
 async function init() {
   try {
     // Загружаем язык до инъекции HTML — тексты в template.js строятся через t()
-    try { await i18n.loadLanguage(); } catch (_) {}
+    await safe('init.loadLanguage', () => i18n.loadLanguage());
 
     let customizationEnabled = true;
     try {
@@ -45,6 +51,8 @@ async function init() {
       state.toolApprovalMode = (settings && settings.toolApprovalMode) || 'off';
       // Скрытие служебных сообщений (по умолчанию выключено)
       state.hideSystemMessages = Boolean(settings && settings.hideSystemMessages === true);
+      // Чипы файловых путей (по умолчанию включено)
+      state.fileChipEnabled = !settings || settings.fileChipEnabled !== false;
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,
@@ -52,77 +60,84 @@ async function init() {
     state.customizationEnabled = customizationEnabled;
 
     // Регистрируем IPC-листенеры всегда — от них зависит ввод и парсинг tool-блоков
-    chatInput.registerIpcListeners();
-    askUserQuestion.registerAskUserQuestionListener();
+    safe('init.registerIpcListeners', () => chatInput.registerIpcListeners());
+    safe('init.registerAskUserQuestionListener', () => askUserQuestion.registerAskUserQuestionListener());
 
     // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события
-    ui.injectCSS();
-    ui.injectOverlay();
-    projectDir.initProjectDirSection();
-    bindEvents();
-    ui.updateHomeMode();
+    safe('init.injectCSS', () => ui.injectCSS());
+    safe('init.injectOverlay', () => ui.injectOverlay());
+    safe('init.initProjectDirSection', () => projectDir.initProjectDirSection());
+    safe('init.bindEvents', () => bindEvents());
+    safe('init.updateHomeMode', () => ui.updateHomeMode());
 
     // 监听 URL 变化（SPA 路由）
     window.addEventListener('popstate', ui.updateHomeMode);
     window.addEventListener('hashchange', ui.updateHomeMode);
-    setInterval(ui.updateHomeMode, 5000);
+    setInterval(() => safe('init.updateHomeModeInterval', () => ui.updateHomeMode()), 5000);
     // 首次延迟执行，确保 overlay 已注入
-    setTimeout(ui.updateHomeMode, 500);
+    setTimeout(() => safe('init.updateHomeModeDelayed', () => ui.updateHomeMode()), 500);
 
     // 默认显示覆盖层 - 兜底强制显示
-    ui.forceShowOverlay();
+    safe('init.forceShowOverlay', () => ui.forceShowOverlay());
 
     // 延迟启动观察器，等待页面框架渲染
-    setTimeout(observer.startObserver, 2000);
+    setTimeout(() => safe('init.startObserver', () => observer.startObserver()), 2000);
 
     // Скрытие служебных сообщений (результаты инструментов, системный промпт).
     // Поведенческая фича — работает независимо от customizationEnabled.
-    try { stealth.startStealthWatcher(); } catch (e) { console.error('[Cookie Code] stealth start failed:', e.message); }
+    safe('init.startStealthWatcher', () => stealth.startStealthWatcher());
 
     // 启动设置面板标签注入
-    settingsTab.start();
+    safe('init.settingsTabStart', () => settingsTab.start());
 
     // Slash-команды: автодополнение и /plan
-    commands.start();
+    safe('init.commandsStart', () => commands.start());
 
     // Принудительно держим тёмную тему DeepSeek
-    try { forceDarkTheme.startWatch(); } catch (e) { console.error('[Cookie Code] force-dark-theme startWatch failed:', e.message); }
+    safe('init.forceDarkThemeStart', () => forceDarkTheme.startWatch());
+
+    // Подмена QR-кода в попапе «Скачать приложение»
+    safe('init.qrOverrideStart', () => qrOverride.startWatch());
+
+    // Стилизация абсолютных путей к файлам как чипов с открытием в системе
+    safe('init.fileChipSetEnabled', () => fileChip.setEnabled(state.fileChipEnabled !== false));
+    safe('init.fileChipStart', () => fileChip.startWatch());
 
     // Кнопка экспорта ответа в PDF/DOCX под каждым ответом AI
-    try { chatExport.startWatch(); } catch (e) { console.error('[Cookie Code] chat-export startWatch failed:', e.message); }
+    safe('init.chatExportStart', () => chatExport.startWatch());
 
     // Визуальные эффекты применяем только при включённой кастомизации
     if (customizationEnabled) {
       // Загружаем настройки и применяем фон
-      background.loadAndApply();
+      safe('init.backgroundLoadAndApply', () => background.loadAndApply());
 
       // Матовое стекло для плашки «Размышление N секунд»
-      reasoningGlass.startWatch();
+      safe('init.reasoningGlassStart', () => reasoningGlass.startWatch());
 
       // Матовое стекло для поля ввода сообщения
-      try { inputGlass.startWatch(); } catch (e) { console.error('[Cookie Code] input-glass startWatch failed:', e.message); }
+      safe('init.inputGlassStart', () => inputGlass.startWatch());
     } else {
       // Сбрасываем возможные визуальные эффекты (фон, блюры, RGB-ник)
-      background.apply('none');
-      background.applyBlur({ backgroundBlur: 0, headerBlur: 0, sidebarBlur: 0, headerOpacity: 0, sidebarOpacity: 0, toolBlockOpacity: 0, toolBlockBlur: 0 });
-      background.applyRgbUsername(false);
+      safe('init.backgroundReset', () => background.apply('none'));
+      safe('init.backgroundBlurReset', () => background.applyBlur({ backgroundBlur: 0, headerBlur: 0, sidebarBlur: 0, headerOpacity: 0, sidebarOpacity: 0, toolBlockOpacity: 0, toolBlockBlur: 0 }));
+      safe('init.backgroundRgbReset', () => background.applyRgbUsername(false));
     }
 
     // Снимаем базовый цвет фона/::before-слой при выключенной кастомизации
-    background.applyCustomizationEnabled(customizationEnabled);
+    safe('init.applyCustomizationEnabled', () => background.applyCustomizationEnabled(customizationEnabled));
   } catch (err) {
     console.error('[Cookie Code] init() 出错:', err);
     // 兜底：即使出错也强制显示面板
-    ui.forceShowOverlay();
+    safe('init.forceShowOverlayFallback', () => ui.forceShowOverlay());
   }
 
   // 定期巡检：防止面板被意外隐藏
-  ui.startOverlayWatcher();
+  safe('init.startOverlayWatcher', () => ui.startOverlayWatcher());
 
   // 定期提取当前平台用户信息并更新窗口名
   let lastSentUserName = '';
   setInterval(() => {
-    try {
+    safe('init.updateWindowName', () => {
       const provider = getProviderByUrl(window.location.href);
       if (!provider || typeof provider.extractUserInfo !== 'function') return;
       const text = provider.extractUserInfo();
@@ -130,7 +145,7 @@ async function init() {
         lastSentUserName = text;
         window.electronAPI.updateWindowName(text).catch(() => {});
       }
-    } catch (_) {}
+    });
   }, 3000);
 }
 

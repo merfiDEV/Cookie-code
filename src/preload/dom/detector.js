@@ -1,9 +1,14 @@
 /**
  * DOM 监测：代码块语言识别、cmd 命令与工具调用扫描
  * 由原 preload.js 拆分而来，逻辑保持不变。
+ *
+ * Публичные функции обёрнуты в safe(): при изменении вёрстки DeepSeek
+ * они не бросают исключения наружу, а логируют предупреждение и
+ * возвращают безопасный fallback ([] / '' / false).
  */
 const { tryParseToolCall } = require('./tool-parser');
 const { getProviderByUrl } = require('../../../src/providers');
+const { safe } = require('./safe');
 
 // ========== DOM 监测：检测 ```cmd 代码块 ==========
 
@@ -17,11 +22,13 @@ const { getProviderByUrl } = require('../../../src/providers');
  * @returns {string} 小写语言标记，找不到返回 ''
  */
 function getCodeBlockLanguage(pre) {
-  const provider = getProviderByUrl(window.location.href);
-  if (provider && typeof provider.getCodeBlockLanguage === 'function') {
-    return provider.getCodeBlockLanguage(pre);
-  }
-  return '';
+  return safe('detector.getCodeBlockLanguage', () => {
+    const provider = getProviderByUrl(window.location.href);
+    if (provider && typeof provider.getCodeBlockLanguage === 'function') {
+      return provider.getCodeBlockLanguage(pre);
+    }
+    return '';
+  }, '');
 }
 
 /**
@@ -77,30 +84,32 @@ const detectedSet = new WeakSet();
  * @returns {string[]} 提取到的命令数组
  */
 function scanForCommands(nodes) {
-  const commands = [];
-  for (const node of nodes) {
-    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+  return safe('detector.scanForCommands', () => {
+    const commands = [];
+    for (const node of nodes) {
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
-    // 检查节点本身
-    if (['PRE', 'CODE', 'DIV'].includes(node.tagName)) {
-      if (!detectedSet.has(node)) {
-        detectedSet.add(node);
-        const cmd = detectCmdInCodeBlock(node);
-        if (cmd) commands.push(cmd);
+      // 检查节点本身
+      if (['PRE', 'CODE', 'DIV'].includes(node.tagName)) {
+        if (!detectedSet.has(node)) {
+          detectedSet.add(node);
+          const cmd = detectCmdInCodeBlock(node);
+          if (cmd) commands.push(cmd);
+        }
+      }
+
+      // 检查子节点
+      const codeBlocks = node.querySelectorAll('pre, code');
+      for (const block of codeBlocks) {
+        if (!detectedSet.has(block)) {
+          detectedSet.add(block);
+          const cmd = detectCmdInCodeBlock(block);
+          if (cmd) commands.push(cmd);
+        }
       }
     }
-
-    // 检查子节点
-    const codeBlocks = node.querySelectorAll('pre, code');
-    for (const block of codeBlocks) {
-      if (!detectedSet.has(block)) {
-        detectedSet.add(block);
-        const cmd = detectCmdInCodeBlock(block);
-        if (cmd) commands.push(cmd);
-      }
-    }
-  }
-  return commands;
+    return commands;
+  }, []);
 }
 
 /**
@@ -108,53 +117,55 @@ function scanForCommands(nodes) {
  * 专门用于检测 AI 回复中的工具调用
  */
 function scanForToolCalls(nodes) {
-  const toolCalls = [];
-  for (const node of nodes) {
-    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+  return safe('detector.scanForToolCalls', () => {
+    const toolCalls = [];
+    for (const node of nodes) {
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
 
-    // 跳过用户消息区域：用户消息中包含系统提示词的示例 JSON，不应被当作工具调用
-    if (isInsideUserMessage(node)) {
-      continue;
-    }
+      // 跳过用户消息区域：用户消息中包含系统提示词的示例 JSON，不应被当作工具调用
+      if (isInsideUserMessage(node)) {
+        continue;
+      }
 
-    // 检查 pre/code 代码块
-    if (['PRE', 'CODE'].includes(node.tagName)) {
-      if (!detectedSet.has(node)) {
-        detectedSet.add(node);
+      // 检查 pre/code 代码块
+      if (['PRE', 'CODE'].includes(node.tagName)) {
+        if (!detectedSet.has(node)) {
+          detectedSet.add(node);
+          const text = (node.textContent || node.innerText || '').trim();
+          console.log(text);
+          if (text.includes('toolName') || text.includes('"tool"') || text.includes('file_write')) {
+            const toolCall = tryParseToolCall(text);
+            if (toolCall) toolCalls.push(toolCall);
+          }
+        }
+      }
+
+      // 检查子节点中的 pre/code
+      const codeBlocks = node.querySelectorAll('pre, code');
+      for (const block of codeBlocks) {
+        if (!detectedSet.has(block)) {
+          detectedSet.add(block);
+          const text = (block.textContent || block.innerText || '').trim();
+          console.log(text);
+          if (text.includes('toolName') || text.includes('"tool"') || text.includes('file_write')) {
+            const toolCall = tryParseToolCall(text);
+            if (toolCall) toolCalls.push(toolCall);
+          }
+        }
+      }
+
+      // 检查 markdown 渲染后的内容（仅限 AI 回复区域）
+      if (node.tagName === 'DIV') {
         const text = (node.textContent || node.innerText || '').trim();
-        console.log(text);
         if (text.includes('toolName') || text.includes('"tool"') || text.includes('file_write')) {
+          console.log(text);
           const toolCall = tryParseToolCall(text);
           if (toolCall) toolCalls.push(toolCall);
         }
       }
     }
-
-    // 检查子节点中的 pre/code
-    const codeBlocks = node.querySelectorAll('pre, code');
-    for (const block of codeBlocks) {
-      if (!detectedSet.has(block)) {
-        detectedSet.add(block);
-        const text = (block.textContent || block.innerText || '').trim();
-        console.log(text);
-        if (text.includes('toolName') || text.includes('"tool"') || text.includes('file_write')) {
-          const toolCall = tryParseToolCall(text);
-          if (toolCall) toolCalls.push(toolCall);
-        }
-      }
-    }
-
-    // 检查 markdown 渲染后的内容（仅限 AI 回复区域）
-    if (node.tagName === 'DIV') {
-      const text = (node.textContent || node.innerText || '').trim();
-      if (text.includes('toolName') || text.includes('"tool"') || text.includes('file_write')) {
-        console.log(text);
-        const toolCall = tryParseToolCall(text);
-        if (toolCall) toolCalls.push(toolCall);
-      }
-    }
-  }
-  return toolCalls;
+    return toolCalls;
+  }, []);
 }
 
 /**
@@ -162,11 +173,13 @@ function scanForToolCalls(nodes) {
  * 用户消息中包含系统提示词示例 JSON，应被排除
  */
 function isInsideUserMessage(node) {
-  const provider = getProviderByUrl(window.location.href);
-  if (provider && typeof provider.isUserMessage === 'function') {
-    return provider.isUserMessage(node);
-  }
-  return false;
+  return safe('detector.isInsideUserMessage', () => {
+    const provider = getProviderByUrl(window.location.href);
+    if (provider && typeof provider.isUserMessage === 'function') {
+      return provider.isUserMessage(node);
+    }
+    return false;
+  }, false);
 }
 
 module.exports = {

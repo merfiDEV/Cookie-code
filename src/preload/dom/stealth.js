@@ -17,6 +17,7 @@
  * состояние живёт в state.hideSystemMessages и меняется на лету.
  */
 const state = require('./state');
+const { safe } = require('./safe');
 
 const STYLE_ID = 'cuckoo-stealth-style';
 
@@ -150,6 +151,10 @@ const CANDIDATE_SELECTORS = ['.ds-message', '[data-role="user"]', '[class*="user
  * @returns {Element[]}
  */
 function findServiceBubbles(root) {
+  return safe('stealth.findServiceBubbles', () => findServiceBubblesInner(root), []);
+}
+
+function findServiceBubblesInner(root) {
   const doc = root || (typeof document !== 'undefined' ? document : null);
   if (!doc || typeof doc.querySelectorAll !== 'function') return [];
   const out = [];
@@ -202,9 +207,11 @@ let pollTimer = null;
  * Ничего не делает, если hideSystemMessages выключен.
  */
 function scanAndHide() {
-  if (state.hideSystemMessages === false) return;
-  const bubbles = findServiceBubbles(document);
-  for (const el of bubbles) hideMessageEl(el);
+  safe('stealth.scanAndHide', () => {
+    if (state.hideSystemMessages === false) return;
+    const bubbles = findServiceBubbles(document);
+    for (const el of bubbles) hideMessageEl(el);
+  });
 }
 
 function throttledScan() {
@@ -223,18 +230,18 @@ function throttledScan() {
  */
 function startStealthWatcher() {
   if (pollTimer) return; // уже запущен
-  ensureStyles();
+  safe('stealth.startStealthWatcher.ensureStyles', () => ensureStyles());
   scanAndHide();
 
-  const observer = new MutationObserver(throttledScan);
-  const target = document.body || document.documentElement;
-  if (target) observer.observe(target, { childList: true, subtree: true });
+  safe('stealth.startStealthWatcher.observe', () => {
+    const observer = new MutationObserver(throttledScan);
+    const target = document.body || document.documentElement;
+    if (target) observer.observe(target, { childList: true, subtree: true });
+  });
 
   // Поллинг-страховка: сообщение появляется в DOM не одним узлом,
   // а по мере рендера; периодический проход добирает «хвосты».
-  pollTimer = setInterval(() => {
-    try { scanAndHide(); } catch (_) { /* тихо, ждём следующий проход */ }
-  }, 3000);
+  pollTimer = setInterval(() => { scanAndHide(); }, 3000);
 }
 
 /**

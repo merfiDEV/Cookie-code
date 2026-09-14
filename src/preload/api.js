@@ -13,6 +13,9 @@ let electronAPI = {
   initProject: () => {
     return ipcRenderer.invoke('init-project', { skipPrompt: false });
   },
+  openPath: (targetPath) => {
+    return ipcRenderer.invoke('open-path', { path: targetPath });
+  },
   updateProjectDir: () => {
     return ipcRenderer.invoke('init-project', { skipPrompt: true });
   },
