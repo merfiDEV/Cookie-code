@@ -172,6 +172,17 @@ async function askQuestion(requestId, questions) {
 /** Обработать нажатие inline-кнопки с ответом на вопрос. */
 async function _handleCallback(chatId, data, cbq) {
   const token = String(data || '');
+
+  // Меню настроек /settings — обрабатываем раньше других, т.к. префикс 'st_'.
+  if (token.startsWith('st_')) {
+    try {
+      await _handleSettingsCallback(token, cbq);
+    } catch (err) {
+      _log('error', 'settings callback error:', err.message);
+    }
+    return;
+  }
+
   const approvalRef = _approvalCallbackTokens.get(token);
   if (approvalRef) {
     await _handleApprovalCallback(approvalRef, cbq);
@@ -327,12 +338,341 @@ async function _refreshQuestionMessage(requestId, entry) {
   });
 }
 
+// ==================== Настройки через Telegram (/settings) ====================
+//
+// Все редактируемые настройки Cookie Code, кроме обоев.
+//   key — ключ в cuckoo-settings.json; label — заголовок; type — bool/number/enum/text/multiline/color;
+//   values — для enum; step/min/max — для number; secret — маскировать значение.
+
+const SETTINGS_PAGES = {
+  root: {
+    title: '⚙️ <b>Настройки Cookie Code</b>',
+    text: 'Что настраиваем?',
+    items: [
+      { goto: 'ui', label: '🎨 Интерфейс' },
+      { goto: 'glass', label: '🪟 Стекло и панель' },
+      { goto: 'agent', label: '🤖 Агент и приватность' },
+      { goto: 'tg', label: '📡 Telegram-бот' },
+    ],
+  },
+  ui: {
+    title: '🎨 <b>Интерфейс</b>',
+    text: 'Общие визуальные эффекты.',
+    items: [
+      { key: 'customizationEnabled', label: 'Кастомизация вкл', type: 'bool' },
+      { key: 'rgbUsername', label: 'RGB-переливание ника', type: 'bool' },
+      { key: 'language', label: 'Язык UI', type: 'enum', values: [['ru', '🇷🇺 RU'], ['en', '🇬🇧 EN']] },
+    ],
+    back: true,
+  },
+  glass: {
+    title: '🪟 <b>Стекло и панель</b>',
+    text: 'Прозрачность, размытие и цвета панели Cookie Code.',
+    items: [
+      { key: 'backgroundBlur', label: 'Размытие фона', type: 'number', step: 2, min: 0, max: 30, unit: 'px' },
+      { key: 'headerBlur', label: 'Размытие шапки', type: 'number', step: 2, min: 0, max: 30, unit: 'px' },
+      { key: 'sidebarBlur', label: 'Размытие сайдбара', type: 'number', step: 2, min: 0, max: 30, unit: 'px' },
+      { key: 'headerOpacity', label: 'Прозрачность шапки', type: 'number', step: 5, min: 0, max: 100, unit: '%' },
+      { key: 'sidebarOpacity', label: 'Прозрачность сайдбара', type: 'number', step: 5, min: 0, max: 100, unit: '%' },
+      { key: 'toolBlockOpacity', label: 'Прозрачность tool-блоков', type: 'number', step: 5, min: 0, max: 100, unit: '%' },
+      { key: 'toolBlockBlur', label: 'Размытие tool-блоков', type: 'number', step: 2, min: 0, max: 30, unit: 'px' },
+      { key: 'overlayOpacity', label: 'Прозрачность панели', type: 'number', step: 5, min: 0, max: 100, unit: '%' },
+      { key: 'overlayBlur', label: 'Размытие панели', type: 'number', step: 2, min: 0, max: 30, unit: 'px' },
+      { key: 'overlayWidth', label: 'Ширина панели', type: 'number', step: 20, min: 200, max: 600, unit: 'px' },
+      { key: 'overlayBtnRadius', label: 'Скругление кнопок', type: 'number', step: 2, min: 0, max: 24, unit: 'px' },
+      { key: 'overlayBgColor', label: 'Цвет подложки', type: 'color' },
+      { key: 'overlayPrimaryColor', label: 'Акцентный цвет', type: 'color' },
+    ],
+    back: true,
+  },
+  agent: {
+    title: '🤖 <b>Агент и приватность</b>',
+    text: 'Подтверждения, служебные сообщения, форматтеры.',
+    items: [
+      { key: 'toolApprovalMode', label: 'Подтверждение tools', type: 'enum', values: [['off', '⚪ Off'], ['risky', '🟡 Risky'], ['all', '🔴 All']] },
+      { key: 'hideSystemMessages', label: 'Скрывать служебные сообщения', type: 'bool' },
+      { key: 'formattersEnabled', label: 'Авто-форматтеры', type: 'bool' },
+      { key: 'fileChipEnabled', label: 'Пути как чипы', type: 'bool' },
+      { key: 'showProducedFiles', label: 'Затронутые файлы', type: 'bool' },
+      { key: 'dangerousPatterns', label: 'Опасные паттерны', type: 'multiline' },
+    ],
+    back: true,
+  },
+  tg: {
+    title: '📡 <b>Telegram-бот</b>',
+    text: 'Управление ботом и уведомлениями.',
+    items: [
+      { key: 'telegramEnabled', label: 'Бот включён', type: 'bool' },
+      { key: 'telegramNotifyTools', label: 'Уведомления о tool', type: 'bool' },
+      { key: 'telegramChatFeed', label: 'Принимать из TG', type: 'bool' },
+      { key: 'telegramBotToken', label: 'Токен бота', type: 'text', secret: true },
+      { key: 'telegramChatId', label: 'Chat ID', type: 'text' },
+    ],
+    back: true,
+  },
+};
+
+const _settingsState = new Map();
+const _settingsWaiting = new Map();
+
+function _findSetting(key) {
+  for (const name of Object.keys(SETTINGS_PAGES)) {
+    const page = SETTINGS_PAGES[name];
+    if (!page.items) continue;
+    for (const it of page.items) if (it.key === key) return { page: name, item: it };
+  }
+  return null;
+}
+
+function _getVal(key) {
+  try { return settingsStore.readSettings()[key]; } catch (_) { return undefined; }
+}
+
+function _setVal(key, value) {
+  try { return !!settingsStore.setSetting(key, value); } catch (err) {
+    _log('error', 'setSetting error:', err.message);
+    return false;
+  }
+}
+
+function _esc(s) { return escapeHtml(s); }
+
+function _formatValue(item, value) {
+  if (item.type === 'bool') return value ? '✅ ВКЛ' : '⚪ ВЫКЛ';
+  if (item.type === 'enum') {
+    const found = (item.values || []).find(([v]) => v === value);
+    return found ? found[1] : String(value);
+  }
+  if (item.type === 'number') return String(value) + (item.unit || '');
+  if (item.type === 'color') return String(value || '');
+  if (item.type === 'text' || item.type === 'multiline') {
+    if (item.secret) return value ? '••••' + String(value).slice(-4) : '(пусто)';
+    const s = String(value == null ? '' : value);
+    return s.length > 20 ? s.slice(0, 20) + '…' : (s || '(пусто)');
+  }
+  return String(value);
+}
+
+function _renderPage(pageName) {
+  const page = SETTINGS_PAGES[pageName];
+  if (!page) return _renderPage('root');
+  const lines = [page.title, '', page.text];
+  const keyboard = [];
+  if (page.items) {
+    for (const item of page.items) {
+      const v = _getVal(item.key);
+      if (item.type === 'bool') {
+        const icon = v ? '✅' : '⚪';
+        keyboard.push([{ text: icon + ' ' + item.label, callback_data: 'st_t_' + item.key }]);
+      } else if (item.type === 'enum') {
+        const cur = _formatValue(item, v);
+        keyboard.push([{ text: item.label + ': ' + cur, callback_data: 'st_noop' }]);
+        const opts = (item.values || []).map(([val, lbl]) => ({
+          text: lbl,
+          callback_data: 'st_s_' + item.key + '__' + val,
+        }));
+        if (opts.length) keyboard.push(opts);
+      } else if (item.type === 'number') {
+        const cur = _formatValue(item, v);
+        keyboard.push([
+          { text: '➖', callback_data: 'st_n_' + item.key + '_-' },
+          { text: item.label + ': ' + cur, callback_data: 'st_noop' },
+          { text: '➕', callback_data: 'st_n_' + item.key + '_+' },
+        ]);
+      } else if (item.type === 'color') {
+        keyboard.push([
+          { text: '✏️ ' + item.label, callback_data: 'st_e_' + item.key },
+          { text: String(v || ''), callback_data: 'st_noop' },
+        ]);
+      } else if (item.type === 'text' || item.type === 'multiline') {
+        keyboard.push([
+          { text: '✏️ ' + item.label + ': ' + _formatValue(item, v), callback_data: 'st_e_' + item.key },
+        ]);
+      }
+    }
+  }
+  if (page.back) {
+    keyboard.push([{ text: '⬅️ Назад', callback_data: 'st_page_root' }]);
+  } else {
+    keyboard.push([
+      { text: '🔧 Агент', callback_data: 'st_page_agent' },
+      { text: '🎨 UI', callback_data: 'st_page_ui' },
+    ]);
+    keyboard.push([
+      { text: '🪟 Стекло', callback_data: 'st_page_glass' },
+      { text: '📡 Telegram', callback_data: 'st_page_tg' },
+    ]);
+    keyboard.push([{ text: '🔄 Обновить', callback_data: 'st_page_root' }]);
+  }
+  return { text: lines.join('\n'), keyboard: { inline_keyboard: keyboard } };
+}
+
+async function _showSettingsMenu(chatId, pageName, messageId) {
+  const state = _settingsState.get(chatId) || {};
+  const page = SETTINGS_PAGES[pageName] ? pageName : 'root';
+  state.page = page;
+  _settingsState.set(chatId, state);
+  const { text, keyboard } = _renderPage(page);
+  if (messageId) {
+    return telegramBot.editMessageText(messageId, text, { parseMode: 'HTML', replyMarkup: keyboard });
+  }
+  const res = await telegramBot.sendMessage(text, { parseMode: 'HTML', replyMarkup: keyboard });
+  if (res.success && res.messageId) {
+    state.msgId = res.messageId;
+    _settingsState.set(chatId, state);
+  }
+  return res;
+}
+
+async function _handleSettingsCallback(data, cbq) {
+  const chatId = String(cbq.message && cbq.message.chat && cbq.message.chat.id);
+  const msgId = cbq.message && cbq.message.message_id;
+  const state = _settingsState.get(chatId) || { page: 'root' };
+
+  if (data.startsWith('st_page_')) {
+    await telegramBot.answerCallbackQuery(cbq.id);
+    await _showSettingsMenu(chatId, data.slice('st_page_'.length), msgId);
+    return;
+  }
+  if (data.startsWith('st_t_')) {
+    const key = data.slice('st_t_'.length);
+    const next = !_getVal(key);
+    const ok = _setVal(key, next);
+    await telegramBot.answerCallbackQuery(cbq.id, { text: ok ? (next ? 'Включено' : 'Выключено') : 'Ошибка' });
+    if (ok) { try { await applySettings(); } catch (_) {} }
+    await _showSettingsMenu(chatId, state.page, msgId);
+    return;
+  }
+  if (data.startsWith('st_s_')) {
+    const rest = data.slice('st_s_'.length);
+    const sep = rest.indexOf('__');
+    const key = rest.slice(0, sep);
+    const val = rest.slice(sep + 2);
+    const ok = _setVal(key, val);
+    await telegramBot.answerCallbackQuery(cbq.id, { text: ok ? 'Сохранено' : 'Ошибка' });
+    if (ok && (key === 'language')) { try { await applySettings(); } catch (_) {} }
+    await _showSettingsMenu(chatId, state.page, msgId);
+    return;
+  }
+  if (data.startsWith('st_n_')) {
+    const rest = data.slice('st_n_'.length);
+    const sep = rest.lastIndexOf('_');
+    const key = rest.slice(0, sep);
+    const sign = rest.slice(sep + 1);
+    const found = _findSetting(key);
+    if (!found) { await telegramBot.answerCallbackQuery(cbq.id); return; }
+    const item = found.item;
+    const step = item.step || 1;
+    let val = Number(_getVal(key));
+    if (!Number.isFinite(val)) val = 0;
+    val += sign === '+' ? step : -step;
+    if (typeof item.min === 'number') val = Math.max(item.min, val);
+    if (typeof item.max === 'number') val = Math.min(item.max, val);
+    const ok = _setVal(key, val);
+    await telegramBot.answerCallbackQuery(cbq.id, { text: ok ? (String(val) + (item.unit || '')) : 'Ошибка' });
+    await _showSettingsMenu(chatId, state.page, msgId);
+    return;
+  }
+  if (data.startsWith('st_e_')) {
+    const key = data.slice('st_e_'.length);
+    const found = _findSetting(key);
+    if (!found) { await telegramBot.answerCallbackQuery(cbq.id); return; }
+    _settingsWaiting.set(chatId, { key });
+    await telegramBot.answerCallbackQuery(cbq.id, { text: 'Отправьте новое значение' });
+    const cur = _getVal(key);
+    const hint = found.item.type === 'multiline'
+      ? 'Отправьте новый список — по одному паттерну в строке. /cancel — отмена.'
+      : 'Отправьте новое значение одним сообщением. /cancel — отмена.';
+    const curText = found.item.type === 'multiline'
+      ? (Array.isArray(cur) ? cur.join('\n') : String(cur || ''))
+      : String(cur == null ? '' : cur);
+    await telegramBot.sendMessage(
+      '✏️ <b>' + _esc(found.item.label) + '</b>\n' +
+      hint + '\n\n<i>Текущее:</i>\n<pre>' + _esc(curText.slice(0, 1500)) + '</pre>',
+      { parseMode: 'HTML' }
+    );
+    return;
+  }
+  if (data === 'st_noop') { await telegramBot.answerCallbackQuery(cbq.id); return; }
+  await telegramBot.answerCallbackQuery(cbq.id);
+}
+
+async function _cmdHelp() {
+  const text = [
+    '🦆 <b>Cookie Code — помощь</b>',
+    '',
+    '<b>Команды</b>',
+    '/settings — открыть меню настроек',
+    '/help     — эта справка',
+    '/todos    — список задач активного окна',
+    '/cancel   — отменить ввод значения',
+    '',
+    '<b>Возможности</b>',
+    '• Уведомления о вызовах инструментов',
+    '• Приём входящих сообщений в чат DeepSeek',
+    '• Подтверждение команд — кнопки «Разрешить / Отклонить»',
+    '• Вопросы от AI с вариантами ответа',
+    '',
+    'Настройки синхронизированы с десктопным приложением.',
+  ].join('\n');
+  return telegramBot.sendMessage(text, { parseMode: 'HTML' });
+}
+
+async function _cmdSettings(chatId) {
+  _settingsState.set(chatId, { page: 'root' });
+  return _showSettingsMenu(chatId, 'root');
+}
+
+async function _handleSettingsInput(chatId, text) {
+  const waiting = _settingsWaiting.get(chatId);
+  if (!waiting) return false;
+  const { key } = waiting;
+  const found = _findSetting(key);
+  if (!found) { _settingsWaiting.delete(chatId); return false; }
+  _settingsWaiting.delete(chatId);
+  const item = found.item;
+  let value = text;
+  if (item.type === 'multiline') {
+    value = text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  } else if (item.type === 'color') {
+    value = text.trim();
+    if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)) {
+      await telegramBot.sendMessage('⚠ Некорректный цвет. Ожидается hex вида <code>#8b93ff</code>.', { parseMode: 'HTML' });
+      return true;
+    }
+  } else if (item.type === 'text') {
+    value = text.trim();
+  }
+  const ok = _setVal(key, value);
+  if (ok && (key === 'telegramBotToken' || key === 'telegramChatId' || key === 'telegramEnabled')) {
+    try { await applySettings(); } catch (_) {}
+  }
+  await telegramBot.sendMessage(ok ? ('✅ Сохранено: <b>' + _esc(item.label) + '</b>') : '❌ Не удалось сохранить', { parseMode: 'HTML' });
+  const state = _settingsState.get(chatId);
+  if (state && state.msgId) await _showSettingsMenu(chatId, state.page || 'root', state.msgId);
+  return true;
+}
+
 /** Входящее из TG → в чат DeepSeek (или команда). */
 async function _handleIncoming(chatId, text) {
   const cfg = _read();
   const raw = String(text || '');
   const cmd = raw.trim().toLowerCase();
 
+  // ---- Служебные команды ----
+  if (cmd === '/help' || cmd === '/start') {
+    await _cmdHelp();
+    return;
+  }
+  if (cmd === '/settings' || cmd === '/setting' || cmd === '/config') {
+    await _cmdSettings(chatId);
+    return;
+  }
+  if (cmd === '/cancel') {
+    const had = _settingsWaiting.delete(chatId);
+    await telegramBot.sendMessage(had ? '✖️ Ввод отменён.' : 'Нечего отменять.');
+    return;
+  }
   // Команда /todos — показать список задач активного окна.
   if (cmd === '/todos' || cmd === '/todo') {
     let todos = [];
@@ -349,6 +689,13 @@ async function _handleIncoming(chatId, text) {
     return;
   }
 
+  // ---- Ожидание ввода значения настройки ----
+  if (_settingsWaiting.has(chatId)) {
+    const handled = await _handleSettingsInput(chatId, raw);
+    if (handled) return;
+  }
+
+  // ---- Обычное сообщение ----
   if (!cfg.chatFeed) {
     _log('info', 'chatFeed выключен — игнор входящего:', text);
     return;
