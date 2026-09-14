@@ -150,6 +150,26 @@ Claude Desktop-compatible configuration format. Supports both `stdio` and `http`
 
 Drop a folder into `.cuckoo/skills/<name>/` with a `SKILL.md` (and optional `tool.js`) and it becomes callable via `skillList`, `skillLoad`, `skillExecute`.
 
+### Auto-formatters
+
+Every `write` and `edit` runs the file through a language-specific formatter so the AI's output matches your project's style automatically — no manual `prettier --write` step, no style noise in the diff.
+
+Built-in formatters:
+
+| Formatter | Trigger | What it needs |
+|-----------|---------|---------------|
+| `prettier` | `.js .jsx .ts .tsx .json .css .md .yaml` … | `prettier` in the nearest `package.json` + binary in `node_modules/.bin` or `PATH` |
+| `biome` | same as prettier | `biome.json` / `biome.jsonc` in the project |
+| `gofmt` | `.go` | `gofmt` in `PATH` |
+| `ruff` | `.py .pyi` | `ruff` in `PATH` + `[tool.ruff]` in `pyproject.toml` (or `ruff.toml`) |
+| `rustfmt` | `.rs` | `rustfmt` in `PATH` |
+| `shfmt` | `.sh .bash` | `shfmt` in `PATH` |
+| `clang-format` | `.c .cpp .h` … | `.clang-format` config + `clang-format` in `PATH` |
+
+- Detection is **config-aware**: ruff won't run in a project without a `[tool.ruff]` section; prettier won't run without a `package.json` dependency. No unexpected reformatting of foreign code.
+- Formatter errors are swallowed — a failed formatter never blocks `write`/`edit`.
+- Disable with `"formattersEnabled": false` in `cuckoo-settings.json`.
+
 ### Session persistence
 
 Login state, projects, and settings are stored under `%APPDATA%/cuckoo-ai-pro-session` (Windows) or the equivalent userData path on macOS/Linux.
@@ -226,7 +246,7 @@ Cookie Code intercepts it, executes it in a sandbox, and returns the result to t
 | Tool | Description |
 |------|-------------|
 | `read`, `readLines` | Read files (with line numbers, offset/limit) |
-| `write`, `edit` | Create / modify files |
+| `write`, `edit` | Create / modify files (auto-formatted on save — see below) |
 | `deleteFile` | Delete a file |
 | `glob`, `grep` | File search (ripgrep-backed) |
 | `bash`, `pwsh` | Execute shell commands |
@@ -288,6 +308,7 @@ User settings live in `cuckoo-settings.json` under the app's userData directory:
   "toolBlockOpacity": 55,
   "toolBlockBlur": 0,
   "rgbUsername": true,
+  "formattersEnabled": true,
   "toolApprovalMode": "off",
   "hideSystemMessages": true,
   "telegramEnabled": false,
@@ -314,6 +335,8 @@ src/
 │   ├── session-store    Session ↔ project dir mapping
 │   ├── mcp-client       MCP SDK integration
 │   ├── skill-manager    Skills loading
+│   ├── format-registry  Built-in formatters (prettier/biome/gofmt/ruff/...)
+│   ├── formatter        Auto-format hook for write/edit
 │   ├── window.js        Window registry
 │   └── ...
 ├── preload/

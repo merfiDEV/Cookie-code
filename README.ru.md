@@ -114,6 +114,26 @@
 
 Поместите папку в `.cuckoo/skills/<name>/` с файлом `SKILL.md` (и опциональным `tool.js`) — она станет вызываемой через `skillList`, `skillLoad`, `skillExecute`.
 
+### Авто-форматтеры
+
+Каждый `write` и `edit` прогоняет файл через форматтер для конкретного языка — код AI автоматически приводится к стилю вашего проекта. Не нужно вручную запускать `prettier --write`, стиль не мешает в diff.
+
+Встроенные форматтеры:
+
+| Форматтер | Для чего | Что нужно |
+|-----------|----------|-----------|
+| `prettier` | `.js .jsx .ts .tsx .json .css .md .yaml` … | `prettier` в ближайшем `package.json` + бинарь в `node_modules/.bin` или `PATH` |
+| `biome` | то же, что prettier | `biome.json` / `biome.jsonc` в проекте |
+| `gofmt` | `.go` | `gofmt` в `PATH` |
+| `ruff` | `.py .pyi` | `ruff` в `PATH` + `[tool.ruff]` в `pyproject.toml` (или `ruff.toml`) |
+| `rustfmt` | `.rs` | `rustfmt` в `PATH` |
+| `shfmt` | `.sh .bash` | `shfmt` в `PATH` |
+| `clang-format` | `.c .cpp .h` … | конфиг `.clang-format` + `clang-format` в `PATH` |
+
+- Определение **учитывает конфиг проекта**: ruff не запустится без `[tool.ruff]`, prettier — без зависимости в `package.json`. Никакого неожиданного форматирования чужого кода.
+- Ошибки форматтера глушатся — падение форматтера никогда не блокирует `write`/`edit`.
+- Отключается через `"formattersEnabled": false` в `cuckoo-settings.json`.
+
 ### Персистентность сессии
 
 Логин, проекты и настройки хранятся в `%APPDATA%/cuckoo-ai-pro-session` (Windows) или аналогичном пути userData на macOS/Linux.
@@ -190,7 +210,7 @@ Cookie Code перехватывает его, выполняет в песоч�
 | Инструмент | Описание |
 |-----------|----------|
 | `read`, `readLines` | Чтение файлов (с номерами строк, offset/limit) |
-| `write`, `edit` | Создание / изменение файлов |
+| `write`, `edit` | Создание / изменение файлов (авто-форматирование при сохранении — см. ниже) |
 | `deleteFile` | Удаление файла |
 | `glob`, `grep` | Поиск по файлам (на базе ripgrep) |
 | `bash`, `pwsh` | Выполнение команд |
@@ -271,6 +291,7 @@ AI получает к нему доступ через `skillList`, `skillLoad`
   "toolBlockOpacity": 55,
   "toolBlockBlur": 0,
   "rgbUsername": true,
+  "formattersEnabled": true,
   "telegramEnabled": false,
   "telegramBotToken": "",
   "telegramChatId": "",
@@ -295,6 +316,8 @@ src/
 │   ├── session-store    Сессия ↔ каталог проекта
 │   ├── mcp-client       Интеграция MCP SDK
 │   ├── skill-manager    Загрузка скиллов
+│   ├── format-registry  Встроенные форматтеры (prettier/biome/gofmt/ruff/...)
+│   ├── formatter        Авто-формат после write/edit
 │   ├── window.js        Реестр окон
 │   └── ...
 ├── preload/
