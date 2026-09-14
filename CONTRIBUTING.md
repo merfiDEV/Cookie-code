@@ -24,6 +24,11 @@
 - Осмысленные и описательные имена переменных и функций
 - Добавляйте комментарии, особенно к сложной логике
 - Пишите просто, следуйте принципу «наименьшего удивления»
+- Перед началом работы создавайте отдельную ветку для feature или исправления.
+   Используйте формат `feature/<short-name>` или `fix/<short-name>`, например:
+   `feature/super-puper-update`.
+- Следуйте существующей архитектуре, структуре файлов, API и стилю проекта.
+   Не добавляйте новый подход, если в проекте уже есть подходящий шаблон.
 
 ## Pull Request
 
@@ -59,3 +64,75 @@
 ## Лицензия
 
 Проект распространяется под лицензией GPL-3.0. Все вклады подпадают под неё же.
+
+---
+
+# Contributing to Cookie Code
+
+Thank you for helping improve the project! We welcome all contributions:
+
+- Bug reports
+- Feature ideas and suggestions
+- Documentation improvements
+- Bug fixes and new features
+
+## Development Setup
+
+1. Fork the repository and clone it locally.
+2. Install dependencies: `npm install`
+    - If npm reports that the Electron postinstall script was blocked by
+       `allowScripts`, run:
+       - `npm install-scripts approve electron`
+       - then run `npm install` again.
+    - Otherwise, the Electron binary will not be downloaded and the app will
+       fail to start.
+3. Start the application: `npm start`
+
+## Code Style
+
+- Use 2-space indentation.
+- Use `const` and `let`; avoid `var`.
+- Use meaningful and descriptive names for variables and functions.
+- Add comments for complex logic where they improve maintainability.
+- Keep the implementation simple and follow the principle of least surprise.
+- Create a separate branch for every feature or fix before making changes.
+   Use `feature/<short-name>` or `fix/<short-name>`, for example:
+   `feature/super-puper-update`.
+- Follow the existing project architecture, file structure, APIs, and coding
+   style. Do not introduce a new pattern when an existing one fits.
+
+## Pull Requests
+
+1. Base your branch on the latest `master`.
+2. Test your changes before submitting them: `npm start`.
+3. Keep commit messages short and precise. Use the project convention:
+    - `feat: add support for a new tool`
+    - `fix: fix command execution timeout`
+    - `docs: update README`
+    - `refactor: restructure tool registration`
+4. Describe what changed and how it was tested in the pull request.
+
+## Bug Reports
+
+Please include the following in an issue:
+
+- Operating system version
+- Node.js version
+- Steps to reproduce
+- Expected and actual behavior
+- Screenshots or logs, when applicable
+
+## Adding a New Tool
+
+Use the existing implementations in `tools/` as a reference:
+
+1. Create `{ToolName}Tool.js` in `tools/`.
+2. Implement `execute(params, context)`.
+3. Export the tool from `tools/index.js`.
+4. Register it in `ToolRegistry` (see `src/main/tool-registry.js`).
+5. Update `tools/rules.md` and `README.md`.
+
+## License
+
+The project is distributed under the GPL-3.0 license. All contributions are
+subject to the same license.

@@ -23,7 +23,22 @@ const todoStore = require('./todo-store');
  */
 const _todoAllDoneNotified = new Set();
 const pendingUserQuestions = new Map();
+const activeTaskTokens = new Map();
 let userQuestionCounter = 0;
+
+function beginTask(senderId) {
+  const token = { canceled: false };
+  activeTaskTokens.set(senderId, token);
+  return token;
+}
+
+function isTaskCanceled(senderId, token) {
+  return !token || token.canceled || activeTaskTokens.get(senderId) !== token;
+}
+
+function finishTask(senderId, token) {
+  if (activeTaskTokens.get(senderId) === token) activeTaskTokens.delete(senderId);
+}
 
 function requestUserQuestion(sender, questions) {
   const requestId = `question_${Date.now()}_${++userQuestionCounter}`;
@@ -292,6 +307,7 @@ function registerIpcHandlers() {
       return { id, success: false, error: '用户取消了执行', canceled: true };
     }
     return new Promise((resolve) => {
+      const { processManager } = require('./process-manager');
       const child = exec(
         trimmed,
         {
@@ -301,15 +317,19 @@ function registerIpcHandlers() {
           encoding: 'buffer',
         },
         (error, stdout, stderr) => {
+          const wasKilledByUser = processManager.wasKilled(child.pid);
+          processManager.untrack(child);
           resolve({
             id,
-            success: !error,
+            success: !error && !wasKilledByUser,
             stdout: decodeOutput(stdout),
             stderr: decodeOutput(stderr),
-            error: error ? error.message : null,
+            error: wasKilledByUser ? '执行已被用户停止' : (error ? error.message : null),
+            canceled: wasKilledByUser,
           });
         }
       );
+      processManager.track(child);
     });
   });
 
@@ -318,6 +338,7 @@ function registerIpcHandlers() {
     const ctx = windowState.getContextByWebContents(event.sender);
     const store = ctx ? ctx.sessionStore : null;
     const selectedDir = store ? store.state.selectedProjectDir : null;
+    const taskToken = beginTask(event.sender.id);
     try {
       const result = await toolRegistry.execute(toolName, {
         ...params,
@@ -326,6 +347,9 @@ function registerIpcHandlers() {
         askUserQuestion: (questions) => requestUserQuestion(event.sender, questions),
         pasteImage: (filePath, caption, send) => insertImageToChat(event.sender, filePath, caption, send),
       });
+      if (isTaskCanceled(event.sender.id, taskToken)) {
+        return { callId, success: false, canceled: true, error: '执行已被用户停止' };
+      }
       // Если менялся todo-список — пушим обновление в окно
       if (toolName === 'todo_write' || toolName === 'todo_edit' || toolName === 'todo_delete') {
         try { event.sender.send('todo-updated', { todos: todoStore.getList(event.sender.id) }); } catch (_) {}
@@ -347,6 +371,8 @@ function registerIpcHandlers() {
         require('../../botsrc').notifyToolResult(toolName, false, err.message);
       } catch (_) {}
       return { callId, success: false, error: err.message };
+    } finally {
+      finishTask(event.sender.id, taskToken);
     }
   });
 
@@ -399,12 +425,20 @@ function registerIpcHandlers() {
     }
   });
 
-  // Экстренная остановка активных дочерних процессов (кнопка Kill)
-  ipcMain.handle('kill-process', async () => {
+  // Остановить текущую задачу окна и активные дочерние процессы.
+  // AI-ответ может выполняться без child process, поэтому одного killAll() недостаточно.
+  ipcMain.handle('kill-process', async (event) => {
     try {
+      const taskToken = activeTaskTokens.get(event.sender.id);
+      if (taskToken) taskToken.canceled = true;
       const { processManager } = require('./process-manager');
       const result = await processManager.killAll();
-      return { success: true, count: result.count };
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const win = ctx && ctx.win;
+      if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+        try { win.webContents.stop(); } catch (_) {}
+      }
+      return { success: true, stopped: true, count: result.count };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -418,6 +452,7 @@ function registerIpcHandlers() {
     const ctx = windowState.getContextByWebContents(event.sender);
     const store = ctx ? ctx.sessionStore : null;
     const selectedDir = store ? store.state.selectedProjectDir : null;
+    const taskToken = beginTask(event.sender.id);
     try {
       const before = JSON.stringify(todoStore.getList(event.sender.id));
       const result = await jsRunner.run(
@@ -427,6 +462,9 @@ function registerIpcHandlers() {
         (questions) => requestUserQuestion(event.sender, questions),
         (filePath, caption, send) => insertImageToChat(event.sender, filePath, caption, send)
       );
+      if (isTaskCanceled(event.sender.id, taskToken)) {
+        return { callId, success: false, canceled: true, error: '执行已被用户停止' };
+      }
       const after = JSON.stringify(todoStore.getList(event.sender.id));
       if (before !== after) {
         try { event.sender.send('todo-updated', { todos: todoStore.getList(event.sender.id) }); } catch (_) {}
@@ -435,6 +473,8 @@ function registerIpcHandlers() {
       return { callId, ...result };
     } catch (err) {
       return { callId, success: false, error: err.message };
+    } finally {
+      finishTask(event.sender.id, taskToken);
     }
   });
 

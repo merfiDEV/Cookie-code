@@ -87,6 +87,7 @@ const KEYS = {
   'overlay.task.kill':          { ru: '⏹ Остановить процесс',      en: '⏹ Kill process' },
   'overlay.task.kill.title':    { ru: 'Экстренно завершить все активные дочерние процессы', en: 'Emergency-kill all active child processes' },
   'overlay.task.killed':        { ru: 'Процесс остановлен ({count})', en: 'Process stopped ({count})' },
+  'overlay.task.stopped':       { ru: 'Задача остановлена',             en: 'Task stopped' },
   'overlay.task.killNone':      { ru: 'Нет активных процессов',    en: 'No active processes' },
   'overlay.task.killError':     { ru: 'Не удалось остановить процесс', en: 'Failed to kill process' },
   'overlay.cmd.none':           { ru: 'Нет',                       en: 'None' },
