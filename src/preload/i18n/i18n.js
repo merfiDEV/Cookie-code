@@ -235,7 +235,7 @@ const KEYS = {
   // ---- Мета под ответом AI (время / токены / затронутые файлы) ----
   'meta.time.title':           { ru: 'Время ответа',               en: 'Response time' },
   'meta.tokens.title':         { ru: 'Оценка количества токенов (chars / 4)', en: 'Estimated tokens (chars / 4)' },
-  'meta.produced':             { ru: 'Создано',                    en: 'Produced' },
+  'meta.produced':             { ru: 'Затронуто',                 en: 'Affected' },
   'meta.produced.title':       { ru: 'Файлы, затронутые за этот ответ', en: 'Files touched in this response' },
 };
 
