@@ -87,6 +87,7 @@ const KEYS = {
   'overlay.task.kill':          { ru: '⏹ Остановить процесс',      en: '⏹ Kill process' },
   'overlay.task.kill.title':    { ru: 'Экстренно завершить все активные дочерние процессы', en: 'Emergency-kill all active child processes' },
   'overlay.task.killed':        { ru: 'Процесс остановлен ({count})', en: 'Process stopped ({count})' },
+  'overlay.task.stopped':       { ru: 'Задача остановлена',             en: 'Task stopped' },
   'overlay.task.killNone':      { ru: 'Нет активных процессов',    en: 'No active processes' },
   'overlay.task.killError':     { ru: 'Не удалось остановить процесс', en: 'Failed to kill process' },
   'overlay.cmd.none':           { ru: 'Нет',                       en: 'None' },
@@ -203,6 +204,8 @@ const KEYS = {
   'cmd.menu.title':             { ru: 'Команды',                    en: 'Commands' },
   'cmd.menu.files':             { ru: 'Файлы проекта',              en: 'Project files' },
   'cmd.plan.description':       { ru: 'Войти в режим плана и вставить план-промпт', en: 'Enter plan mode and inject the plan prompt' },
+  'cmd.review.description':     { ru: 'Проверить текущие изменения проекта', en: 'Review current project changes' },
+  'cmd.summarize.description':  { ru: 'Сделать краткий итог текущей сессии', en: 'Summarize the current session' },
 
   // ---- Подтверждение tool-вызовов (approval gate) ----
   'approval.title.tool':        { ru: 'Подтверждение вызова инструмента', en: 'Tool call approval' },

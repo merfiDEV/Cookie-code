@@ -2,7 +2,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { detectTrigger, boundaryOk } = require('../../src/preload/dom/commands/detect');
-const { COMMANDS, findCommand, searchCommands, PLAN_PROMPT, descOf } = require('../../src/preload/dom/commands/registry');
+const { COMMANDS, findCommand, searchCommands, PLAN_PROMPT, REVIEW_PROMPT, SUMMARIZE_PROMPT, descOf } = require('../../src/preload/dom/commands/registry');
+const { collectReviewDiff, buildReviewPrompt } = require('../../src/preload/dom/commands/review-context');
 
 // ==================== detect ====================
 
@@ -102,6 +103,50 @@ test('registry: команда plan зарегистрирована', () => {
   assert.ok(cmd.prompt.length > 100);
 });
 
+test('registry: команда review зарегистрирована', () => {
+  const cmd = findCommand('review');
+  assert.ok(cmd);
+  assert.strictEqual(cmd.name, 'review');
+  assert.strictEqual(cmd.prompt, REVIEW_PROMPT);
+  assert.ok(REVIEW_PROMPT.includes('git status'));
+  assert.ok(REVIEW_PROMPT.includes('CRITICAL、HIGH、MEDIUM 或 LOW'));
+});
+
+test('registry: команда summarize зарегистрирована', () => {
+  const cmd = findCommand('summarize');
+  assert.ok(cmd);
+  assert.strictEqual(cmd.name, 'summarize');
+  assert.strictEqual(cmd.prompt, SUMMARIZE_PROMPT);
+  assert.ok(SUMMARIZE_PROMPT.includes('已完成的任务'));
+  assert.ok(SUMMARIZE_PROMPT.includes('不要编造'));
+});
+
+test('review-context: собирает diff изменённых файлов', async () => {
+  const calls = [];
+  const result = await collectReviewDiff({
+    async gitStatus() {
+      return { success: true, files: [{ path: 'src/app.js', status: 'modified' }] };
+    },
+    async gitDiffFile(filePath, status) {
+      calls.push([filePath, status]);
+      return { success: true, diff: '@@ -1 +1 @@\n-old\n+new' };
+    },
+  });
+  assert.deepStrictEqual(calls, [['src/app.js', 'modified']]);
+  assert.ok(result.diff.includes('===== src/app.js ====='));
+  assert.ok(buildReviewPrompt(result).includes('以下是本次 review 的实际 diff'));
+});
+
+test('review-context: сообщает причину при отсутствии изменений', async () => {
+  const result = await collectReviewDiff({
+    async gitStatus() { return { success: true, files: [] }; },
+    async gitDiffFile() { throw new Error('не должен вызываться'); },
+  });
+  assert.strictEqual(result.diff, '');
+  assert.strictEqual(result.reason, 'Изменённых файлов нет');
+  assert.ok(buildReviewPrompt(result).includes('无法获取 diff'));
+});
+
 test('registry: findCommand нечувствителен к регистру', () => {
   assert.ok(findCommand('PLAN'));
   assert.ok(findCommand('Plan'));
@@ -116,7 +161,9 @@ test('registry: findCommand неизвестной команды', () => {
 test('registry: searchCommands по префиксу', () => {
   assert.deepStrictEqual(searchCommands('pl').map((c) => c.name), ['plan']);
   assert.deepStrictEqual(searchCommands('p').map((c) => c.name), ['plan']);
-  assert.deepStrictEqual(searchCommands('').map((c) => c.name), ['plan']);
+  assert.deepStrictEqual(searchCommands('re').map((c) => c.name), ['review']);
+  assert.deepStrictEqual(searchCommands('sum').map((c) => c.name), ['summarize']);
+  assert.deepStrictEqual(searchCommands('').map((c) => c.name), ['plan', 'review', 'summarize']);
   assert.deepStrictEqual(searchCommands('xyz'), []);
 });
 

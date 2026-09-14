@@ -246,6 +246,8 @@ Full TypeScript declarations are shipped at `tools/cuckoo-tools.d.ts`.
 Cookie Code is built to be reshaped: swap wallpapers, tune the glass effect, change the accent color, write your own skills, or extend the tool set.
 
 <p align="center">
+  <img src="assets/photo_2026-09-13_22-54-33.jpg" alt="Cookie Code — full customized interface" width="900">
+  <br>
   <img src="assets/photo_1_2026-09-13_13-16-57.jpg" alt="Cookie Code — customization settings" width="800">
   <br>
   <img src="assets/photo_2_2026-09-13_13-16-57.jpg" alt="Cookie Code — custom theme" width="800">

@@ -387,11 +387,10 @@ async function handleKillProcess() {
   try {
     const res = await window.electronAPI.killProcess();
     if (res && res.success) {
-      if (res.count > 0) {
-        showToast(t('overlay.task.killed', { count: res.count }), 2500);
-      } else {
-        showToast(t('overlay.task.killNone'), 2000);
-      }
+      showToast(res.count > 0
+        ? t('overlay.task.killed', { count: res.count })
+        : t('overlay.task.stopped'), 2500);
+      setTaskStatus(false);
     } else {
       showToast(t('overlay.task.killError') + (res && res.error ? ': ' + res.error : ''), 3000);
     }

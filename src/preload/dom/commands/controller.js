@@ -1,13 +1,14 @@
 /**
  * Контроллер slash-команд: слушает ввод в поле, детектит "/" токен,
- * показывает меню и по выбору заменяет только токен "/plan" на промпт
- * (остальной текст сохраняется).
+ * показывает меню и по выбору заменяет slash-токен на промпт.
  */
 
 const { detectTrigger } = require('./detect');
 const { searchCommands, findCommand, descOf } = require('./registry');
 const { t } = require('../../i18n/i18n');
 const menu = require('./menu');
+const chatInput = require('../chat-input');
+const { collectReviewDiff, buildReviewPrompt } = require('./review-context');
 
 /** Текущий активный токен (span в поле). */
 let activeHit = null;
@@ -31,6 +32,9 @@ let lastFileQuery = null;
 function onFieldUpdate(e) {
   const field = e.target;
   if (!isTrackedField(field)) return;
+  // keyup после навигации не меняет текст. Перерисовка здесь сбрасывает
+  // подсветку меню на первый пункт, поэтому такие события игнорируем.
+  if (e.type === 'keyup' && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) return;
   update(e);
 }
 
@@ -90,6 +94,8 @@ function cancelFileSearch() {
     clearTimeout(fileSearchTimer);
     fileSearchTimer = null;
   }
+  // Даже уже запущенный IPC-запрос должен стать устаревшим.
+  fileSearchSeq++;
 }
 
 /**
@@ -203,6 +209,25 @@ function pick(idx) {
     replacement = cmd.prompt;
   }
 
+  const isReviewCommand = activeKind === 'command' && item.name === 'review';
+
+  // Review отправляется после async-сбора diff. Не вставляем промежуточный
+  // prompt в поле: событие input может повторно открыть меню и выбрать plan.
+  if (isReviewCommand) {
+    closeMenu();
+    activeHit = null;
+    collectReviewDiff(window.electronAPI).then((result) => {
+      chatInput.sendToChat(buildReviewPrompt(result), 'review', 0);
+    }).catch((err) => {
+      chatInput.sendToChat(
+        buildReviewPrompt({ diff: '', reason: err.message || 'Не удалось подготовить review' }),
+        'review',
+        0
+      );
+    });
+    return;
+  }
+
   const draft = getValue(field);
   // Заменяем ТОЛЬКО токен (от span.start до текущего caret)
   const caret = getCaret(field);
@@ -210,14 +235,17 @@ function pick(idx) {
   const after = draft.slice(caret === null ? hit.span.end : caret);
   const next = before + replacement + after;
 
+  // Сбрасываем активное меню до input-события от setValue(). Это не даёт
+  // старому async-поиску @-файлов снова отрисовать список после выбора.
+  closeMenu();
+  activeHit = null;
+
   setValue(field, next);
 
   // Устанавливаем курсор после вставленного текста
   const pos = before.length + replacement.length;
   setCaret(field, pos);
 
-  closeMenu();
-  activeHit = null;
 }
 
 /** Закрывает меню. */
