@@ -2,6 +2,14 @@ const { Tool, ToolResult } = require('./ToolRegistry');
 const fs = require('fs');
 const path = require('path');
 
+function countLines(str) {
+  if (!str || str.length === 0) return 0;
+  const norm = String(str).replace(/\r\n/g, '\n');
+  const parts = norm.split('\n');
+  if (parts.length > 0 && parts[parts.length - 1] === '') return parts.length - 1;
+  return parts.length;
+}
+
 /**
  * 文件写入工具 - 仿照 Claude Code 的 FileWriteTool
  * 用于创建新文件或覆盖现有文件
@@ -57,6 +65,13 @@ class FileWriteTool extends Tool {
         resolvedPath = normalizedPath;
       }
 
+      const isUpdate = fs.existsSync(resolvedPath);
+      let oldLines = 0;
+      if (isUpdate) {
+        try { oldLines = countLines(fs.readFileSync(resolvedPath, encoding)); } catch (_) {}
+      }
+      const newLines = countLines(content);
+
       // 确保目录存在
       const dir = path.dirname(resolvedPath);
       if (!fs.existsSync(dir)) {
@@ -72,11 +87,13 @@ class FileWriteTool extends Tool {
       console.log('[FileWriteTool] 文件大小:', Buffer.byteLength(content, encoding), 'bytes');
       console.log('[FileWriteTool] 编码:', encoding);
 
-      return ToolResult.success({
+      const res = ToolResult.success({
         message: `文件已写入: ${absolutePath}`,
         bytes: Buffer.byteLength(content, encoding),
         path: absolutePath
       });
+      res.stats = { added: newLines, removed: isUpdate ? oldLines : 0, operation: isUpdate ? 'update' : 'create' };
+      return res;
     } catch (err) {
       return ToolResult.error(`写入文件失败: ${err.message}`);
     }

@@ -2,6 +2,14 @@ const { Tool, ToolResult } = require('./ToolRegistry');
 const fs = require('fs');
 const path = require('path');
 
+function countLines(str) {
+  if (!str || str.length === 0) return 0;
+  const norm = String(str).replace(/\r\n/g, '\n');
+  const parts = norm.split('\n');
+  if (parts.length > 0 && parts[parts.length - 1] === '') return parts.length - 1;
+  return parts.length;
+}
+
 /**
  * 文件编辑工具 - 仿照 Claude Code 的 Edit 工具
  * 在文件中精确替换一段文本（old_string → new_string）
@@ -104,12 +112,16 @@ class FileEditTool extends Tool {
       const absolutePath = path.resolve(resolvedPath);
       console.log(`[FileEditTool] 文件已编辑: ${absolutePath}, 替换 ${occurrences} 处`);
 
-      return ToolResult.success({
+      const res = ToolResult.success({
         message: `文件已编辑: ${absolutePath}`,
         path: absolutePath,
         replacedCount: occurrences,
         bytes: Buffer.byteLength(newContent, 'utf-8')
       });
+      const oldLines = countLines(old_string);
+      const newLines = countLines(new_string);
+      res.stats = { added: newLines * (replace_all ? occurrences : 1), removed: oldLines * (replace_all ? occurrences : 1), occurrences };
+      return res;
     } catch (err) {
       return ToolResult.error(`编辑文件失败: ${err.message}`);
     }

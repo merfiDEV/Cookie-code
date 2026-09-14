@@ -140,7 +140,8 @@ function decorateInner(scope) {
       '<span class="cuckoo-tool-chevron">▸</span>' +
       '<span class="cuckoo-tool-icon">' + meta.icon + '</span>' +
       '<span class="cuckoo-tool-label">' + escapeHtml(meta.label) + '</span>' +
-      (meta.file ? '<span class="cuckoo-tool-sep">·</span><span class="cuckoo-tool-file">' + escapeHtml(meta.file) + '</span>' : '');
+      (meta.file ? '<span class="cuckoo-tool-sep">·</span><span class="cuckoo-tool-file">' + escapeHtml(meta.file) + '</span>' : '') +
+      '<span class="cuckoo-tool-diff" style="display:none"></span>';
 
     // Скрываем встроенный баннер DeepSeek (копировать/скачать)
     const nativeBanner = block.querySelector('.md-code-block-banner-wrap');
@@ -168,6 +169,8 @@ function decorateInner(scope) {
   // Если есть отложенные результаты — прикрепить их к свежеобёрнутым блокам
   // (инлайн-результат внутри карточки, см. tool-result-inline.js).
   try { require('./tool-result-inline').applyPendingResults(); } catch (_) {}
+  // Если есть отложенные diff-счётчики — применить
+  try { applyPendingDiffs(); } catch (_) {}
 }
 
 function escapeHtml(s) {
@@ -325,4 +328,106 @@ function applyPendingErrorsInner() {
   }
 }
 
-module.exports = { decorate, detectTool, startWatch, markToolBlockError, applyPendingErrors };
+// Очередь diff-счётчиков для инлайн-блоков: codeKey -> {added, removed}
+const pendingDiffs = new Map();
+const DIFF_STORE_KEY = 'cuckoo-diffs';
+
+function formatDiffHtml(added, removed) {
+  const a = Number(added) || 0;
+  const r = Number(removed) || 0;
+  if (a === 0 && r === 0) return '';
+  let html = '';
+  if (a > 0) html += '<span class="cuckoo-diff-add">+' + a + '</span>';
+  if (r > 0) {
+    if (html) html += ' ';
+    html += '<span class="cuckoo-diff-del">-' + r + '</span>';
+  }
+  if (a === 0 && r === 0) return '';
+  // если только одна из метрик 0, но другая >0 — показать только её (как +829)
+  return html;
+}
+
+function applyDiffToBlock(block, added, removed) {
+  if (!block) return;
+  const header = block.querySelector('.cuckoo-tool-header');
+  if (!header) return;
+  let diffEl = header.querySelector('.cuckoo-tool-diff');
+  if (!diffEl) {
+    diffEl = document.createElement('span');
+    diffEl.className = 'cuckoo-tool-diff';
+    header.appendChild(diffEl);
+  }
+  const html = formatDiffHtml(added, removed);
+  if (!html) {
+    diffEl.style.display = 'none';
+    diffEl.innerHTML = '';
+    return;
+  }
+  diffEl.innerHTML = html;
+  diffEl.style.display = '';
+  diffEl.title = 'Изменено строк: +' + (added||0) + ' -' + (removed||0);
+}
+
+function markToolBlockDiff(code, stats) {
+  return safe('tool-render.markToolBlockDiff', () => {
+    if (!code) return false;
+    const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const key = norm(code).slice(0, 60);
+    if (!key) return false;
+    let added = 0, removed = 0;
+    if (Array.isArray(stats)) {
+      for (const s of stats) {
+        added += Number(s.added) || 0;
+        removed += Number(s.removed) || 0;
+      }
+    } else if (stats && typeof stats === 'object') {
+      added = Number(stats.added) || 0;
+      removed = Number(stats.removed) || 0;
+    } else if (typeof stats === 'number') {
+      added = Number(stats) || 0;
+    }
+    // Если оба 0 — не показываем
+    if (added === 0 && removed === 0) return false;
+    pendingDiffs.set(key, { added, removed });
+    try {
+      const raw = localStorage.getItem(DIFF_STORE_KEY) || '{}';
+      const store = JSON.parse(raw);
+      store[key] = { added, removed };
+      localStorage.setItem(DIFF_STORE_KEY, JSON.stringify(store));
+    } catch (_) {}
+    applyPendingDiffs();
+    return true;
+  }, false);
+}
+
+function applyPendingDiffs() {
+  return safe('tool-render.applyPendingDiffs', () => applyPendingDiffsInner());
+}
+
+function applyPendingDiffsInner() {
+  try {
+    const raw = localStorage.getItem(DIFF_STORE_KEY);
+    if (raw) {
+      const store = JSON.parse(raw);
+      for (const k of Object.keys(store)) {
+        if (!pendingDiffs.has(k)) pendingDiffs.set(k, store[k]);
+      }
+    }
+  } catch (_) {}
+  if (pendingDiffs.size === 0) return;
+  const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+  const blocks = document.querySelectorAll('.' + BLOCK_CLASS);
+  for (const block of blocks) {
+    const pre = block.querySelector('pre');
+    if (!pre) continue;
+    const blockCode = norm(pre.textContent);
+    for (const [key, diff] of pendingDiffs) {
+      if (!blockCode.includes(key)) continue;
+      applyDiffToBlock(block, diff.added, diff.removed);
+      pendingDiffs.delete(key);
+      break;
+    }
+  }
+}
+
+module.exports = { decorate, detectTool, startWatch, markToolBlockError, applyPendingErrors, markToolBlockDiff, applyPendingDiffs, formatDiffHtml };

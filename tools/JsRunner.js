@@ -288,6 +288,7 @@ class JsRunner {
 
     const startTime = Date.now();
     const deadlineMs = RUN_DEADLINE;
+    const collectedStats = [];
 
     // 唯一跨域桥接函数：AI 代码中的每个工具调用都通过它回到主进程执行。
     // 注意：该函数绝不向沙箱抛出宿主对象（错误一律包装成 { success:false, error } 结果），
@@ -318,6 +319,18 @@ class JsRunner {
           }
         }
       }
+      // Собираем diff-статистику для инлайн-счётчика +829 -53
+      try {
+        if (result && result.stats && typeof result.stats.added === 'number') {
+          collectedStats.push({
+            op,
+            path: args.file_path || args.path || '',
+            added: result.stats.added,
+            removed: result.stats.removed,
+            operation: result.stats.operation || ''
+          });
+        }
+      } catch (_) {}
       // Уведомление в Telegram о результате tool (не блокирует выполнение).
       try {
         const { notifyToolResult } = require('../botsrc');
@@ -404,7 +417,9 @@ class JsRunner {
         output = output.slice(0, OUTPUT_LIMIT) + '\n...[输出过长已截断]...';
       }
 
-      return { success: true, output: output || '(脚本执行完成，无输出)\n如需输出请使用 log() 方法' };
+      const finalRes = { success: true, output: output || '(脚本执行完成，无输出)\n如需输出请使用 log() 方法' };
+      if (collectedStats.length > 0) finalRes.stats = collectedStats;
+      return finalRes;
     } catch (err) {
       console.error('[JsRunner] 脚本执行失败:', err && err.stack ? err.stack : String(err));
       console.error('[JsRunner] [诊断] 失败代码(JSON转义): ' + JSON.stringify(code));

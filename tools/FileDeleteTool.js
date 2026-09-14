@@ -52,9 +52,19 @@ class FileDeleteTool extends Tool {
       if (!stat.isFile()) {
         return ToolResult.error(`路径不是文件: ${absolutePath}`);
       }
+      // Подсчёт строк до удаления для счётчика +0 -N
+      let removed = 0;
+      try {
+        const content = await fs.promises.readFile(absolutePath, 'utf-8');
+        const norm = String(content).replace(/\r\n/g, '\n');
+        const parts = norm.split('\n');
+        removed = content.length === 0 ? 0 : (parts[parts.length - 1] === '' ? parts.length - 1 : parts.length);
+      } catch (_) {}
       // 删除文件
       await fs.promises.unlink(absolutePath);
-      return ToolResult.success({ message: `文件已删除: ${absolutePath}`, path: absolutePath });
+      const res = ToolResult.success({ message: `文件已删除: ${absolutePath}`, path: absolutePath });
+      res.stats = { added: 0, removed, operation: 'delete' };
+      return res;
     } catch (err) {
       return ToolResult.error(`删除文件失败: ${err.message}`);
     }
