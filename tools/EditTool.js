@@ -158,6 +158,12 @@ class EditTool extends Tool {
 
       fs.writeFileSync(resolvedPath, newContent, 'utf-8');
 
+      // Авто-форматирование после правки (см. WriteTool).
+      if (projectDir) {
+        const { formatAfterWrite } = require('../src/main/formatter');
+        await formatAfterWrite(resolvedPath, projectDir);
+      }
+
       console.log('[EditTool] 已编辑:', resolvedPath, '替换', occurrences, '处');
       return ToolResult.success(formatEditOutput(input.filePath, input.replaceAll, occurrences));
     } catch (err) {

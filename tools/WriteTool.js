@@ -96,6 +96,13 @@ class WriteTool extends Tool {
       // 写文件
       fs.writeFileSync(resolvedPath, input.content, 'utf-8');
 
+      // Авто-форматирование (prettier/gofmt/ruff/... — по расширению и конфигу проекта).
+      // Опционально, ошибки не пробрасываются.
+      if (projectDir) {
+        const { formatAfterWrite } = require('../src/main/formatter');
+        await formatAfterWrite(resolvedPath, projectDir);
+      }
+
       console.log('[WriteTool] ' + (operation === 'create' ? 'Created' : 'Updated') + ':', resolvedPath);
       return ToolResult.success(formatWriteOutput(input.filePath, operation));
     } catch (err) {
