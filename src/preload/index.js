@@ -25,6 +25,7 @@ const background = require('./dom/background');
 const reasoningGlass = require('./dom/reasoning-glass');
 const inputGlass = require('./dom/input-glass');
 const forceDarkTheme = require('./dom/force-dark-theme');
+const qrOverride = require('./dom/qr-override');
 const i18n = require('./i18n/i18n');
 const state = require('./dom/state');
 const { getProviderByUrl } = require('../providers');
@@ -91,6 +92,9 @@ async function init() {
 
     // Принудительно держим тёмную тему DeepSeek
     safe('init.forceDarkThemeStart', () => forceDarkTheme.startWatch());
+
+    // Подмена QR-кода в попапе «Скачать приложение»
+    safe('init.qrOverrideStart', () => qrOverride.startWatch());
 
     // Кнопка экспорта ответа в PDF/DOCX под каждым ответом AI
     safe('init.chatExportStart', () => chatExport.startWatch());
