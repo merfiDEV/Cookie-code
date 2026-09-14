@@ -285,7 +285,7 @@ class JsRunner {
    * @param {string|null} projectDir - 当前项目目录（相对路径基准）
    * @returns {Promise<{success: boolean, output?: string, error?: string}>}
    */
-  async run(code, projectDir, senderId, askUserQuestion, pasteImage, exitPlanMode) {
+  async run(code, projectDir, senderId, askUserQuestion, pasteImage, exitPlanMode, sessionId) {
     if (!code || typeof code !== 'string' || !code.trim()) {
       return { success: false, error: '无效的 JS 代码' };
     }
@@ -311,7 +311,7 @@ class JsRunner {
       // Режим плана: блокируем изменяющие операции (кроме записи plan.md).
       try {
         const planMode = require('../src/main/plan-mode');
-        if (planMode.isPlanMode(senderId)) {
+        if (planMode.isPlanMode(senderId, sessionId)) {
           const verdict = planMode.checkBlocked(op, args);
           if (verdict.blocked) {
             return JSON.stringify({ success: false, error: verdict.error });

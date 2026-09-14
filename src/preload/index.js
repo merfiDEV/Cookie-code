@@ -96,7 +96,7 @@ async function init() {
     // 启动设置面板标签注入
     safe('init.settingsTabStart', () => settingsTab.start());
 
-    // Slash-команды: автодополнение и /plan
+    // Slash-команды: автодополнение (review/summarize)
     safe('init.commandsStart', () => commands.start());
 
     // Принудительно держим тёмную тему DeepSeek

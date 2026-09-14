@@ -13,6 +13,7 @@ const APP_ICON = path.join(__dirname, '..', '..', 'build', process.platform === 
 const windowState = require('./window');
 const profileManager = require('./profile-manager');
 const { createSessionStore } = require('./session-store');
+const planMode = require('./plan-mode');
 const { getProvider } = require('../providers');
 const updater = require('./updater');
 
@@ -133,12 +134,21 @@ function createWindow(profile) {
     }
   });
 
+  const notifyPlanMode = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const sid = sessionStore.state.currentSessionId || null;
+    const enabled = planMode.isPlanMode(mainWindow.webContents.id, sid);
+    try { mainWindow.webContents.send('plan-mode-changed', { enabled, sessionId: sid }); } catch (_) {}
+  };
+
   mainWindow.webContents.on('did-navigate', (_event, url) => {
     sessionStore.handleUrlChange(url, mainWindow);
+    notifyPlanMode();
   });
 
   mainWindow.webContents.on('did-navigate-in-page', (_event, url) => {
     sessionStore.handleUrlChange(url, mainWindow);
+    notifyPlanMode();
   });
 
   mainWindow.webContents.on('before-input-event', (_event, input) => {

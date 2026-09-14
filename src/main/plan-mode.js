@@ -1,11 +1,13 @@
 /**
- * Режим плана (plan mode) — per-sender флаг.
+ * Режим плана (plan mode) — флаг на сессию (senderId + sessionId).
  *
- * Пока для окна включён режим плана, изменяющие инструменты (write/edit/
- * delete/bash/pwsh/mysql/inject_js/mcp_call/skill_execute) блокируются в
- * главном процессе. Единственное исключение — запись в plan.md.
+ * Каждый чат (сессия) в окне имеет собственный режим плана: при переключении
+ * сессии блокировка меняется вместе с ней. Пока для сессии включён режим,
+ * изменяющие инструменты (write/edit/delete/bash/pwsh/mysql/inject_js/mcp_call/
+ * skill_execute) блокируются в главном процессе. Исключение — запись в plan.md.
  *
- * Флаг хранится в памяти процесса (Set senderId).
+ * Ключ = `${senderId}::${sessionId}`. Для нового чата (sessionId ещё нет)
+ * используется суффикс 'new'. Флаг хранится в памяти процесса.
  */
 const path = require('path');
 
@@ -18,18 +20,28 @@ const MUTATING_TOOLS = new Set([
   'mysql', 'inject_js', 'mcp_call', 'skill_execute',
 ]);
 
-function setPlanMode(senderId, enabled) {
-  const id = String(senderId);
-  if (enabled) active.add(id);
-  else active.delete(id);
+/**
+ * Ключ режима плана: senderId + sessionId.
+ * @param {number|string} senderId
+ * @param {string|null} sessionId
+ * @returns {string}
+ */
+function keyOf(senderId, sessionId) {
+  return String(senderId) + '::' + (sessionId || 'new');
 }
 
-function isPlanMode(senderId) {
-  return active.has(String(senderId));
+function setPlanMode(senderId, sessionId, enabled) {
+  const key = keyOf(senderId, sessionId);
+  if (enabled) active.add(key);
+  else active.delete(key);
 }
 
-function clearPlanMode(senderId) {
-  active.delete(String(senderId));
+function isPlanMode(senderId, sessionId) {
+  return active.has(keyOf(senderId, sessionId));
+}
+
+function clearPlanMode(senderId, sessionId) {
+  active.delete(keyOf(senderId, sessionId));
 }
 
 function isPlanFile(filePath) {
@@ -56,5 +68,5 @@ function checkBlocked(op, args) {
 
 module.exports = {
   PLAN_FILE, MUTATING_TOOLS,
-  setPlanMode, isPlanMode, clearPlanMode, isPlanFile, checkBlocked,
+  keyOf, setPlanMode, isPlanMode, clearPlanMode, isPlanFile, checkBlocked,
 };

@@ -4,7 +4,8 @@
  * Когда модель вызывает exit_plan_mode(), главный процесс присылает событие
  * 'exit-plan-mode' с markdown-текстом плана. Здесь рендерим план и показываем
  * две кнопки: «Отказать в плане» и «Согласиться». По согласию — снимаем режим
- * плана и подставляем в поле ввода «Работай в соответствии с планом».
+ * плана для ТЕКУЩЕЙ СЕССИИ и подставляем в поле ввода «Работай в соответствии
+ * с планом» (без автоотправки — пользователь отправляет сам).
  */
 const { ipcRenderer } = require('electron');
 const state = require('./state');
@@ -93,7 +94,7 @@ function ensureStyles() {
   style.textContent = `
     #${DIALOG_ID} { position:fixed; inset:0; z-index:2147483647; display:flex; align-items:center; justify-content:center; background:rgba(5,8,18,.62); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
     #${DIALOG_ID} .cuckoo-plan-card { position:relative; width:min(760px,calc(100vw - 32px)); max-height:calc(100vh - 48px); display:flex; flex-direction:column; color:#eef1ff; background:#171b2c; border:1px solid rgba(145,158,255,.42); border-radius:12px; box-shadow:0 20px 70px rgba(0,0,0,.55); overflow:hidden; }
-    #${DIALOG_ID} .cuckoo-plan-head { display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.08); }
+    #${DIALOG_ID} .cuckoo-plan-head { display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.08); cursor:move; user-select:none; }
     #${DIALOG_ID} .cuckoo-plan-head h2 { margin:0; font-size:17px; flex:1; }
     #${DIALOG_ID} .cuckoo-plan-close { border:0; background:transparent; color:#9aa2c6; font-size:20px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:6px; }
     #${DIALOG_ID} .cuckoo-plan-close:hover { background:rgba(255,255,255,.08); color:#fff; }
@@ -148,6 +149,35 @@ function showExitPlanDialog(plan) {
 
     dialog.querySelector('.cuckoo-plan-body').innerHTML = renderMarkdown(plan);
 
+    // ===== Перетаскивание окна за заголовок =====
+    (function enableDrag() {
+      const card = dialog.querySelector('.cuckoo-plan-card');
+      const head = dialog.querySelector('.cuckoo-plan-head');
+      if (!card || !head) return;
+      head.style.cursor = 'move';
+      let offsetX = 0;
+      let offsetY = 0;
+      head.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.cuckoo-plan-close')) return;
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const baseX = offsetX;
+        const baseY = offsetY;
+        const onMove = (ev) => {
+          offsetX = baseX + (ev.clientX - startX);
+          offsetY = baseY + (ev.clientY - startY);
+          card.style.transform = 'translate(' + offsetX + 'px,' + offsetY + 'px)';
+        };
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        e.preventDefault();
+      });
+    })();
+
     let settled = false;
     const finish = (approved) => {
       if (settled) return;
@@ -176,6 +206,8 @@ function applyApproval() {
   state.planMode = false;
   try { window.electronAPI.setPlanMode(false).catch(() => {}); } catch (_) {}
   try { require('./plan-mode-toggle').syncState(); } catch (_) {}
+  // Вставляем запрос на работу в поле ввода, но НЕ отправляем автоматически —
+  // пользователь отправит сам.
   try {
     const input = chatInput.findInputArea();
     if (input) chatInput.setInputContent(input, t('plan.approve.prompt'));

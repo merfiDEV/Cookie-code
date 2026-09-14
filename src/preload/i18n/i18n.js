@@ -203,9 +203,9 @@ const KEYS = {
   // ---- Slash-команды ----
   'cmd.menu.title':             { ru: 'Команды',                    en: 'Commands' },
   'cmd.menu.files':             { ru: 'Файлы проекта',              en: 'Project files' },
-  'cmd.plan.description':       { ru: 'Войти в режим плана и вставить план-промпт', en: 'Enter plan mode and inject the plan prompt' },
   'cmd.review.description':     { ru: 'Проверить текущие изменения проекта', en: 'Review current project changes' },
   'cmd.summarize.description':  { ru: 'Сделать краткий итог текущей сессии', en: 'Summarize the current session' },
+  'plan.toggle.label':          { ru: 'План',                       en: 'Plan' },
   'plan.dialog.title':          { ru: 'План на утверждение',        en: 'Plan for approval' },
   'plan.dialog.deny':           { ru: 'Отказать в плане',           en: 'Reject plan' },
   'plan.dialog.approve':        { ru: 'Согласиться',                en: 'Approve' },

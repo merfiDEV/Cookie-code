@@ -98,6 +98,16 @@ function requestExitPlanMode(sender, plan) {
   });
 }
 
+/**
+ * Текущий sessionId окна (из его sessionStore). Может быть null (новый чат).
+ * @param {Electron.IpcMainEvent|Electron.IpcMainInvokeEvent} event
+ * @returns {string|null}
+ */
+function sessionIdOf(event) {
+  const ctx = windowState.getContextByWebContents(event.sender);
+  return ctx && ctx.sessionStore ? (ctx.sessionStore.state.currentSessionId || null) : null;
+}
+
 function maybeNotifyAllDone(senderId) {
   try {
     const todos = todoStore.getList(senderId);
@@ -251,14 +261,15 @@ function registerIpcHandlers() {
     const pending = pendingPlanApprovals.get(key);
     if (!pending) return;
     pendingPlanApprovals.delete(key);
-    if (approved) planMode.clearPlanMode(event.sender.id);
+    if (approved) planMode.clearPlanMode(event.sender.id, sessionIdOf(event));
     pending.resolve({ approved: !!approved });
   });
 
-  // Включение/выключение режима плана (кнопка-тумблер «План»).
+  // Включение/выключение режима плана для текущей сессии окна.
   ipcMain.handle('set-plan-mode', async (event, { enabled } = {}) => {
-    planMode.setPlanMode(event.sender.id, !!enabled);
-    return { success: true, planMode: planMode.isPlanMode(event.sender.id) };
+    const sessionId = sessionIdOf(event);
+    planMode.setPlanMode(event.sender.id, sessionId, !!enabled);
+    return { success: true, planMode: planMode.isPlanMode(event.sender.id, sessionId), sessionId };
   });
 
   ipcMain.on('ask-user-question-response', (event, { requestId, answers, canceled } = {}) => {
@@ -468,7 +479,7 @@ function registerIpcHandlers() {
     const selectedDir = store ? store.state.selectedProjectDir : null;
 
     // Режим плана: блокируем изменяющие инструменты (кроме записи plan.md).
-    if (planMode.isPlanMode(event.sender.id)) {
+    if (planMode.isPlanMode(event.sender.id, sessionIdOf(event))) {
       const verdict = planMode.checkBlocked(toolName, params || {});
       if (verdict.blocked) {
         return { callId, success: false, error: verdict.error };
@@ -613,7 +624,8 @@ function registerIpcHandlers() {
         event.sender.id,
         (questions) => requestUserQuestion(event.sender, questions),
         (filePath, caption, send) => insertImageToChat(event.sender, filePath, caption, send),
-        (plan) => requestExitPlanMode(event.sender, plan)
+        (plan) => requestExitPlanMode(event.sender, plan),
+        sessionIdOf(event)
       );
       if (isTaskCanceled(event.sender.id, taskToken)) {
         return { callId, success: false, canceled: true, error: '执行已被用户停止' };
@@ -636,9 +648,10 @@ function registerIpcHandlers() {
     const sender = event.sender;
     if (!sender || sender.isDestroyed()) return false;
     try {
-      sender.sendInputEvent({ type: 'keyDown', keyCode: 'Return', key: 'Enter' });
-      sender.sendInputEvent({ type: 'char', keyCode: 'Return', key: '\r' });
-      sender.sendInputEvent({ type: 'keyUp', keyCode: 'Return', key: 'Enter' });
+      sender.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+      sender.sendInputEvent({ type: 'char', keyCode: 'Enter', key: '\r' });
+      sender.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
+      console.log('[Cookie Code] native Enter отправлен в окно');
       return true;
     } catch (err) {
       console.error('[Cookie Code] ❌ 原生 Enter 发送失败:', err.message);
