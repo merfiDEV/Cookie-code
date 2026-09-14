@@ -5,6 +5,7 @@
  *   кнопка «Весь коммит» показывает полный diff коммита.
  */
 const { showToast } = require('./ui');
+const { t } = require('../i18n/i18n');
 
 const PANEL_ID = 'cuckoo-diff-panel';
 const LIST_ID = 'cuckoo-diff-list';
@@ -64,16 +65,16 @@ function setActiveTab(tab) {
 async function renderDiffList() {
   const list = document.getElementById(LIST_ID);
   if (!list) return;
-  list.innerHTML = '<div class="cuckoo-session-empty">Загрузка…</div>';
+  list.innerHTML = '<div class="cuckoo-session-empty">' + t('diff.loading') + '</div>';
   try {
     const res = await window.electronAPI.gitStatus();
     if (!res || !res.success) {
-      list.innerHTML = '<div class="cuckoo-session-empty">' + escapeHtml(res && res.reason || 'git не найден') + '</div>';
+      list.innerHTML = '<div class="cuckoo-session-empty">' + escapeHtml(res && res.reason || t('diff.gitNotFound')) + '</div>';
       return;
     }
     const files = res.files || [];
     if (files.length === 0) {
-      list.innerHTML = '<div class="cuckoo-session-empty">Нет изменённых файлов</div>';
+      list.innerHTML = '<div class="cuckoo-session-empty">' + t('diff.noChanges') + '</div>';
       return;
     }
     list.innerHTML = files.map(f => {
@@ -92,7 +93,7 @@ async function renderDiffList() {
       });
     });
   } catch (err) {
-    list.innerHTML = '<div class="cuckoo-session-empty">Ошибка: ' + escapeHtml(err.message || err) + '</div>';
+    list.innerHTML = '<div class="cuckoo-session-empty">' + t('diff.errorPrefix', { msg: escapeHtml(err.message || err) }) + '</div>';
   }
 }
 
@@ -101,16 +102,16 @@ async function renderDiffList() {
 async function renderGitLog() {
   const list = document.getElementById(LOG_LIST_ID);
   if (!list) return;
-  list.innerHTML = '<div class="cuckoo-session-empty">Загрузка…</div>';
+  list.innerHTML = '<div class="cuckoo-session-empty">' + t('diff.loading') + '</div>';
   try {
     const res = await window.electronAPI.gitLog(COMMITS_LIMIT);
     if (!res || !res.success) {
-      list.innerHTML = '<div class="cuckoo-session-empty">' + escapeHtml(res && res.reason || 'git не найден') + '</div>';
+      list.innerHTML = '<div class="cuckoo-session-empty">' + escapeHtml(res && res.reason || t('diff.gitNotFound')) + '</div>';
       return;
     }
     const commits = res.commits || [];
     if (commits.length === 0) {
-      list.innerHTML = '<div class="cuckoo-session-empty">Нет коммитов</div>';
+      list.innerHTML = '<div class="cuckoo-session-empty">' + t('diff.noCommits') + '</div>';
       return;
     }
     list.innerHTML = commits.map(c =>
@@ -126,7 +127,7 @@ async function renderGitLog() {
       });
     });
   } catch (err) {
-    list.innerHTML = '<div class="cuckoo-session-empty">Ошибка: ' + escapeHtml(err.message || err) + '</div>';
+    list.innerHTML = '<div class="cuckoo-session-empty">' + t('diff.errorPrefix', { msg: escapeHtml(err.message || err) }) + '</div>';
   }
 }
 
@@ -141,17 +142,17 @@ async function openCommitFiles(hash, subject) {
   if (logList) logList.classList.add('cuckoo-hidden');
   if (commitFiles) commitFiles.classList.remove('cuckoo-hidden');
   if (subjectEl) subjectEl.textContent = subject || '';
-  if (filesList) filesList.innerHTML = '<div class="cuckoo-session-empty">Загрузка…</div>';
+  if (filesList) filesList.innerHTML = '<div class="cuckoo-session-empty">' + t('diff.loading') + '</div>';
 
   try {
     const res = await window.electronAPI.gitCommitFiles(hash);
     if (!res || !res.success) {
-      filesList.innerHTML = '<div class="cuckoo-session-empty">' + escapeHtml(res && res.reason || 'Ошибка') + '</div>';
+      filesList.innerHTML = '<div class="cuckoo-session-empty">' + escapeHtml(res && res.reason || t('diff.error')) + '</div>';
       return;
     }
     const files = res.files || [];
     if (files.length === 0) {
-      filesList.innerHTML = '<div class="cuckoo-session-empty">Нет файлов</div>';
+      filesList.innerHTML = '<div class="cuckoo-session-empty">' + t('diff.noFiles') + '</div>';
       return;
     }
     filesList.innerHTML = files.map(f => {
@@ -170,7 +171,7 @@ async function openCommitFiles(hash, subject) {
       });
     });
   } catch (err) {
-    filesList.innerHTML = '<div class="cuckoo-session-empty">Ошибка: ' + escapeHtml(err.message || err) + '</div>';
+    filesList.innerHTML = '<div class="cuckoo-session-empty">' + t('diff.errorPrefix', { msg: escapeHtml(err.message || err) }) + '</div>';
   }
 }
 
@@ -187,7 +188,7 @@ function backToLog() {
 
 function renderUnifiedDiff(diffText) {
   if (!diffText || !diffText.trim()) {
-    return '<div class="cuckoo-diff-empty">Пустой diff</div>';
+    return '<div class="cuckoo-diff-empty">' + t('diff.empty') + '</div>';
   }
   const lines = diffText.split(/\r?\n/);
   const html = lines.map(line => {
@@ -208,17 +209,17 @@ async function openDiffViewer(filePath, status) {
   const titleEl = viewer.querySelector('#cuckoo-diff-viewer-title');
   const bodyEl = viewer.querySelector('#cuckoo-diff-viewer-body');
   if (titleEl) titleEl.textContent = filePath;
-  if (bodyEl) bodyEl.innerHTML = '<div class="cuckoo-diff-empty">Загрузка…</div>';
+  if (bodyEl) bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + t('diff.loading') + '</div>';
   viewer.classList.remove('cuckoo-hidden');
   try {
     const res = await window.electronAPI.gitDiffFile(filePath, status);
     if (!res || !res.success) {
-      bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + escapeHtml(res && res.reason || 'Не удалось получить diff') + '</div>';
+      bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + escapeHtml(res && res.reason || t('diff.diffFailed')) + '</div>';
       return;
     }
     bodyEl.innerHTML = renderUnifiedDiff(res.diff || '');
   } catch (err) {
-    bodyEl.innerHTML = '<div class="cuckoo-diff-empty">Ошибка: ' + escapeHtml(err.message || err) + '</div>';
+    bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + t('diff.errorPrefix', { msg: escapeHtml(err.message || err) }) + '</div>';
   }
 }
 
@@ -228,17 +229,17 @@ async function openCommitFileViewer(hash, filePath) {
   const titleEl = viewer.querySelector('#cuckoo-diff-viewer-title');
   const bodyEl = viewer.querySelector('#cuckoo-diff-viewer-body');
   if (titleEl) titleEl.textContent = filePath + ' @ ' + (hash || '').slice(0, 7);
-  if (bodyEl) bodyEl.innerHTML = '<div class="cuckoo-diff-empty">Загрузка…</div>';
+  if (bodyEl) bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + t('diff.loading') + '</div>';
   viewer.classList.remove('cuckoo-hidden');
   try {
     const res = await window.electronAPI.gitCommitFileDiff(hash, filePath);
     if (!res || !res.success) {
-      bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + escapeHtml(res && res.reason || 'Не удалось получить diff') + '</div>';
+      bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + escapeHtml(res && res.reason || t('diff.diffFailed')) + '</div>';
       return;
     }
     bodyEl.innerHTML = renderUnifiedDiff(res.diff || '');
   } catch (err) {
-    bodyEl.innerHTML = '<div class="cuckoo-diff-empty">Ошибка: ' + escapeHtml(err.message || err) + '</div>';
+    bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + t('diff.errorPrefix', { msg: escapeHtml(err.message || err) }) + '</div>';
   }
 }
 
@@ -248,18 +249,18 @@ async function openCommitFullDiff() {
   if (!viewer) return;
   const titleEl = viewer.querySelector('#cuckoo-diff-viewer-title');
   const bodyEl = viewer.querySelector('#cuckoo-diff-viewer-body');
-  if (titleEl) titleEl.textContent = 'Весь коммит ' + (currentCommit.hash || '').slice(0, 7);
-  if (bodyEl) bodyEl.innerHTML = '<div class="cuckoo-diff-empty">Загрузка…</div>';
+  if (titleEl) titleEl.textContent = t('diff.commit.titlePrefix') + (currentCommit.hash || '').slice(0, 7);
+  if (bodyEl) bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + t('diff.loading') + '</div>';
   viewer.classList.remove('cuckoo-hidden');
   try {
     const res = await window.electronAPI.gitCommitDiff(currentCommit.hash);
     if (!res || !res.success) {
-      bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + escapeHtml(res && res.reason || 'Не удалось получить diff') + '</div>';
+      bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + escapeHtml(res && res.reason || t('diff.diffFailed')) + '</div>';
       return;
     }
     bodyEl.innerHTML = renderUnifiedDiff(res.diff || '');
   } catch (err) {
-    bodyEl.innerHTML = '<div class="cuckoo-diff-empty">Ошибка: ' + escapeHtml(err.message || err) + '</div>';
+    bodyEl.innerHTML = '<div class="cuckoo-diff-empty">' + t('diff.errorPrefix', { msg: escapeHtml(err.message || err) }) + '</div>';
   }
 }
 

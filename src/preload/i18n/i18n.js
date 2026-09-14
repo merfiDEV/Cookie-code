@@ -234,6 +234,32 @@ const KEYS = {
   'settings.formatters': { ru: 'Авто-форматирование после write/edit', en: 'Auto-format after write/edit' },
   'settings.formatters.hint': { ru: 'prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format — по расширению и конфигу проекта', en: 'prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format — by file extension and project config' },
 
+  // ---- Diff-панель ----
+  'diff.btn.title':             { ru: 'Показать diff изменённых файлов', en: 'Show diff of changed files' },
+  'diff.title':                 { ru: 'Изменения (git)',           en: 'Changes (git)' },
+  'diff.btn.refresh':           { ru: 'Обновить',                  en: 'Refresh' },
+  'diff.btn.close':             { ru: 'Закрыть',                   en: 'Close' },
+  'diff.tab.changes':           { ru: 'Изменения',                 en: 'Changes' },
+  'diff.tab.history':           { ru: 'История',                   en: 'History' },
+  'diff.loading':               { ru: 'Загрузка…',                 en: 'Loading…' },
+  'diff.commit.back':           { ru: '← Назад',                   en: '← Back' },
+  'diff.commit.back.title':     { ru: 'Назад к истории',           en: 'Back to history' },
+  'diff.commit.full':           { ru: 'Весь коммит',               en: 'Full commit' },
+  'diff.commit.full.title':     { ru: 'Показать весь коммит',      en: 'Show the full commit' },
+  'diff.commit.titlePrefix':    { ru: 'Весь коммит ',              en: 'Full commit ' },
+  'diff.empty':                 { ru: 'Пустой diff',               en: 'Empty diff' },
+  'diff.noChanges':             { ru: 'Нет изменённых файлов',     en: 'No changed files' },
+  'diff.noCommits':             { ru: 'Нет коммитов',              en: 'No commits' },
+  'diff.noFiles':               { ru: 'Нет файлов',                en: 'No files' },
+  'diff.gitNotFound':           { ru: 'git не найден',             en: 'git not found' },
+  'diff.diffFailed':            { ru: 'Не удалось получить diff',  en: 'Failed to fetch diff' },
+  'diff.error':                 { ru: 'Ошибка',                    en: 'Error' },
+  'diff.errorPrefix':           { ru: 'Ошибка: {msg}',             en: 'Error: {msg}' },
+
+  // ---- Todo-панель ----
+  'todo.btn.hide':              { ru: 'Скрыть',                    en: 'Hide' },
+  'todo.btn.show':              { ru: 'Показать задачи',           en: 'Show tasks' },
+
   // ---- Мета под ответом AI (время / токены / затронутые файлы) ----
   'meta.time.title':           { ru: 'Время ответа',               en: 'Response time' },
   'meta.tokens.title':         { ru: 'Оценка количества токенов (chars / 4)', en: 'Estimated tokens (chars / 4)' },
