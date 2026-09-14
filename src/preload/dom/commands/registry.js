@@ -35,6 +35,30 @@ const PLAN_PROMPT = [
 ].join('\n');
 
 /**
+ * Промпт ревью текущих изменений проекта.
+ * Команда заменяется этим текстом в поле ввода, после чего обычная отправка
+ * сообщения запускает анализ через доступные инструменты проекта.
+ */
+const REVIEW_PROMPT = [
+  '请对项目当前的代码变更进行 code review。',
+  '',
+  '先检查 git status，并查看相对于 HEAD 的 diff。不要猜测不存在的变更。',
+  '检查相关代码、现有测试以及项目本地约定。',
+  '',
+  '只报告有证据支持的问题：',
+  '- 错误和潜在回归；',
+  '- 安全漏洞和不安全的数据处理；',
+  '- 模块之间的契约被破坏；',
+  '- 变更代码缺少必要的错误处理；',
+  '- 缺失或明显失效的测试。',
+  '',
+  '不要报告纯粹的风格建议，也不要进行不必要的重写。',
+  '每条问题都必须包含优先级（CRITICAL、HIGH、MEDIUM 或 LOW）、文件、行号、原因和简短的修复建议。',
+  '先按优先级列出问题，然后简要说明检查过的范围以及成功运行的测试。',
+  '如果没有发现问题，请明确说明，并指出仍未覆盖的检查范围。',
+].join('\n');
+
+/**
  * 已注册的命令列表。
  * @type {Array<{name: string, description: string, prompt: string}>}
  */
@@ -44,6 +68,11 @@ const COMMANDS = [
     // Ключ i18n; резолвится через descOf() в момент отрисовки.
     descriptionKey: 'cmd.plan.description',
     prompt: PLAN_PROMPT,
+  },
+  {
+    name: 'review',
+    descriptionKey: 'cmd.review.description',
+    prompt: REVIEW_PROMPT,
   },
 ];
 
@@ -85,6 +114,7 @@ function searchCommands(query) {
 module.exports = {
   COMMANDS,
   PLAN_PROMPT,
+  REVIEW_PROMPT,
   findCommand,
   searchCommands,
   descOf,
