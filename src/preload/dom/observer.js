@@ -203,6 +203,11 @@ async function executeJsBlocksWithRetry(initialBlocks, markdown, force) {
       try { toolResultInline.markToolBlockResult(item.code, item.result); } catch (_) {}
     }
     sendCombinedJsResultsToChat(results);
+    // Факт-основанный учёт «затронутых файлов» — только успешные write/edit/delete
+    try {
+      const msgEl = (markdown && typeof markdown.closest === 'function' ? markdown.closest('.ds-message') : null) || responseMeta.findLatestAIMessage();
+      if (msgEl) responseMeta.recordExecutionResults(msgEl, results);
+    } catch (_) {}
   }
 }
 /**
@@ -855,6 +860,12 @@ async function handleToolCall(toolCall) {
       output: result.success ? JSON.stringify(result.data, null, 2) : (result.error || t('overlay.output.unknownError')),
       timestamp: Date.now(),
     });
+
+    // Факт-основанный учёт файлов — только успешные file-операции
+    try {
+      const msgEl = responseMeta.findLatestAIMessage();
+      if (msgEl) responseMeta.recordSingleToolCall(msgEl, toolName, params, result);
+    } catch (_) {}
 
     // 将执行结果发送回聊天，让 AI 看到结果并继续工作
     sendToolResultToChat(toolCall, result);

@@ -792,6 +792,10 @@ const OVERLAY_CSS = [
 '  background: rgba(139,147,255,0.22); color: #a8afff;',
 '  font-size: 10px; font-weight: 700; line-height: 1;',
 '}',
+'.cuckoo-produced-chip[data-status="error"] { border-color: rgba(255,107,122,0.45); background: rgba(60,15,22,0.65); }',
+'.cuckoo-produced-chip[data-status="error"] .cuckoo-produced-chip-hash { background: rgba(255,107,122,0.28); color: #ff8e9b; }',
+'.cuckoo-produced-chip[data-status="denied"] { border-color: rgba(251,191,36,0.45); background: rgba(60,45,15,0.6); }',
+'.cuckoo-produced-chip[data-status="denied"] .cuckoo-produced-chip-hash { background: rgba(251,191,36,0.28); color: #fbbf24; }',
 '.cuckoo-produced-chip-name { white-space: nowrap; }',
 // ========== RGB-переливание ника пользователя ==========
 // Переливание включается, если у <body> нет класса `cuckoo-rgb-off`.

@@ -23,5 +23,5 @@ module.exports = {
   // в чате. Загружается из настроек при init() и переключается на лету.
   hideSystemMessages: false,
   fileChipEnabled: true,
-  fileChipEnabled: true,
+  showProducedFiles: true,
 };

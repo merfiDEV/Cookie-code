@@ -53,6 +53,8 @@ async function init() {
       state.hideSystemMessages = Boolean(settings && settings.hideSystemMessages === true);
       // Чипы файловых путей (по умолчанию включено)
       state.fileChipEnabled = !settings || settings.fileChipEnabled !== false;
+      // Блок «Затронуто» под ответом (по умолчанию включено)
+      state.showProducedFiles = !settings || settings.showProducedFiles !== false;
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,
@@ -102,6 +104,12 @@ async function init() {
     // Стилизация абсолютных путей к файлам как чипов с открытием в системе
     safe('init.fileChipSetEnabled', () => fileChip.setEnabled(state.fileChipEnabled !== false));
     safe('init.fileChipStart', () => fileChip.startWatch());
+
+    // Блок «Затронуто» под ответом AI — вкл/выкл через настройки
+    safe('init.producedFilesSetEnabled', () => {
+      const rm = require('./dom/response-meta');
+      if (typeof rm.setEnabled === 'function') rm.setEnabled(state.showProducedFiles !== false);
+    });
 
     // Кнопка экспорта ответа в PDF/DOCX под каждым ответом AI
     safe('init.chatExportStart', () => chatExport.startWatch());

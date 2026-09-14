@@ -289,6 +289,12 @@ function buildContentHTML() {
     '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.fileChip.hint') + '</span>' +
     '    </span>' +
     '  </label>' +
+    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;margin-top:8px;">' +
+    '    <input type="checkbox" id="cuckoo-show-produced-enabled" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
+    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.showProducedFiles') +
+    '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.showProducedFiles.hint') + '</span>' +
+    '    </span>' +
+    '  </label>' +
     '</div>' +
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.background') + '</div>' +
@@ -861,6 +867,25 @@ function bindAgentSettings() {
       }
     });
   }
+
+  const producedCb = document.getElementById('cuckoo-show-produced-enabled');
+  if (producedCb) {
+    producedCb.addEventListener('change', async () => {
+      const enabled = producedCb.checked;
+      state.showProducedFiles = enabled;
+      try {
+        const responseMeta = require('./response-meta');
+        if (typeof responseMeta.setEnabled === 'function') responseMeta.setEnabled(enabled);
+      } catch (err) {
+        console.error('[Cookie Code] responseMeta.setEnabled error:', err.message);
+      }
+      try {
+        await window.electronAPI.setCuckooSetting('showProducedFiles', enabled);
+      } catch (err) {
+        console.error('[Cookie Code] Не удалось сохранить showProducedFiles:', err.message);
+      }
+    });
+  }
 }
 
 /**
@@ -899,6 +924,11 @@ async function refreshAgentSettings() {
     if (chipCb) {
       chipCb.checked = !s || s.fileChipEnabled !== false;
       state.fileChipEnabled = chipCb.checked;
+    }
+    const producedCb = document.getElementById('cuckoo-show-produced-enabled');
+    if (producedCb) {
+      producedCb.checked = !s || s.showProducedFiles !== false;
+      state.showProducedFiles = producedCb.checked;
     }
   } catch (_) {}
 }

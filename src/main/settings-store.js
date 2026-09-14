@@ -60,6 +60,8 @@ const DEFAULTS = {
   // Превращать абсолютные пути к файлам в ответах AI в кликабельные чипы
   // (клик открывает файл в VS Code / проводнике).
   fileChipEnabled: true,
+  // Показывать под ответом AI блок «Затронуто» с файлами из успешных write/edit
+  showProducedFiles: true,
 };
 
 let cachedPath = null;
