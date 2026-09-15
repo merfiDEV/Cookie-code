@@ -24,7 +24,21 @@ module.exports = {
   hideSystemMessages: false,
   fileChipEnabled: true,
   showProducedFiles: true,
+  // Показывать блок «Токены диалога» в оверлее (по умолчанию выключено).
+  showConvTokens: false,
   // Режим плана: пока включён — изменяющие инструменты заблокированы,
   // модель пишет plan.md и завершает режим через exit_plan_mode().
   planMode: false,
+  // Последнее серверное значение accumulated_token_usage/usage.total_tokens
+  // (перехватывается token-interceptor из ответа DeepSeek completion).
+  // 0 — серверных данных нет, используем локальную оценку.
+  serverTokens: 0,
+  // Дельта серверных токенов за последний ответ (для меты под ответом).
+  serverTokenDelta: 0,
+  // Серверное accumulated_token_usage по sessionId: { [sessionId]: number }.
+  // Храним по сессии, чтобы при переключении чата не тянуть чужое значение.
+  serverTokensBySession: {},
+  // Локальная оценка токенов по sessionId: { [sessionId]: number }.
+  // Монотонный максимум — чтобы счётчик не прыгал при перерисовке DOM.
+  localEstimateBySession: {},
 };

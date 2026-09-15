@@ -39,6 +39,12 @@ if (RENDERER_LOG_DIR) {
 }
 
 const { registerIpcHandlers } = require('./ipc');
+const whatsNew = require('./whats-new');
+
+// Whats-new: проверить факт обновления ДО создания окна.
+// Внутри — атомарное сохранение новой lastSeenVersion, чтобы повторный
+// запуск той же версии не показывал список ещё раз.
+const __whatsNewCheck = whatsNew.checkAndMark();
 
 // 退出前需要 flush 的 sessions
 const sessionsToFlush = new Set();
@@ -127,10 +133,35 @@ function createWindow(profile) {
   // Всегда открываем homeUrl провайдера (DeepSeek). Выбор платформы отключён.
   mainWindow.loadURL(provider.homeUrl);
 
+  // Инжект перехватчика токенов в ОСНОВНОЙ мир: preload в изолированном мире
+  // (contextIsolation: true) не видит window.fetch сайта, поэтому патч ставим
+  // через executeJavaScript и шлём данные в preload через postMessage.
+  const injectTokenInterceptor = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    try {
+      const { buildTokenInterceptorScript } = require('./token-interceptor-inject');
+      mainWindow.webContents.executeJavaScript(buildTokenInterceptorScript(), true).catch(() => {});
+    } catch (_) {}
+  };
+  mainWindow.webContents.on('dom-ready', injectTokenInterceptor);
+
   mainWindow.webContents.on('did-finish-load', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      injectTokenInterceptor();
       mainWindow.webContents.send('page-loaded');
       sessionStore.tryRestoreSessionFromUrl(mainWindow);
+
+      // Whats-new: отправить в окно один раз, если был апдейт.
+      // consumePendingForWindow() очищает pending, поэтому на F5 или
+      // повторный did-finish-load модалка не появится снова.
+      if (__whatsNewCheck && __whatsNewCheck.shouldShow) {
+        const pending = whatsNew.consumePendingForWindow();
+        if (pending) {
+          try {
+            mainWindow.webContents.send('whats-new-show', pending);
+          } catch (_) {}
+        }
+      }
     }
   });
 

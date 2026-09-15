@@ -183,6 +183,15 @@ let electronAPI = {
     const { hideBannerNotification } = require('./overlay/ui');
     return hideBannerNotification();
   },
+  // ========== Whats-new (список нововведений после обновления) ==========
+  onWhatsNewShow: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('whats-new-show', listener);
+    return () => ipcRenderer.removeListener('whats-new-show', listener);
+  },
+  openChangelogFile: () => {
+    return ipcRenderer.invoke('whats-new-open-changelog');
+  },
 };
 
 try {

@@ -29,8 +29,10 @@ const inputGlass = require('./dom/input-glass');
 const forceDarkTheme = require('./dom/force-dark-theme');
 const qrOverride = require('./dom/qr-override');
 const fileChip = require('./dom/file-chip');
+const whatsNew = require('./dom/whats-new');
 const i18n = require('./i18n/i18n');
 const state = require('./dom/state');
+const tokenInterceptor = require('./dom/token-interceptor');
 const { getProviderByUrl } = require('../providers');
 const { safe } = require('./dom/safe');
 
@@ -57,28 +59,56 @@ async function init() {
       state.fileChipEnabled = !settings || settings.fileChipEnabled !== false;
       // Блок «Затронуто» под ответом (по умолчанию включено)
       state.showProducedFiles = !settings || settings.showProducedFiles !== false;
+      // Блок «Токены диалога» в панели (по умолчанию выключено)
+      state.showConvTokens = Boolean(settings && settings.showConvTokens === true);
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,
     // а визуальный рендеринг tool-блоков гейтится этим флагом.
     state.customizationEnabled = customizationEnabled;
 
+    // Перехват серверных токенов DeepSeek: ставим как можно раньше,
+    // чтобы поймать первый же запрос completion. Работает через safe().
+    safe('init.tokenInterceptor', () => tokenInterceptor.install());
+
     // Регистрируем IPC-листенеры всегда — от них зависит ввод и парсинг tool-блоков
     safe('init.registerIpcListeners', () => chatInput.registerIpcListeners());
     safe('init.registerAskUserQuestionListener', () => askUserQuestion.registerAskUserQuestionListener());
     safe('init.registerExitPlanModeListener', () => exitPlanMode.registerExitPlanModeListener());
+    safe('init.registerWhatsNewListener', () => whatsNew.registerWhatsNewListener());
     safe('init.planModeToggleStart', () => planModeToggle.startWatch());
 
     // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события
     safe('init.injectCSS', () => ui.injectCSS());
     safe('init.injectOverlay', () => ui.injectOverlay());
+    // Скрыть блок «Токены диалога», если он выключен в настройках (по умолчанию).
+    safe('init.applyConvTokensVisibility', () => {
+      if (state.showConvTokens === true) return;
+      const section = document.querySelector('.cuckoo-token-section');
+      if (section) {
+        section.style.display = 'none';
+        const prev = section.previousElementSibling;
+        if (prev && prev.classList && prev.classList.contains('cuckoo-divider')) prev.style.display = 'none';
+      }
+    });
     safe('init.initProjectDirSection', () => projectDir.initProjectDirSection());
     safe('init.bindEvents', () => bindEvents());
     safe('init.updateHomeMode', () => ui.updateHomeMode());
 
+    // Сохранить токены текущего диалога перед уходом/закрытием.
+    window.addEventListener('beforeunload', () => {
+      safe('init.saveTokensBeforeUnload', () => bindEvents.computeAndSaveConversationTokens());
+    });
+
     // 监听 URL 变化（SPA 路由）
-    window.addEventListener('popstate', ui.updateHomeMode);
-    window.addEventListener('hashchange', ui.updateHomeMode);
+    window.addEventListener('popstate', () => {
+      safe('init.updateHomeModePop', () => ui.updateHomeMode());
+      safe('init.refreshTokensPop', () => bindEvents.updateConversationTokenDisplay());
+    });
+    window.addEventListener('hashchange', () => {
+      safe('init.updateHomeModeHash', () => ui.updateHomeMode());
+      safe('init.refreshTokensHash', () => bindEvents.updateConversationTokenDisplay());
+    });
     setInterval(() => safe('init.updateHomeModeInterval', () => ui.updateHomeMode()), 5000);
     // 首次延迟执行，确保 overlay 已注入
     setTimeout(() => safe('init.updateHomeModeDelayed', () => ui.updateHomeMode()), 500);

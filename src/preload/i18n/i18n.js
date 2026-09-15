@@ -72,6 +72,7 @@ const KEYS = {
   'overlay.output.systemException': { ru: 'Системное исключение: {msg}', en: 'System exception: {msg}' },
 
   // ---- Оверлей: сессии ----
+  'overlay.label.convTokens':   { ru: 'Токены диалога',            en: 'Conversation tokens' },
   'overlay.label.sessions':     { ru: 'Сессии',                    en: 'Sessions' },
   'overlay.btn.refreshSessions':{ ru: '🔄 Обновить',               en: '🔄 Refresh' },
   'overlay.sessions.empty':     { ru: 'Нет сессий',                en: 'No sessions' },
@@ -148,6 +149,15 @@ const KEYS = {
   'settings.tab.system':        { ru: '⚙️ Система и безопасность', en: '⚙️ System & Security' },
   'settings.section.maintenance':{ ru: 'Обслуживание и сброс',    en: 'Maintenance & Reset' },
   'settings.section.service':    { ru: 'Сервис',                   en: 'Service' },
+  // ---- Настройки: диагностика интеграции ----
+  'settings.section.diagnostics': { ru: 'Диагностика интеграции',   en: 'Integration diagnostics' },
+  'settings.diagnostics.title':   { ru: 'Проверка селекторов и методов провайдера', en: 'Check provider selectors and methods' },
+  'settings.diagnostics.hint':    { ru: 'Если после обновления DeepSeek что-то сломалось — запустите диагностику и скопируйте отчёт в issue.', en: 'If something breaks after a DeepSeek update — run diagnostics and paste the report into an issue.' },
+  'settings.diagnostics.run':     { ru: 'Запустить диагностику',   en: 'Run diagnostics' },
+  'settings.diagnostics.running': { ru: 'Проверка...',             en: 'Checking...' },
+  'settings.diagnostics.modalTitle': { ru: 'Отчёт диагностики',    en: 'Diagnostics report' },
+  'settings.diagnostics.copy':    { ru: '📋 Копировать отчёт',     en: '📋 Copy report' },
+  'settings.diagnostics.copied':  { ru: '✅ Скопировано',           en: '✅ Copied' },
 
   // ---- Настройки: слайдеры ----
   'settings.blur.bg':           { ru: 'Размытие фонового изображения', en: 'Background image blur' },
@@ -235,6 +245,8 @@ const KEYS = {
   'settings.fileChip.hint': { ru: 'Абсолютные пути (C:\\…, D:\\…) превращаются в чипы. Клик открывает файл в VS Code (или в проводнике)', en: 'Absolute paths (C:\\…, D:\\…) become chips. Click opens the file in VS Code (or in explorer)' },
   'settings.showProducedFiles': { ru: 'Показывать затронутые файлы под ответом', en: 'Show affected files under AI reply' },
   'settings.showProducedFiles.hint': { ru: 'Блок «Затронуто # файл» под каждым ответом AI — только успешные write/edit/delete', en: '“Affected # file” block under each AI reply — only successful write/edit/delete' },
+  'settings.showConvTokens': { ru: 'Показывать токены диалога', en: 'Show dialogue tokens' },
+  'settings.showConvTokens.hint': { ru: 'Блок «Токены диалога» в панели Cookie Code (по умолчанию скрыт)', en: '“Dialogue tokens” block in the Cookie Code panel (hidden by default)' },
   'settings.formatters': { ru: 'Авто-форматирование после write/edit', en: 'Auto-format after write/edit' },
   'settings.formatters.hint': { ru: 'prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format — по расширению и конфигу проекта', en: 'prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format — by file extension and project config' },
 
@@ -266,7 +278,7 @@ const KEYS = {
 
   // ---- Мета под ответом AI (время / токены / затронутые файлы) ----
   'meta.time.title':           { ru: 'Время ответа',               en: 'Response time' },
-  'meta.tokens.title':         { ru: 'Оценка количества токенов (chars / 4)', en: 'Estimated tokens (chars / 4)' },
+  'meta.tokens.title':         { ru: 'Оценка токенов в тексте этого ответа', en: 'Estimated tokens in this response' },
   'meta.produced':             { ru: 'Затронуто',                 en: 'Affected' },
   'meta.produced.title':       { ru: 'Файлы, затронутые за этот ответ', en: 'Files touched in this response' },
 };

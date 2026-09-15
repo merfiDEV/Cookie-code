@@ -100,65 +100,113 @@ function buildContentHTML() {
 
   return '' +
     '<style>' +
-    '  .cuckoo-settings-title { font-size: 20px; font-weight: 700; margin: 0 0 4px; color: #e8eaff; }' +
-    '  .cuckoo-settings-subtitle { color: #8a90b8; font-size: 13px; margin: 0 0 16px; }' +
-    '  .cuckoo-section-title { font-size: 14px; font-weight: 600; margin: 0 0 10px; color: #c8ccff; ' +
-    '                          text-transform: uppercase; letter-spacing: 0.6px; }' +
+    // ===== Общий каркас =====
+    '  #cuckoo-settings-content * { box-sizing: border-box; }' +
+    '  .ck-card { background: rgba(24,26,44,0.55); border: 1px solid rgba(255,255,255,0.07); ' +
+    '             border-radius: 14px; box-shadow: 0 6px 28px rgba(0,0,0,0.28); overflow: hidden; }' +
+    '  .ck-stack { display: flex; flex-direction: column; }' +
+    '  .ck-stack > * + * { border-top: 1px solid rgba(255,255,255,0.06); }' +
+    '  .ck-row { padding: 14px 16px; transition: background 0.16s ease; }' +
+    '  .ck-row:hover { background: rgba(139,147,255,0.05); }' +
+    '  .ck-row-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }' +
+    '  .ck-row-title { font-size: 13.5px; font-weight: 600; color: #e8eaff; }' +
+    '  .ck-row-hint { font-size: 11.5px; color: #8a90b8; margin-top: 3px; line-height: 1.45; max-width: 520px; }' +
+    '  .ck-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; ' +
+    '              text-transform: uppercase; padding: 2px 7px; border-radius: 999px; ' +
+    '              background: rgba(139,147,255,0.16); color: #bec2ff; margin-left: 8px; vertical-align: middle; }' +
+    // ===== Заголовки =====
+    '  .cuckoo-settings-title { font-size: 22px; font-weight: 700; margin: 0 0 4px; color: #eef0ff; letter-spacing: -0.01em; }' +
+    '  .cuckoo-settings-subtitle { color: #8a90b8; font-size: 13px; margin: 0 0 20px; line-height: 1.5; }' +
+    '  .cuckoo-section-title { font-size: 11.5px; font-weight: 700; margin: 0 0 10px; color: #aeb4ff; ' +
+    '                          text-transform: uppercase; letter-spacing: 0.9px; display: flex; align-items: center; gap: 8px; }' +
+    '  .cuckoo-section-title::before { content: ""; width: 3px; height: 13px; border-radius: 2px; ' +
+    '                                  background: linear-gradient(180deg,#8b93ff,#5b63d6); }' +
+    // ===== Фоны (сетка) =====
     '  .cuckoo-bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }' +
-    '  .cuckoo-bg-item { cursor: pointer; border: 2px solid rgba(139,147,255,0.2); border-radius: 10px; ' +
-    '                    overflow: hidden; transition: border-color 0.18s, transform 0.15s; background: rgba(0,0,0,0.25); }' +
-    '  .cuckoo-bg-item:hover { border-color: rgba(139,147,255,0.65); transform: translateY(-2px); }' +
+    '  .cuckoo-bg-item { cursor: pointer; border: 2px solid rgba(139,147,255,0.18); border-radius: 12px; ' +
+    '                    overflow: hidden; transition: border-color 0.18s, transform 0.15s, box-shadow 0.18s; background: rgba(0,0,0,0.25); }' +
+    '  .cuckoo-bg-item:hover { border-color: rgba(139,147,255,0.65); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.35); }' +
     '  .cuckoo-bg-item.cuckoo-bg-selected { border-color: #8b93ff; box-shadow: 0 0 0 2px rgba(139,147,255,0.35); }' +
     '  .cuckoo-bg-preview { width: 100%; aspect-ratio: 16/10; background-size: cover; background-position: center; background-color: #0f1220; }' +
-    '  .cuckoo-bg-label { font-size: 11px; padding: 5px 8px; text-align: center; color: #cfd3ff; ' +
+    '  .cuckoo-bg-label { font-size: 11px; padding: 6px 8px; text-align: center; color: #cfd3ff; ' +
     '                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
-    // Слайдеры
-    '  .cuckoo-blur-row { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; ' +
-    '                     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); ' +
-    '                     border-radius: 10px; margin-bottom: 8px; }' +
+    // ===== Слайдеры =====
+    '  .cuckoo-blur-row { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; ' +
+    '                     background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); ' +
+    '                     border-radius: 12px; margin-bottom: 8px; transition: border-color 0.16s; }' +
+    '  .cuckoo-blur-row:hover { border-color: rgba(139,147,255,0.3); }' +
     '  .cuckoo-blur-label { font-size: 13px; color: #cfd3ff; display: flex; justify-content: space-between; ' +
-    '                       align-items: center; margin-bottom: 2px; }' +
-    '  .cuckoo-blur-value { font-size: 12px; color: #8b93ff; font-family: "Consolas", monospace; font-weight: 600; }' +
-    '  .cuckoo-blur-slider { width: 100%; height: 4px; -webkit-appearance: none; appearance: none; ' +
-    '                        background: rgba(139,147,255,0.25); border-radius: 2px; outline: none; ' +
-    '                        cursor: pointer; }' +
+    '                       align-items: center; gap: 10px; }' +
+    '  .cuckoo-blur-value { font-size: 11.5px; color: #bec2ff; font-family: "Consolas", monospace; font-weight: 700; ' +
+    '                       padding: 2px 8px; border-radius: 7px; background: rgba(139,147,255,0.12); }' +
+    '  .cuckoo-blur-slider { width: 100%; height: 5px; -webkit-appearance: none; appearance: none; ' +
+    '                        background: rgba(139,147,255,0.18); border-radius: 999px; outline: none; cursor: pointer; margin: 6px 0 2px; }' +
     '  .cuckoo-blur-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; ' +
-    '                        width: 16px; height: 16px; border-radius: 50%; background: #8b93ff; ' +
-    '                        cursor: pointer; transition: transform 0.15s; }' +
-    '  .cuckoo-blur-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }' +
-    // Утилитарные кнопки настроек (единый вид)
-    '  .ck-btn { padding: 9px 14px; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer; ' +
-    '            border: 1px solid rgba(139,147,255,0.5); background: rgba(139,147,255,0.12); color: #a8afff; ' +
+    '                        width: 16px; height: 16px; border-radius: 50%; background: #bec2ff; ' +
+    '                        border: 2px solid #5b63d6; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; ' +
+    '                        box-shadow: 0 0 10px rgba(139,147,255,0.6); }' +
+    '  .cuckoo-blur-slider::-webkit-slider-thumb:hover { transform: scale(1.18); box-shadow: 0 0 16px rgba(139,147,255,0.9); }' +
+    // ===== Чекбоксы → кастомные тумблеры =====
+    '  .cuckoo-checkbox-row { user-select: none; }' +
+    '  .cuckoo-checkbox-row input[type="checkbox"] { -webkit-appearance: none; appearance: none; ' +
+    '      width: 40px; height: 22px; border-radius: 999px; background: rgba(255,255,255,0.12); ' +
+    '      position: relative; cursor: pointer; flex-shrink: 0; transition: background 0.2s ease; ' +
+    '      border: 1px solid rgba(255,255,255,0.1); margin: 0; }' +
+    '  .cuckoo-checkbox-row input[type="checkbox"]::after { content: ""; position: absolute; top: 2px; left: 2px; ' +
+    '      width: 16px; height: 16px; border-radius: 50%; background: #cfd3ff; transition: transform 0.2s ease; ' +
+    '      box-shadow: 0 1px 3px rgba(0,0,0,0.4); }' +
+    '  .cuckoo-checkbox-row input[type="checkbox"]:checked { background: linear-gradient(90deg,#8b93ff,#5b63d6); ' +
+    '      box-shadow: 0 0 12px rgba(139,147,255,0.5); }' +
+    '  .cuckoo-checkbox-row input[type="checkbox"]:checked::after { transform: translateX(18px); background: #fff; }' +
+    '  .cuckoo-checkbox-row:hover input[type="checkbox"]:not(:checked) { background: rgba(255,255,255,0.18); }' +
+    // ===== Кнопки =====
+    '  .ck-btn { padding: 9px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer; ' +
+    '            border: 1px solid rgba(139,147,255,0.4); background: rgba(139,147,255,0.1); color: #a8afff; ' +
     '            transition: all 0.18s ease; white-space: nowrap; }' +
-    '  .ck-btn:hover { background: rgba(139,147,255,0.28); color: #fff; border-color: rgba(139,147,255,0.75); transform: translateY(-1px); }' +
+    '  .ck-btn:hover { background: rgba(139,147,255,0.24); color: #fff; border-color: rgba(139,147,255,0.7); transform: translateY(-1px); }' +
     '  .ck-btn:active { transform: scale(0.98); }' +
-    '  .ck-btn-danger { border-color: rgba(255,107,122,0.5); background: rgba(255,107,122,0.15); color: #ff9aa5; }' +
-    '  .ck-btn-danger:hover { background: rgba(255,107,122,0.3); color: #fff; border-color: rgba(255,107,122,0.85); }' +
+    '  .ck-btn-danger { border-color: rgba(255,107,122,0.45); background: rgba(255,107,122,0.12); color: #ff9aa5; }' +
+    '  .ck-btn-danger:hover { background: rgba(255,107,122,0.28); color: #fff; border-color: rgba(255,107,122,0.8); }' +
     '  .ck-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }' +
     '  .ck-btn-row > .ck-btn { flex: 1 1 auto; }' +
+    // ===== Сегмент-переключатель (язык, режим подтверждения) =====
+    '  .ck-segment { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; ' +
+    '                background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.07); }' +
+    '  .ck-segment > button { border-radius: 999px; }' +
+    // ===== Поля ввода =====
+    '  .ck-input { width: 100%; padding: 9px 12px; background: rgba(12,14,26,0.7); color: #e8eaff; ' +
+    '              border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; font-size: 12.5px; ' +
+    '              outline: none; transition: border-color 0.16s, box-shadow 0.16s; }' +
+    '  .ck-input:focus { border-color: rgba(139,147,255,0.7); box-shadow: 0 0 0 3px rgba(139,147,255,0.18); }' +
+    '  .ck-textarea { width: 100%; padding: 10px 12px; font-family: Consolas, monospace; font-size: 12px; ' +
+    '                 background: rgba(12,14,26,0.7); color: #dde1ff; border: 1px solid rgba(255,255,255,0.1); ' +
+    '                 border-radius: 10px; resize: vertical; line-height: 1.5; outline: none; transition: border-color 0.16s; }' +
+    '  .ck-textarea:focus { border-color: rgba(139,147,255,0.7); box-shadow: 0 0 0 3px rgba(139,147,255,0.18); }' +
     '</style>' +
     '<div>' +
     '  <div class="cuckoo-settings-title">Cookie Code</div>' +
     '  <div class="cuckoo-settings-subtitle">' + t('settings.subtitle') + '</div>' +
     '</div>' +
+    // Кастомизация + Язык — в одной секции
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.customization') + '</div>' +
-    '  <button id="cuckoo-customization-toggle" style="width:100%;padding:10px 14px;border:1px solid rgba(139,147,255,0.5);border-radius:10px;background:rgba(139,147,255,0.12);color:#cfd3ff;font-weight:600;font-size:13px;cursor:pointer;">' +
-    '  </button>' +
-    '</div>' +
-    '<div>' +
-    '  <div class="cuckoo-section-title">' + t('settings.section.language') + '</div>' +
-    '  <div style="display:flex;gap:8px;">' +
-    '    <button id="cuckoo-lang-ru" class="cuckoo-lang-btn" data-lang="ru" style="' +
-    '      flex:1; padding:9px 14px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer;' +
-    '      border:1px solid rgba(139,147,255,0.4); background:rgba(139,147,255,0.12); color:#cfd3ff;' +
-    '      transition: all 0.18s;' +
-    '    ">' + t('settings.lang.ru') + '</button>' +
-    '    <button id="cuckoo-lang-en" class="cuckoo-lang-btn" data-lang="en" style="' +
-    '      flex:1; padding:9px 14px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer;' +
-    '      border:1px solid rgba(139,147,255,0.4); background:rgba(139,147,255,0.12); color:#cfd3ff;' +
-    '      transition: all 0.18s;' +
-    '    ">' + t('settings.lang.en') + '</button>' +
+    '  <div class="ck-card ck-stack">' +
+    '    <div class="ck-row ck-row-head">' +
+    '      <div>' +
+    '        <div class="ck-row-title">' + t('settings.section.customization') + '</div>' +
+    '        <div class="ck-row-hint">' + t('settings.subtitle') + '</div>' +
+    '      </div>' +
+    '      <button id="cuckoo-customization-toggle" class="ck-btn" style="flex-shrink:0;"></button>' +
+    '    </div>' +
+    '    <div class="ck-row ck-row-head">' +
+    '      <div>' +
+    '        <div class="ck-row-title">' + t('settings.section.language') + '</div>' +
+    '      </div>' +
+    '      <div class="ck-segment">' +
+    '        <button id="cuckoo-lang-ru" class="cuckoo-lang-btn ck-btn" data-lang="ru" style="padding:7px 16px;font-size:12.5px;">' + t('settings.lang.ru') + '</button>' +
+    '        <button id="cuckoo-lang-en" class="cuckoo-lang-btn ck-btn" data-lang="en" style="padding:7px 16px;font-size:12.5px;">' + t('settings.lang.en') + '</button>' +
+    '      </div>' +
+    '    </div>' +
     '  </div>' +
     '</div>' +
     '<div>' +
@@ -230,18 +278,24 @@ function buildContentHTML() {
     '</div>' +
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.effects') + '</div>' +
-    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;">' +
-    '    <input type="checkbox" id="cuckoo-rgb-username" checked style="width:16px;height:16px;cursor:pointer;">' +
-    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.effect.rgb') + '</span>' +
+    '  <div class="ck-card">' +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    '    <div class="ck-row-title">' + t('settings.effect.rgb') + '</div>' +
+    '    <input type="checkbox" id="cuckoo-rgb-username" checked>' +
     '  </label>' +
+    '  </div>' +
     '</div>' +
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.inputGlass') + '</div>' +
-    '  <div style="font-size:11px;color:#8a90b8;margin-bottom:8px;">' + t('settings.inputGlass.hint') + '</div>' +
-    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;">' +
-    '    <input type="checkbox" id="cuckoo-input-glass-enabled" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
-    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.inputGlass.enabled') + '</span>' +
+    '  <div class="ck-card" style="margin-bottom:8px;">' +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    '    <div>' +
+    '      <div class="ck-row-title">' + t('settings.inputGlass.enabled') + '</div>' +
+    '      <div class="ck-row-hint">' + t('settings.inputGlass.hint') + '</div>' +
+    '    </div>' +
+    '    <input type="checkbox" id="cuckoo-input-glass-enabled">' +
     '  </label>' +
+    '  </div>' +
     '  <div class="cuckoo-blur-row">' +
     '    <div class="cuckoo-blur-label"><span>' + t('settings.inputGlass.blur') + '</span><span class="cuckoo-blur-value" id="cuckoo-blur-input-val">12 px</span></div>' +
     '    <input type="range" id="cuckoo-blur-input" class="cuckoo-blur-slider" min="0" max="30" step="1" value="12">' +
@@ -253,54 +307,59 @@ function buildContentHTML() {
     '</div>' +
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.dangerous') + '</div>' +
-    '  <textarea id="cuckoo-dangerous-patterns" rows="8" spellcheck="false" style="' +
-    '    width:100%; box-sizing:border-box; padding:10px 12px; font-family:Consolas,monospace; font-size:12px;' +
-    '    background:rgba(15,18,32,0.6); color:#dde1ff; border:1px solid rgba(255,255,255,0.1); border-radius:10px;' +
-    '    resize:vertical; line-height:1.5; outline:none;' +
-    '  "></textarea>' +
-    '  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">' +
-    '    <span style="font-size:11px;color:#8a90b8;">' + t('settings.dangerous.hint') + '</span>' +
-    '    <button id="cuckoo-btn-save-dangerous" style="' +
-    '      padding: 8px 16px; border: 1px solid rgba(139,147,255,0.5); border-radius: 8px;' +
-    '      background: rgba(139,147,255,0.15); color: #a8afff; font-weight: 600; font-size: 12px;' +
-    '      cursor: pointer; transition: all 0.18s;' +
-    '    ">' + t('settings.dangerous.save') + '</button>' +
+    '  <textarea id="cuckoo-dangerous-patterns" class="ck-textarea" rows="8" spellcheck="false"></textarea>' +
+    '  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;">' +
+    '    <span class="ck-row-hint" style="margin:0;">' + t('settings.dangerous.hint') + '</span>' +
+    '    <button id="cuckoo-btn-save-dangerous" class="ck-btn" style="padding:8px 16px;font-size:12px;flex-shrink:0;">' + t('settings.dangerous.save') + '</button>' +
     '  </div>' +
     '</div>' +
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.agent') + '</div>' +
-    '  <div class="cuckoo-blur-row">' +
-    '    <div class="cuckoo-blur-label"><span>' + t('settings.approval.hint') + '</span></div>' +
-    '    <div style="display:flex;gap:8px;">' +
-    '      <button class="cuckoo-approval-btn" data-mode="off" style="flex:1; padding:9px 10px; border-radius:10px; font-weight:600; font-size:12px; cursor:pointer; border:1px solid rgba(139,147,255,0.4); background:rgba(139,147,255,0.12); color:#cfd3ff; transition: all 0.18s;">' + t('settings.approval.off') + '</button>' +
-    '      <button class="cuckoo-approval-btn" data-mode="risky" style="flex:1; padding:9px 10px; border-radius:10px; font-weight:600; font-size:12px; cursor:pointer; border:1px solid rgba(139,147,255,0.4); background:rgba(139,147,255,0.12); color:#cfd3ff; transition: all 0.18s;">' + t('settings.approval.risky') + '</button>' +
-    '      <button class="cuckoo-approval-btn" data-mode="all" style="flex:1; padding:9px 10px; border-radius:10px; font-weight:600; font-size:12px; cursor:pointer; border:1px solid rgba(139,147,255,0.4); background:rgba(139,147,255,0.12); color:#cfd3ff; transition: all 0.18s;">' + t('settings.approval.all') + '</button>' +
+    '  <div class="ck-card" style="padding:14px 16px;margin-bottom:8px;">' +
+    '    <div class="ck-row-title" style="margin-bottom:10px;">' + t('settings.approval.hint') + '</div>' +
+    '    <div class="ck-segment" style="display:flex;width:100%;">' +
+    '      <button class="cuckoo-approval-btn ck-btn" data-mode="off" style="flex:1;padding:8px 10px;font-size:12px;">' + t('settings.approval.off') + '</button>' +
+    '      <button class="cuckoo-approval-btn ck-btn" data-mode="risky" style="flex:1;padding:8px 10px;font-size:12px;">' + t('settings.approval.risky') + '</button>' +
+    '      <button class="cuckoo-approval-btn ck-btn" data-mode="all" style="flex:1;padding:8px 10px;font-size:12px;">' + t('settings.approval.all') + '</button>' +
     '    </div>' +
     '  </div>' +
-    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;margin-bottom:8px;">' +
-    '    <input type="checkbox" id="cuckoo-hide-system-messages" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
-    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.hideSystemMessages') +
-    '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.hideSystemMessages.hint') + '</span>' +
-    '    </span>' +
+    '  <div class="ck-card ck-stack">' +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    '    <div>' +
+    '      <div class="ck-row-title">' + t('settings.hideSystemMessages') + '</div>' +
+    '      <div class="ck-row-hint">' + t('settings.hideSystemMessages.hint') + '</div>' +
+    '    </div>' +
+    '    <input type="checkbox" id="cuckoo-hide-system-messages">' +
     '  </label>' +
-    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;">' +
-    '    <input type="checkbox" id="cuckoo-file-chip-enabled" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
-    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.fileChip') +
-    '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.fileChip.hint') + '</span>' +
-    '    </span>' +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    '    <div>' +
+    '      <div class="ck-row-title">' + t('settings.fileChip') + '</div>' +
+    '      <div class="ck-row-hint">' + t('settings.fileChip.hint') + '</div>' +
+    '    </div>' +
+    '    <input type="checkbox" id="cuckoo-file-chip-enabled">' +
     '  </label>' +
-    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;margin-top:8px;">' +
-    '    <input type="checkbox" id="cuckoo-show-produced-enabled" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
-    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.showProducedFiles') +
-    '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.showProducedFiles.hint') + '</span>' +
-    '    </span>' +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    '    <div>' +
+    '      <div class="ck-row-title">' + t('settings.showProducedFiles') + '</div>' +
+    '      <div class="ck-row-hint">' + t('settings.showProducedFiles.hint') + '</div>' +
+    '    </div>' +
+    '    <input type="checkbox" id="cuckoo-show-produced-enabled">' +
     '  </label>' +
-    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;margin-top:8px;">' +
-    '    <input type="checkbox" id="cuckoo-formatters-enabled" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
-    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.formatters') +
-    '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.formatters.hint') + '</span>' +
-    '    </span>' +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    '    <div>' +
+    '      <div class="ck-row-title">' + t('settings.showConvTokens') + '<span class="ck-badge">new</span></div>' +
+    '      <div class="ck-row-hint">' + t('settings.showConvTokens.hint') + '</div>' +
+    '    </div>' +
+    '    <input type="checkbox" id="cuckoo-show-conv-tokens">' +
     '  </label>' +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    '    <div>' +
+    '      <div class="ck-row-title">' + t('settings.formatters') + '</div>' +
+    '      <div class="ck-row-hint">' + t('settings.formatters.hint') + '</div>' +
+    '    </div>' +
+    '    <input type="checkbox" id="cuckoo-formatters-enabled">' +
+    '  </label>' +
+    '  </div>' +
     '</div>' +
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('settings.section.background') + '</div>' +
@@ -309,22 +368,22 @@ function buildContentHTML() {
     '    <button id="cuckoo-bg-refresh" class="ck-btn">' + t('settings.bg.refresh') + '</button>' +
     '  </div>' +
     '  <div class="cuckoo-bg-grid" id="cuckoo-bg-grid">' + items + '</div>' +
-    '  <div style="font-size:11px;color:#8a90b8;margin-top:8px;line-height:1.5;">' + t('settings.bg.hint') + '</div>' +
+    '  <div class="ck-row-hint" style="margin-top:8px;">' + t('settings.bg.hint') + '</div>' +
     '</div>' +
     '<div>' +
     '  <div class="cuckoo-section-title">' + t('tg.title') + '</div>' +
     '  <div class="cuckoo-blur-row">' +
     '    <div class="cuckoo-blur-label"><span>' + t('tg.label.token') + '</span></div>' +
-    '    <input type="password" id="cuckoo-tg-token" class="cuckoo-blur-slider" style="height:auto;padding:8px 10px;background:rgba(15,18,32,0.6);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#dde1ff;font-size:12px;" placeholder="123456:ABC-DEF..." />' +
+    '    <input type="password" id="cuckoo-tg-token" class="ck-input" placeholder="123456:ABC-DEF..." />' +
     '  </div>' +
     '  <div class="cuckoo-blur-row">' +
     '    <div class="cuckoo-blur-label"><span>' + t('tg.label.chatId') + '</span></div>' +
-    '    <input type="text" id="cuckoo-tg-chatid" class="cuckoo-blur-slider" style="height:auto;padding:8px 10px;background:rgba(15,18,32,0.6);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:#dde1ff;font-size:12px;" placeholder="123456789" />' +
+    '    <input type="text" id="cuckoo-tg-chatid" class="ck-input" placeholder="123456789" />' +
     '  </div>' +
     '  <div class="cuckoo-blur-row">' +
-    '    <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="checkbox" id="cuckoo-tg-enabled" style="width:16px;height:16px;cursor:pointer;"><span style="font-size:13px;color:#cfd3ff;">' + t('tg.label.enabled') + '</span></label>' +
-    '    <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="checkbox" id="cuckoo-tg-notify" style="width:16px;height:16px;cursor:pointer;"><span style="font-size:13px;color:#cfd3ff;">' + t('tg.label.notifyTools') + '</span></label>' +
-    '    <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="checkbox" id="cuckoo-tg-feed" style="width:16px;height:16px;cursor:pointer;"><span style="font-size:13px;color:#cfd3ff;">' + t('tg.label.chatFeed') + '</span></label>' +
+    '    <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;padding:4px 0;"><span style="font-size:13px;color:#cfd3ff;">' + t('tg.label.enabled') + '</span><input type="checkbox" id="cuckoo-tg-enabled"></label>' +
+    '    <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;padding:4px 0;"><span style="font-size:13px;color:#cfd3ff;">' + t('tg.label.notifyTools') + '</span><input type="checkbox" id="cuckoo-tg-notify"></label>' +
+    '    <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;padding:4px 0;"><span style="font-size:13px;color:#cfd3ff;">' + t('tg.label.chatFeed') + '</span><input type="checkbox" id="cuckoo-tg-feed"></label>' +
     '  </div>' +
     '  <div class="ck-btn-row" style="margin-top:8px;">' +
     '    <button id="cuckoo-tg-save" class="ck-btn">' + t('tg.btn.save') + '</button>' +
@@ -338,6 +397,30 @@ function buildContentHTML() {
     '    <button id="cuckoo-btn-open-config" class="ck-btn" title="' + t('settings.btn.openConfig.title') + '">' + t('settings.btn.openConfig') + '</button>' +
     '    <button id="cuckoo-btn-clear-storage" class="ck-btn" title="' + t('settings.btn.clearStorage.title') + '">' + t('settings.btn.clearStorage') + '</button>' +
     '    <button id="cuckoo-btn-reset" class="ck-btn ck-btn-danger">' + t('settings.btn.reset') + '</button>' +
+    '  </div>' +
+    '</div>' +
+    // ===== Диагностика интеграции =====
+    '<div>' +
+    '  <div class="cuckoo-section-title">' + t('settings.section.diagnostics') + '</div>' +
+    '  <div class="ck-card" style="padding:14px 16px;">' +
+    '    <div class="ck-row-title" style="margin-bottom:6px;">' + t('settings.diagnostics.title') + '</div>' +
+    '    <div class="ck-row-hint" style="margin-bottom:10px;">' + t('settings.diagnostics.hint') + '</div>' +
+    '    <div class="ck-btn-row">' +
+    '      <button id="cuckoo-btn-diagnostics" class="ck-btn">' + t('settings.diagnostics.run') + '</button>' +
+    '    </div>' +
+    '  </div>' +
+    '</div>' +
+    // ===== Модалка отчёта =====
+    '<div id="cuckoo-diag-modal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(6,8,18,0.72);align-items:center;justify-content:center;">' +
+    '  <div style="background:#141726;border:1px solid rgba(139,147,255,0.35);border-radius:14px;max-width:720px;width:92%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.6);">' +
+    '    <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;">' +
+    '      <div style="font-size:15px;font-weight:700;color:#eef0ff;">' + t('settings.diagnostics.modalTitle') + '</div>' +
+    '      <button id="cuckoo-diag-close" class="ck-btn" style="padding:6px 12px;font-size:12px;">✕</button>' +
+    '    </div>' +
+    '    <pre id="cuckoo-diag-body" style="flex:1;overflow:auto;margin:0;padding:16px 20px;font-family:Consolas,monospace;font-size:12px;line-height:1.55;color:#dde1ff;white-space:pre-wrap;word-break:break-word;"></pre>' +
+    '    <div style="padding:12px 20px;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:8px;justify-content:flex-end;">' +
+    '      <button id="cuckoo-diag-copy" class="ck-btn">' + t('settings.diagnostics.copy') + '</button>' +
+    '    </div>' +
     '  </div>' +
     '</div>';
 }
@@ -660,6 +743,53 @@ function bindResetButton() {
     });
   }
 
+  // Кнопка «Диагностика интеграции» — прогоняет проверки провайдера и показывает отчёт.
+  const diagBtn = document.getElementById('cuckoo-btn-diagnostics');
+  if (diagBtn) {
+    diagBtn.addEventListener('click', async () => {
+      diagBtn.disabled = true;
+      const originalText = diagBtn.textContent;
+      diagBtn.textContent = t('settings.diagnostics.running');
+      try {
+        const { runDiagnostics, formatReportText } = require('./diagnostics');
+        const report = await runDiagnostics();
+        const text = formatReportText(report);
+        const modal = document.getElementById('cuckoo-diag-modal');
+        const body = document.getElementById('cuckoo-diag-body');
+        if (modal && body) {
+          body.textContent = text;
+          modal.style.display = 'flex';
+          // Копирование
+          const copyBtn = document.getElementById('cuckoo-diag-copy');
+          const closeBtn = document.getElementById('cuckoo-diag-close');
+          const close = () => { modal.style.display = 'none'; };
+          if (closeBtn) closeBtn.onclick = close;
+          if (copyBtn) copyBtn.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(text);
+              copyBtn.textContent = t('settings.diagnostics.copied');
+              setTimeout(() => { copyBtn.textContent = t('settings.diagnostics.copy'); }, 1500);
+            } catch (_) {
+              // Fallback — выделяем текст, чтобы пользователь скопировал вручную
+              if (body) {
+                const range = document.createRange();
+                range.selectNodeContents(body);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+            }
+          };
+        }
+      } catch (err) {
+        console.error('[Cookie Code] diagnostics error:', err && err.message);
+      } finally {
+        diagBtn.disabled = false;
+        diagBtn.textContent = originalText;
+      }
+    });
+  }
+
   // Кнопка «Открыть файл настроек» — открывает cuckoo-settings.json системным редактором.
   const openCfgBtn = document.getElementById('cuckoo-btn-open-config');
   if (openCfgBtn) {
@@ -905,6 +1035,35 @@ function bindAgentSettings() {
       }
     });
   }
+
+  const convTokensCb = document.getElementById('cuckoo-show-conv-tokens');
+  if (convTokensCb) {
+    convTokensCb.addEventListener('change', async () => {
+      const enabled = convTokensCb.checked;
+      state.showConvTokens = enabled;
+      try { applyConvTokensVisibility(enabled); } catch (_) {}
+      try {
+        await window.electronAPI.setCuckooSetting('showConvTokens', enabled);
+      } catch (err) {
+        console.error('[Cookie Code] Не удалось сохранить showConvTokens:', err.message);
+      }
+    });
+  }
+}
+
+/**
+ * Показать/скрыть блок «Токены диалога» в оверлее.
+ * @param {boolean} on
+ */
+function applyConvTokensVisibility(on) {
+  const section = document.querySelector('.cuckoo-token-section');
+  if (!section) return;
+  section.style.display = on ? '' : 'none';
+  // Скрываем и соседний разделитель перед блоком, если он есть.
+  const prev = section.previousElementSibling;
+  if (prev && prev.classList && prev.classList.contains('cuckoo-divider')) {
+    prev.style.display = on ? '' : 'none';
+  }
 }
 
 /**
@@ -952,6 +1111,13 @@ async function refreshAgentSettings() {
     const fmtCb = document.getElementById('cuckoo-formatters-enabled');
     if (fmtCb) {
       fmtCb.checked = !s || s.formattersEnabled !== false;
+    }
+    const convTokensCb = document.getElementById('cuckoo-show-conv-tokens');
+    if (convTokensCb) {
+      // По умолчанию выключено: показываем только если явно true.
+      convTokensCb.checked = Boolean(s && s.showConvTokens === true);
+      state.showConvTokens = convTokensCb.checked;
+      try { applyConvTokensVisibility(convTokensCb.checked); } catch (_) {}
     }
   } catch (_) {}
 }

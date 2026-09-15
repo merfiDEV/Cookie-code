@@ -9,6 +9,8 @@ const todoPanel = require('./todo-panel');
 const { handleInitProject, renderSessions } = require('../dom/session-list');
 const { handleManualParse } = require('../dom/observer');
 const { sendToChat } = require('../dom/chat-input');
+const { getProviderByUrl } = require('../../../src/providers');
+const { estimateTokens } = require('../dom/token-estimator');
 
 /**
  * 渲染窗口列表（浮动管理面板内）
@@ -107,7 +109,7 @@ function closeWindowManager() {
  * 生成项目说明文档按钮点击处理
  */
 function handleGenerateDoc() {
-  const message = '根据当前项目生成一个类似 claude.md 的项目说明文件，并将文件放到当前项目 .cuckooCode/CUCKOO.md';
+  const message = '根据当前项目生成一个项目说明文件，并将文件放到当前项目 .cuckooCode/CUCKOO.md';
   if (!sendToChat(message, '生成文档', 300)) {
     showToast('未找到输入框，请确保已打开聊天界面', 3000);
   }
@@ -214,6 +216,210 @@ function closeMcpManager() {
 }
 
 /**
+ * 格式化 token 数：>=1M → "x.xxM"，>=1K → "x.xK"，иначе原样
+ * @param {number} n
+ * @returns {string}
+ */
+function formatTokenCount(n) {
+  if (!Number.isFinite(n) || n < 0) return '0';
+  if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(Math.round(n));
+}
+
+/**
+ * 刷新面板里的「对话 Token」显示
+ * 优先使用服务端权威值（accumulated_token_usage，含 prompt+输出）；
+ * 若 state 中值为空 — пробуем восстановить из localStorage (по текущей сессии);
+ * 服务端值缺失时回退到页面文本本地估算.
+ */
+/**
+ * Ключ localStorage для сохранения токенов диалога по сессии.
+ * @param {string|null} sessionId
+ * @returns {string}
+ */
+function convTokenStorageKey(sessionId) {
+  return 'cuckoo-conv-tokens-' + (sessionId || 'default');
+}
+
+/**
+ * Определить sessionId текущей страницы через provider.
+ * @returns {string|null}
+ */
+function getCurrentSessionId() {
+  try {
+    const provider = getProviderByUrl(window.location.href);
+    if (provider && typeof provider.extractSessionId === 'function') {
+      return provider.extractSessionId(window.location.href);
+    }
+  } catch (_) { /* ignore */ }
+  return null;
+}
+
+/**
+ * Оценить токены всего диалога из DOM и сохранить результат в localStorage
+ * по текущему sessionId. Возвращает оценку.
+ * @returns {number}
+ */
+function computeAndSaveConversationTokens() {
+  let text = '';
+  try {
+    const provider = getProviderByUrl(window.location.href);
+    if (provider && typeof provider.getConversationText === 'function') {
+      text = provider.getConversationText() || '';
+    }
+  } catch (_) { /* provider 未就绪 */ }
+  // Отладка (один раз в 5 сек, чтобы не спамить)
+  try {
+    const now = Date.now();
+    if (!computeAndSaveConversationTokens._lastLog || now - computeAndSaveConversationTokens._lastLog > 5000) {
+      computeAndSaveConversationTokens._lastLog = now;
+      const cnt = document.querySelectorAll('.ds-message').length;
+      console.log('[Cookie Code][tokens] .ds-message=' + cnt + ' textLen=' + text.length + ' estTokens=' + estimateTokens(text));
+    }
+  } catch (_) {}
+  const tokens = estimateTokens(text);
+  // Запоминаем только если есть что запоминать (> 0)
+  if (tokens > 0) {
+    try {
+      localStorage.setItem(convTokenStorageKey(getCurrentSessionId()), String(tokens));
+    } catch (_) { /* ignore */ }
+  }
+  return tokens;
+}
+
+/**
+ * Прочитать сохранённую оценку токенов для текущей сессии.
+ * @returns {number}
+ */
+function readSavedConversationTokens() {
+  try {
+    const raw = localStorage.getItem(convTokenStorageKey(getCurrentSessionId()));
+    const n = raw != null ? parseInt(raw, 10) : 0;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch (_) { return 0; }
+}
+
+/**
+ * Ключ текущей сессии (sessionId или 'default').
+ * @returns {string}
+ */
+function sessionKey() {
+  return getCurrentSessionId() || 'default';
+}
+
+/**
+ * Записать серверное accumulated_token_usage для текущей сессии (монотонно).
+ * В пределах одной сессии значение только растёт — сбросы сервера игнорируем,
+ * чтобы счётчик не «падал» без причины.
+ * @param {number} total
+ */
+function setServerTokensForCurrentSession(total) {
+  if (!Number.isFinite(total) || total <= 0) return;
+  const sid = sessionKey();
+  if (!state.serverTokensBySession || typeof state.serverTokensBySession !== 'object') {
+    state.serverTokensBySession = {};
+  }
+  const prev = Number(state.serverTokensBySession[sid]) || 0;
+  if (total > prev) state.serverTokensBySession[sid] = total;
+  state.serverTokens = total;
+}
+
+/**
+ * Прочитать серверное accumulated_token_usage для текущей сессии.
+ * @returns {number}
+ */
+function getServerTokensForCurrentSession() {
+  const sid = sessionKey();
+  const map = state.serverTokensBySession;
+  const n = map && typeof map === 'object' ? Number(map[sid]) : 0;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Локальная оценка токенов для сессии (монотонный максимум).
+ * @param {string} sid
+ * @returns {number}
+ */
+function getLocalEstimateForSession(sid) {
+  const m = state.localEstimateBySession;
+  const n = m && typeof m === 'object' ? Number(m[sid]) : 0;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Обновить локальную оценку для сессии, только вверх (монотонно).
+ * @param {string} sid
+ * @param {number} value
+ */
+function bumpLocalEstimateForSession(sid, value) {
+  if (!Number.isFinite(value) || value <= 0) return;
+  if (!state.localEstimateBySession || typeof state.localEstimateBySession !== 'object') {
+    state.localEstimateBySession = {};
+  }
+  const prev = Number(state.localEstimateBySession[sid]) || 0;
+  if (value > prev) state.localEstimateBySession[sid] = value;
+}
+
+/**
+ * Обновить панель токенов диалога.
+ *
+ * Логика стабильности:
+ *   1. Приоритет — серверное accumulated_token_usage текущей сессии (монотонно).
+ *   2. Если серверного ещё нет — локальная оценка, но тоже монотонная по сессии
+ *      (при перерисовке DOM оценка скачет — берём максимум, не даём «падать»).
+ *   3. Math.max(серверное, оценка) НЕ используем: они меряют разное, и именно
+ *      это давало прыжки 900 → 4K → 1.9K.
+ */
+function updateConversationTokenDisplay() {
+  const countEl = document.getElementById('cuckoo-conv-token-count');
+  if (!countEl) return;
+
+  const sid = sessionKey();
+
+  // Локальная оценка: считаем и запоминаем монотонный максимум по сессии.
+  const fresh = computeAndSaveConversationTokens();
+  bumpLocalEstimateForSession(sid, fresh);
+  const localEstimate = getLocalEstimateForSession(sid);
+
+  // Приоритет — серверное значение (монотонно растёт в пределах сессии).
+  const server = getServerTokensForCurrentSession();
+  const value = server > 0 ? server : localEstimate;
+
+  countEl.textContent = formatTokenCount(value);
+}
+
+/**
+ * Слушаем серверные токены из token-interceptor и обновляем state + панель.
+ */
+function registerTokenInterceptorListener() {
+  window.addEventListener('cuckoo:token-update', (e) => {
+    try {
+      const d = e && e.detail ? e.detail : {};
+      if (typeof d.total === 'number' && d.total > 0) setServerTokensForCurrentSession(d.total);
+      if (typeof d.delta === 'number' && d.delta > 0) state.serverTokenDelta = d.delta;
+    } catch (_) {}
+    safeUpdateConversationTokenDisplay();
+  });
+}
+
+/**
+ * Безопасный вызов updateConversationTokenDisplay (не роняет слушателя).
+ */
+function safeUpdateConversationTokenDisplay() {
+  try { updateConversationTokenDisplay(); } catch (_) {}
+}
+
+/**
+ * 启动对话 token 显示（每秒刷新）
+ */
+function startTokenCounter() {
+  registerTokenInterceptorListener();
+  setInterval(updateConversationTokenDisplay, 1000);
+  updateConversationTokenDisplay();
+}
+
+/**
  * 绑定覆盖层所有 UI 事件
  * 包括按钮点击、键盘快捷键、状态徽章点击等
  */
@@ -312,6 +518,9 @@ function bindEvents() {
 
   // Плавающее окошко «Задачи»
   todoPanel.start();
+
+  // 启动输入框 token 估算
+  startTokenCounter();
 
   // MCP 面板：刷新
   const mcpRefreshBtn = document.getElementById('cuckoo-mcp-refresh');
@@ -524,4 +733,7 @@ function bindEvents() {
   });
 }
 
+bindEvents.updateConversationTokenDisplay = updateConversationTokenDisplay;
+bindEvents.computeAndSaveConversationTokens = computeAndSaveConversationTokens;
+bindEvents.registerTokenInterceptorListener = registerTokenInterceptorListener;
 module.exports = bindEvents;

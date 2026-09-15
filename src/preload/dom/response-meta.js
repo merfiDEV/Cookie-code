@@ -3,7 +3,8 @@
  *   ⏱ 9.2s · ~308 tok · Затронуто # file.txt
  *
  * Время измеряется локально (от появления нового AI-сообщения до его завершения).
- * Токены — грубая оценка: длина текста / 4.
+ * Токены — дельта accumulated_token_usage за этот ответ (серверные);
+ * fallback — грубая оценка: длина текста / 4.
  * Затронуто — список файлов, затронутых за этот ответ (write/edit) — только успешные.
  * Данные сохраняются в localStorage (переживают Ctrl+R).
  */
@@ -18,8 +19,34 @@ try { ({ t } = require('../i18n/i18n')); } catch (_) {}
 let state = null;
 try { state = require('./state'); } catch (_) { state = { showProducedFiles: true }; }
 
+let estimateTokens = (s) => (s ? Math.ceil(s.length / 4) : 0);
+try { ({ estimateTokens } = require('./token-estimator')); } catch (_) {}
+
 // Активные замеры: messageEl -> { start }
 let activeTimers = new WeakMap();
+
+// Последняя серверная дельта токенов (из token-interceptor) и момент её прихода.
+// Если дельта пришла во время замера ответа — используем её вместо локальной оценки.
+let lastServerDelta = { value: 0, at: 0 };
+let serverDeltaListenerBound = false;
+
+/**
+ * Подписаться на событие cuckoo:token-update (однократно).
+ */
+function bindServerDeltaListener() {
+  if (serverDeltaListenerBound) return;
+  serverDeltaListenerBound = true;
+  try {
+    window.addEventListener('cuckoo:token-update', (e) => {
+      try {
+        const d = e && e.detail ? e.detail : {};
+        if (typeof d.delta === 'number' && d.delta > 0) {
+          lastServerDelta = { value: d.delta, at: performance.now() };
+        }
+      } catch (_) {}
+    });
+  } catch (_) {}
+}
 
 // Подтверждённые файлы по сообщению: messageEl -> Array<{path, op, status}>
 let confirmedMap = new WeakMap();
@@ -99,6 +126,7 @@ function writeMetaStore(store) {
  */
 function startTimer(messageEl) {
   if (!messageEl) return;
+  bindServerDeltaListener();
   if (activeTimers.has(messageEl)) return;
   activeTimers.set(messageEl, { start: performance.now() });
 }
@@ -437,7 +465,7 @@ function renderMetaPanel(messageEl, seconds, tokensEstimate, files) {
   meta.className = META_CLASS;
   // i18n с фолбэком на русский, если t() недоступен
   let timeTitle = 'Время ответа';
-  let tokensTitle = 'Оценка количества токенов (chars / 4)';
+  let tokensTitle = 'Токены ответа (серверные, при недоступности — оценка chars / 4)';
   let producedLabel = 'Затронуто';
   let producedTitle = 'Файлы, затронутые за этот ответ';
   try {
@@ -541,7 +569,15 @@ function finishTimer(messageEl) {
 
   const markdown = messageEl.querySelector('.ds-markdown');
   const text = markdown ? (markdown.textContent || '') : '';
-  const tokensEstimate = Math.max(0, Math.round(text.length / 4));
+  // Токены ответа: приоритет — серверная дельта accumulated_token_usage,
+  // если она пришла во время этого замера (после rec.start).
+  // Иначе — локальная оценка (CJK 0.6 / ASCII 0.3).
+  let tokensEstimate = estimateTokens(text);
+  try {
+    if (lastServerDelta.value > 0 && (!rec || lastServerDelta.at >= rec.start)) {
+      tokensEstimate = lastServerDelta.value;
+    }
+  } catch (_) {}
   const seconds = (elapsedMs / 1000).toFixed(1);
   // Проверяем подтверждённые файлы (если уже есть успешные выполнения)
   let files = null;
@@ -729,6 +765,7 @@ function clearStorage() {
 function resetForTests() {
   activeTimers = new WeakMap();
   confirmedMap = new WeakMap();
+  lastServerDelta = { value: 0, at: 0 };
   cachedStore = null;
   cachedStoreTime = 0;
   producedEnabled = true;

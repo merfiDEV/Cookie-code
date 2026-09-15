@@ -50,7 +50,7 @@ function createSessionStore(profileId, storeDir, windowState) {
 
   function extractSessionIdFromUrl(url) {
     if (!url) return null;
-    // 平台 provider 优先（智谱 cid=、Claude /chat/ 等）
+    // 平台 provider 优先（DeepSeek /chat/s/ 等）
     try {
       const provider = getProviderByUrl(url);
       if (provider && typeof provider.extractSessionId === 'function') {
@@ -58,11 +58,6 @@ function createSessionStore(profileId, storeDir, windowState) {
         if (sid) return sid;
       }
     } catch (_) { /* provider 异常时回退旧逻辑 */ }
-    // Claude: https://claude.ai/chat/xxx
-    if (url.includes('claude.ai')) {
-      const m = url.match(/\/chat\/([a-zA-Z0-9_-]+)/i);
-      return m ? m[1] : null;
-    }
     // DeepSeek: https://chat.deepseek.com/a/chat/s/xxx
     const match = url.match(/\/chat\/s\/([a-f0-9-]+)/i);
     if (match) return match[1];
