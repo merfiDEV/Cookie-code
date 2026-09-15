@@ -72,6 +72,7 @@ const KEYS = {
   'overlay.output.systemException': { ru: 'Системное исключение: {msg}', en: 'System exception: {msg}' },
 
   // ---- Оверлей: сессии ----
+  'overlay.label.convTokens':   { ru: 'Токены диалога',            en: 'Conversation tokens' },
   'overlay.label.sessions':     { ru: 'Сессии',                    en: 'Sessions' },
   'overlay.btn.refreshSessions':{ ru: '🔄 Обновить',               en: '🔄 Refresh' },
   'overlay.sessions.empty':     { ru: 'Нет сессий',                en: 'No sessions' },
@@ -266,7 +267,7 @@ const KEYS = {
 
   // ---- Мета под ответом AI (время / токены / затронутые файлы) ----
   'meta.time.title':           { ru: 'Время ответа',               en: 'Response time' },
-  'meta.tokens.title':         { ru: 'Оценка количества токенов (chars / 4)', en: 'Estimated tokens (chars / 4)' },
+  'meta.tokens.title':         { ru: 'Оценка токенов в тексте этого ответа', en: 'Estimated tokens in this response' },
   'meta.produced':             { ru: 'Затронуто',                 en: 'Affected' },
   'meta.produced.title':       { ru: 'Файлы, затронутые за этот ответ', en: 'Files touched in this response' },
 };

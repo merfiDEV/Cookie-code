@@ -1,7 +1,7 @@
 /**
  * MCP 配置管理
  *
- * mcp.json 采用主流 Claude Desktop 格式（可直接分享/导入）：
+ * mcp.json 采用主流 MCP 格式（可直接分享/导入）：
  * {
  *   "mcpServers": {
  *     "filesystem": { "command": "npx", "args": [...] },          // stdio

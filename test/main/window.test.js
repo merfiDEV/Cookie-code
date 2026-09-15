@@ -37,7 +37,7 @@ test('getContextByWebContents 查找对应上下文', () => {
   const winA = { id: 'a', on: () => {}, webContents: wcA, isDestroyed: () => false };
   const winB = { id: 'b', on: () => {}, webContents: wcB, isDestroyed: () => false };
   windowState.addWindow(winA, 'p1', 'deepseek', { a: 1 });
-  windowState.addWindow(winB, 'p2', 'claude', { b: 2 });
+  windowState.addWindow(winB, 'p2', 'demo', { b: 2 });
   assert.strictEqual(windowState.getContextByWebContents(wcA).profileId, 'p1');
   assert.strictEqual(windowState.getContextByWebContents(wcB).profileId, 'p2');
   assert.strictEqual(windowState.getContextByWebContents({ id: 'nope' }), null);
@@ -65,7 +65,7 @@ test('getAllWindows 返回窗口数组', () => {
   const winA = { id: 'a', on: () => {}, isDestroyed: () => false };
   const winB = { id: 'b', on: () => {}, isDestroyed: () => false };
   windowState.addWindow(winA, 'p1', 'deepseek', {});
-  windowState.addWindow(winB, 'p2', 'claude', {});
+  windowState.addWindow(winB, 'p2', 'demo', {});
   const all = windowState.getAllWindows();
   assert.strictEqual(all.length, 2);
   assert.ok(all.includes(winA));

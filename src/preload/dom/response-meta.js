@@ -3,7 +3,8 @@
  *   ⏱ 9.2s · ~308 tok · Затронуто # file.txt
  *
  * Время измеряется локально (от появления нового AI-сообщения до его завершения).
- * Токены — грубая оценка: длина текста / 4.
+ * Токены — дельта accumulated_token_usage за этот ответ (серверные);
+ * fallback — грубая оценка: длина текста / 4.
  * Затронуто — список файлов, затронутых за этот ответ (write/edit) — только успешные.
  * Данные сохраняются в localStorage (переживают Ctrl+R).
  */
@@ -17,6 +18,9 @@ try { ({ t } = require('../i18n/i18n')); } catch (_) {}
 
 let state = null;
 try { state = require('./state'); } catch (_) { state = { showProducedFiles: true }; }
+
+let estimateTokens = (s) => (s ? Math.ceil(s.length / 4) : 0);
+try { ({ estimateTokens } = require('./token-estimator')); } catch (_) {}
 
 // Активные замеры: messageEl -> { start }
 let activeTimers = new WeakMap();
@@ -437,7 +441,7 @@ function renderMetaPanel(messageEl, seconds, tokensEstimate, files) {
   meta.className = META_CLASS;
   // i18n с фолбэком на русский, если t() недоступен
   let timeTitle = 'Время ответа';
-  let tokensTitle = 'Оценка количества токенов (chars / 4)';
+  let tokensTitle = 'Токены ответа (серверные, при недоступности — оценка chars / 4)';
   let producedLabel = 'Затронуто';
   let producedTitle = 'Файлы, затронутые за этот ответ';
   try {
@@ -541,7 +545,10 @@ function finishTimer(messageEl) {
 
   const markdown = messageEl.querySelector('.ds-markdown');
   const text = markdown ? (markdown.textContent || '') : '';
-  const tokensEstimate = Math.max(0, Math.round(text.length / 4));
+  // Токены текста этого ответа — локальная оценка (CJK 0.6 / ASCII 0.3).
+  // Серверное accumulated_token_usage у DeepSeek считает только входной промпт
+  // и не отражает объём ответа, поэтому не используем его здесь.
+  const tokensEstimate = estimateTokens(text);
   const seconds = (elapsedMs / 1000).toFixed(1);
   // Проверяем подтверждённые файлы (если уже есть успешные выполнения)
   let files = null;

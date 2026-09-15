@@ -401,7 +401,7 @@ function registerIpcHandlers() {
     const ctx = windowState.getContextByWebContents(event.sender);
     const win = ctx ? ctx.win : null;
     if (!win || win.isDestroyed()) return { success: false, error: '窗口已关闭' };
-    // 按当前 provider 拼会话 URL（智谱 cid=、DeepSeek /chat/s/、Claude /chat/）
+    // 按当前 provider 拼会话 URL（DeepSeek /chat/s/ 等）
     let url = null;
     try {
       const { getProviderByUrl } = require('../providers');

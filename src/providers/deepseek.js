@@ -161,6 +161,17 @@ module.exports = {
     }, false);
   },
 
+  // 获取整个对话的纯文本（用户 + AI 消息按 DOM 顺序拼接），用于 token 估算
+  getConversationText() {
+    return domSafe('getConversationText', () => {
+      const msgs = Array.from(document.querySelectorAll('.ds-message'));
+      return msgs
+        .map(el => (el.textContent || el.innerText || '').trim())
+        .filter(Boolean)
+        .join('\n');
+    }, '');
+  },
+
   // 获取当前页面所有 AI 消息容器（排除用户消息）
   getMessageCandidates() {
     return domSafe('getMessageCandidates', () => {

@@ -76,9 +76,20 @@ async function init() {
     safe('init.bindEvents', () => bindEvents());
     safe('init.updateHomeMode', () => ui.updateHomeMode());
 
+    // Сохранить токены текущего диалога перед уходом/закрытием.
+    window.addEventListener('beforeunload', () => {
+      safe('init.saveTokensBeforeUnload', () => bindEvents.computeAndSaveConversationTokens());
+    });
+
     // 监听 URL 变化（SPA 路由）
-    window.addEventListener('popstate', ui.updateHomeMode);
-    window.addEventListener('hashchange', ui.updateHomeMode);
+    window.addEventListener('popstate', () => {
+      safe('init.updateHomeModePop', () => ui.updateHomeMode());
+      safe('init.refreshTokensPop', () => bindEvents.updateConversationTokenDisplay());
+    });
+    window.addEventListener('hashchange', () => {
+      safe('init.updateHomeModeHash', () => ui.updateHomeMode());
+      safe('init.refreshTokensHash', () => bindEvents.updateConversationTokenDisplay());
+    });
     setInterval(() => safe('init.updateHomeModeInterval', () => ui.updateHomeMode()), 5000);
     // 首次延迟执行，确保 overlay 已注入
     setTimeout(() => safe('init.updateHomeModeDelayed', () => ui.updateHomeMode()), 500);

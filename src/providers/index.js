@@ -3,10 +3,9 @@
  * 加载所有内置的 AI 平台 Provider 定义，以及用户导入的自定义 Provider。
  */
 const deepseek = require('./deepseek');
-const claude = require('./claude');
 const { loadCustomProviders } = require('./custom/loader');
 
-const builtinProviders = [deepseek, claude];
+const builtinProviders = [deepseek];
 
 function getAllProviders() {
   return [...builtinProviders, ...loadCustomProviders()];
