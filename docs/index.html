@@ -1,711 +1,712 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cookie Code — AI-агент с нулевой стоимостью токенов</title>
-<meta name="description" content="Cookie Code — настольный AI-агент для DeepSeek. Выполняет команды, работает с файлами, БД, MCP и Telegram. Никакого API-ключа, никакой оплаты за токены.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
-<style>
-/* ============ MD3 Tokens (dark) ============ */
-:root {
-  --md-primary: #2ea8ff;
-  --md-primary-dim: #8ecbff;
-  --md-on-primary: #061a33;
-  --md-primary-container: #004a76;
-  --md-on-primary-container: #bcdcff;
-
-  --md-tertiary: #d1b8ff;
-  --md-tertiary-container: #3a2758;
-  --md-on-tertiary-container: #e9d0f7;
-
-  --md-surface: #0f1220;
-  --md-surface-1: #141829;
-  --md-surface-2: #1a1e34;
-  --md-surface-3: #1f2340;
-  --md-surface-4: #262a4a;
-
-  --md-on-surface: #e8eaff;
-  --md-on-surface-var: #b6bbe0;
-  --md-outline: #6c7299;
-  --md-outline-var: rgba(120, 160, 255, 0.14);
-
-  --md-error: #ff8a93;
-  --md-error-container: #4a1220;
-
-  --md-radius-xs: 8px;
-  --md-radius-sm: 12px;
-  --md-radius-md: 16px;
-  --md-radius-lg: 24px;
-  --md-radius-xl: 32px;
-  --md-radius-full: 999px;
-
-  --md-elev-1: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.28);
-  --md-elev-2: 0 4px 10px rgba(0,0,0,0.38);
-  --md-elev-3: 0 12px 30px rgba(0,0,0,0.45);
-  --md-elev-4: 0 24px 60px rgba(0,0,0,0.55);
-}
-
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body {
-  margin: 0;
-  font-family: "Roboto Flex", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  background:
-    radial-gradient(1100px 640px at 10% -10%, rgba(46,168,255,0.14), transparent 60%),
-    radial-gradient(900px 540px at 100% 0%, rgba(180,140,255,0.10), transparent 55%),
-    var(--md-surface);
-  color: var(--md-on-surface);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
-.container { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
-
-/* ============ Material Symbols ============ */
-.material-symbols-outlined {
-  font-family: "Material Symbols Outlined";
-  font-weight: normal; font-style: normal; font-size: 22px; line-height: 1;
-  letter-spacing: normal; text-transform: none; display: inline-block;
-  white-space: nowrap; word-wrap: normal; direction: ltr;
-  -webkit-font-feature-settings: "liga"; -webkit-font-smoothing: antialiased;
-  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
-}
-.material-symbols-outlined.filled { font-variation-settings: "FILL" 1; }
-
-/* ============ Top App Bar ============ */
-.top-bar {
-  position: sticky; top: 0; z-index: 50;
-  background: rgba(15,18,32,0.72);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border-bottom: 1px solid var(--md-outline-var);
-}
-.top-bar-inner {
-  display: flex; align-items: center; justify-content: space-between;
-  height: 68px;
-}
-.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--md-on-surface); }
-.brand-logo {
-  width: 40px; height: 40px; border-radius: var(--md-radius-full);
-  background: linear-gradient(135deg, var(--md-primary), #1c85d6);
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 6px 16px rgba(46,168,255,0.35);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.brand:hover .brand-logo { transform: scale(1.05); box-shadow: 0 8px 22px rgba(46,168,255,0.5); }
-.brand-logo svg { width: 22px; height: 22px; display: block; }
-.brand-name { font-size: 17px; font-weight: 600; letter-spacing: 0.2px; }
-.brand-sub { font-size: 11px; color: var(--md-on-surface-var); letter-spacing: 0.3px; }
-
-.top-actions { display: flex; align-items: center; gap: 10px; }
-.icon-btn {
-  width: 40px; height: 40px; border-radius: var(--md-radius-full);
-  display: inline-flex; align-items: center; justify-content: center;
-  background: transparent; border: none; color: var(--md-on-surface-var);
-  cursor: pointer; transition: background 0.18s ease, color 0.18s ease;
-  text-decoration: none;
-}
-.icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--md-on-surface); }
-.lang-switch {
-  display: inline-flex; align-items: center; justify-content: center;
-  height: 36px; padding: 0 14px;
-  border-radius: var(--md-radius-full);
-  background: rgba(46,168,255,0.12); border: 1px solid rgba(46,168,255,0.32);
-  color: var(--md-primary-dim); font-size: 12px; font-weight: 700;
-  letter-spacing: 0.8px; text-decoration: none;
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
-}
-.lang-switch:hover { background: rgba(46,168,255,0.24); color: #fff; border-color: rgba(46,168,255,0.65); }
-
-/* ============ Buttons ============ */
-.btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 12px 22px; border-radius: var(--md-radius-full);
-  font-family: inherit; font-size: 14px; font-weight: 500; letter-spacing: 0.1px;
-  cursor: pointer; text-decoration: none; border: 1px solid transparent;
-  transition: all 0.18s ease; white-space: nowrap;
-}
-.btn:active { transform: scale(0.98); }
-.btn-filled {
-  background: var(--md-primary); color: var(--md-on-primary); font-weight: 600;
-  box-shadow: 0 6px 18px rgba(46,168,255,0.32);
-}
-.btn-filled:hover { background: #52bbff; box-shadow: 0 8px 24px rgba(46,168,255,0.45); }
-.btn-tonal {
-  background: rgba(46,168,255,0.14); color: var(--md-primary-dim);
-  border-color: rgba(46,168,255,0.35);
-}
-.btn-tonal:hover { background: rgba(46,168,255,0.24); color: #fff; border-color: rgba(46,168,255,0.65); }
-.btn-outlined {
-  background: transparent; color: var(--md-on-surface);
-  border-color: var(--md-outline);
-}
-.btn-outlined:hover { background: rgba(255,255,255,0.06); border-color: var(--md-primary-dim); color: #fff; }
-
-/* ============ Hero ============ */
-.hero { padding: 72px 0 64px; position: relative; overflow: hidden; }
-.hero h1 {
-  font-size: clamp(34px, 5.4vw, 58px); line-height: 1.08; font-weight: 400;
-  margin: 0 0 20px; letter-spacing: -0.02em;
-}
-.hero h1 .accent {
-  background: linear-gradient(135deg, #52bbff, #d1b8ff);
-  -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 600;
-}
-.hero p.lead {
-  font-size: 18px; line-height: 1.6; color: var(--md-on-surface-var);
-  max-width: 760px; margin: 0 0 32px;
-}
-.hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
-.hero-meta { display: flex; gap: 22px; flex-wrap: wrap; color: var(--md-on-surface-var); font-size: 13px; }
-.hero-meta span { display: inline-flex; align-items: center; gap: 6px; }
-.hero-meta .material-symbols-outlined { font-size: 16px; color: var(--md-primary-dim); }
-
-/* ============ Screenshot ============ */
-.hero-shot {
-  margin-top: 44px; border-radius: var(--md-radius-lg);
-  overflow: hidden; border: 1px solid var(--md-outline-var);
-  box-shadow: var(--md-elev-4);
-  background: #090b16;
-}
-.hero-shot img { width: 100%; display: block; }
-
-/* ============ Section ============ */
-section.block { padding: 72px 0; }
-.section-head {
-  display: flex; align-items: center; gap: 16px; margin-bottom: 36px;
-}
-.section-icon {
-  width: 48px; height: 48px; border-radius: var(--md-radius-full);
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(46,168,255,0.14); color: var(--md-primary-dim);
-}
-.section-icon.tertiary { background: rgba(180,140,255,0.14); color: var(--md-tertiary); }
-.section-icon.error    { background: rgba(255,120,140,0.14); color: var(--md-error); }
-.section-title { font-size: 26px; font-weight: 500; margin: 0; letter-spacing: -0.01em; }
-.section-sub { font-size: 14px; color: var(--md-on-surface-var); margin-top: 2px; }
-
-/* ============ Cards ============ */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-.grid.cols-2 { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
-.card {
-  background: var(--md-surface-1);
-  border: 1px solid var(--md-outline-var);
-  border-radius: var(--md-radius-lg);
-  padding: 24px;
-  transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-.card:hover {
-  background: var(--md-surface-2);
-  border-color: rgba(120,190,255,0.28);
-  transform: translateY(-3px);
-  box-shadow: var(--md-elev-3);
-}
-.card-icon {
-  width: 44px; height: 44px; border-radius: var(--md-radius-full);
-  display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
-  background: rgba(46,168,255,0.14); color: var(--md-primary-dim);
-}
-.card-icon.tertiary { background: rgba(180,140,255,0.14); color: var(--md-tertiary); }
-.card-icon.error    { background: rgba(255,120,140,0.14); color: var(--md-error); }
-.card-title { font-size: 17px; font-weight: 600; margin: 0 0 8px; color: var(--md-on-surface); }
-.card-text { font-size: 13.5px; color: var(--md-on-surface-var); margin: 0; line-height: 1.55; }
-
-/* ============ Badge ============ */
-.badge {
-  display: inline-block; padding: 3px 10px; border-radius: var(--md-radius-full);
-  font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
-  background: rgba(46,168,255,0.16); color: var(--md-primary-dim);
-  margin-left: 8px; vertical-align: middle;
-}
-.badge.tertiary { background: rgba(180,140,255,0.16); color: var(--md-tertiary); }
-.badge.error    { background: rgba(255,120,140,0.16); color: var(--md-error); }
-
-/* ============ Feature list (checkmarks) ============ */
-.check-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
-.check-list li {
-  display: flex; gap: 12px; align-items: flex-start;
-  padding: 14px 18px; border-radius: var(--md-radius-md);
-  background: var(--md-surface-1); border: 1px solid var(--md-outline-var);
-}
-.check-list li .material-symbols-outlined {
-  color: var(--md-primary-dim); font-size: 20px; flex-shrink: 0; margin-top: 1px;
-}
-.check-list strong { display: block; font-weight: 600; color: var(--md-on-surface); margin-bottom: 2px; font-size: 14px; }
-.check-list span.desc { color: var(--md-on-surface-var); font-size: 13px; }
-
-/* ============ Gallery ============ */
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
-.gallery figure {
-  margin: 0; border-radius: var(--md-radius-lg); overflow: hidden;
-  border: 2px solid transparent; cursor: zoom-in;
-  transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
-  background: #090b16;
-}
-.gallery figure:hover { border-color: var(--md-primary); transform: translateY(-3px); box-shadow: var(--md-elev-3); }
-.gallery img { width: 100%; display: block; aspect-ratio: 16/10; object-fit: cover; }
-.gallery figcaption {
-  padding: 10px 14px; font-size: 12px; color: var(--md-on-surface-var);
-  background: var(--md-surface-1); text-align: center;
-}
-
-/* Lightbox */
-.lightbox {
-  display: none; position: fixed; inset: 0; z-index: 100;
-  background: rgba(4,6,14,0.9); backdrop-filter: blur(8px);
-  align-items: center; justify-content: center; padding: 32px;
-}
-.lightbox.open { display: flex; }
-.lightbox img { max-width: 100%; max-height: 100%; border-radius: var(--md-radius-md); box-shadow: var(--md-elev-4); }
-.lightbox-close {
-  position: absolute; top: 20px; right: 20px;
-  width: 44px; height: 44px; border-radius: var(--md-radius-full);
-  background: rgba(255,255,255,0.1); border: none; color: #fff;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-}
-.lightbox-close:hover { background: rgba(255,255,255,0.2); }
-
-/* ============ Code ============ */
-.code-block {
-  background: #090b16; border: 1px solid var(--md-outline-var);
-  border-radius: var(--md-radius-md); padding: 18px 20px;
-  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
-  font-size: 13px; line-height: 1.6; color: #c8ccff;
-  overflow-x: auto; margin: 0;
-}
-.code-block .cmd { color: #a7f3c0; }
-.code-block .cmt { color: #6c7299; }
-
-/* ============ Table ============ */
-.tbl-wrap { overflow-x: auto; border-radius: var(--md-radius-md); border: 1px solid var(--md-outline-var); }
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; background: var(--md-surface-1); }
-th, td { padding: 12px 18px; text-align: left; }
-th { background: var(--md-surface-2); color: var(--md-on-surface); font-weight: 600; font-size: 12px; letter-spacing: 0.6px; text-transform: uppercase; }
-td { border-top: 1px solid var(--md-outline-var); color: var(--md-on-surface-var); }
-td code, td .tool { font-family: "Cascadia Code", "Consolas", monospace; color: var(--md-primary-dim); font-size: 12.5px; }
-tr:hover td { background: rgba(46,168,255,0.04); }
-
-/* ============ Steps ============ */
-.steps { display: grid; gap: 14px; counter-reset: step; }
-.step {
-  display: grid; grid-template-columns: 44px 1fr; gap: 16px; align-items: flex-start;
-  padding: 20px 22px; border-radius: var(--md-radius-lg);
-  background: var(--md-surface-1); border: 1px solid var(--md-outline-var);
-}
-.step-num {
-  width: 44px; height: 44px; border-radius: var(--md-radius-full);
-  background: linear-gradient(135deg, var(--md-primary), #1c85d6); color: var(--md-on-primary);
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 18px; box-shadow: 0 6px 16px rgba(46,168,255,0.32);
-}
-.step-title { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
-.step-text { font-size: 13.5px; color: var(--md-on-surface-var); margin: 0; }
-
-/* ============ CTA banner ============ */
-.cta-banner {
-  margin: 56px 0 0;
-  padding: 44px 40px;
-  border-radius: var(--md-radius-xl);
-  background:
-    radial-gradient(600px 300px at 10% 10%, rgba(46,168,255,0.18), transparent 60%),
-    linear-gradient(135deg, var(--md-surface-3), var(--md-surface-2));
-  border: 1px solid rgba(120,190,255,0.22);
-  text-align: center;
-  box-shadow: var(--md-elev-3);
-}
-.cta-banner h2 { font-size: 28px; font-weight: 500; margin: 0 0 12px; letter-spacing: -0.01em; }
-.cta-banner p { color: var(--md-on-surface-var); margin: 0 auto 26px; max-width: 560px; font-size: 15px; }
-.cta-banner .hero-cta { justify-content: center; margin-bottom: 0; }
-
-/* ============ Footer ============ */
-footer.site-footer {
-  border-top: 1px solid var(--md-outline-var);
-  padding: 32px 0; margin-top: 40px;
-  color: var(--md-on-surface-var); font-size: 13px;
-}
-footer .foot-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-footer a { color: var(--md-primary-dim); text-decoration: none; }
-footer a:hover { text-decoration: underline; }
-
-/* ============ Responsive ============ */
-@media (max-width: 720px) {
-  .hero { padding: 56px 0 40px; }
-  .section-title { font-size: 22px; }
-  .cta-banner { padding: 32px 22px; }
-  .hero-meta { font-size: 12px; gap: 14px; }
-  .container { padding: 0 18px; }
-  .top-actions .btn span.label { display: none; }
-}
-</style>
-</head>
-<body>
-
-<header class="top-bar">
-  <div class="container top-bar-inner">
-    <a class="brand" href="#top">
-      <div class="brand-logo">
-        <svg viewBox="0 0 32 32" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M16 3C8.82 3 3 8.82 3 16s5.82 13 13 13 13-5.82 13-13c0-1.1-.9-2-2-2-2.2 0-4-1.8-4-4 0-1.1-.9-2-2-2-1.6 0-3-1.4-3-3 0-1.1-.9-2-2-2Z" fill="currentColor"/>
-          <circle cx="11" cy="14" r="1.6" fill="#0f1220"/>
-          <circle cx="16" cy="20" r="1.6" fill="#0f1220"/>
-          <circle cx="21" cy="14" r="1.6" fill="#0f1220"/>
-        </svg>
-      </div>
-      <div>
-        <div class="brand-name">Cookie Code</div>
-        <div class="brand-sub">AI-агент · Material Design 3</div>
-      </div>
-    </a>
-    <div class="top-actions">
-      <a class="lang-switch" href="en.html" title="English">EN</a>
-      <a class="icon-btn" href="https://github.com/merfiDEV/Cookie-code" target="_blank" rel="noopener" title="GitHub">
-        <span class="material-symbols-outlined">code</span>
-      </a>
-      <a class="btn btn-filled" href="https://github.com/merfiDEV/Cookie-code/releases/latest" target="_blank" rel="noopener">
-        <span class="material-symbols-outlined" style="font-size:18px;">download</span>
-        <span class="label">Скачать</span>
-      </a>
-    </div>
-  </div>
-</header>
-
-<main id="top">
-
-  <!-- ===================== HERO ===================== -->
-  <section class="hero">
-    <div class="container">
-      <h1>AI-агент на рабочем столе<br>с <span class="accent">нулевой стоимостью токенов</span></h1>
-      <p class="lead">
-        Cookie Code встраивает веб-чат DeepSeek в нативное окно Electron, добавляет боковой оверлей
-        и превращает чат в локальный исполнитель. AI генерирует вызовы инструментов — они перехватываются,
-        подтверждаются, выполняются в локальной песочнице и стримятся обратно в чат.
-        Никакого API-ключа, никакой оплаты за токены.
-      </p>
-      <div class="hero-cta">
-        <a class="btn btn-filled" href="https://github.com/merfiDEV/Cookie-code/releases/latest" target="_blank" rel="noopener">
-          <span class="material-symbols-outlined" style="font-size:18px;">rocket_launch</span>
-          Скачать последний релиз
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cookie Code — AI-агент с нулевой стоимостью токенов</title>
+    <meta
+      name="description"
+      content="Cookie Code — настольный AI-агент для DeepSeek. Выполняет команды, работает с файлами, БД, MCP и Telegram. Никакого API-ключа, никакой оплаты за токены."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/md3.css" />
+  </head>
+  <body>
+    <header class="top-bar" id="top-bar">
+      <div class="container top-bar-inner">
+        <a class="brand" href="#top">
+          <div class="brand-logo">
+            <svg
+              viewBox="0 0 32 32"
+              width="22"
+              height="22"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M16 3C8.82 3 3 8.82 3 16s5.82 13 13 13 13-5.82 13-13c0-1.1-.9-2-2-2-2.2 0-4-1.8-4-4 0-1.1-.9-2-2-2-1.6 0-3-1.4-3-3 0-1.1-.9-2-2-2Z"
+                fill="currentColor"
+              />
+              <circle cx="11" cy="14" r="1.6" fill="#0f1220" />
+              <circle cx="16" cy="20" r="1.6" fill="#0f1220" />
+              <circle cx="21" cy="14" r="1.6" fill="#0f1220" />
+            </svg>
+          </div>
+          <div>
+            <div class="brand-name">Cookie Code</div>
+            <div class="brand-sub">AI-агент · Material Design 3</div>
+          </div>
         </a>
-        <a class="btn btn-outlined" href="https://github.com/merfiDEV/Cookie-code" target="_blank" rel="noopener">
-          <span class="material-symbols-outlined" style="font-size:18px;">code</span>
-          Исходники на GitHub
-        </a>
-      </div>
-      <div class="hero-meta">
-        <span><span class="material-symbols-outlined">verified</span> Версия 4.0.13</span>
-        <span><span class="material-symbols-outlined">devices</span> Windows · macOS · Linux</span>
-        <span><span class="material-symbols-outlined">sell</span> Лицензия MIT</span>
-        <span><span class="material-symbols-outlined">payments</span> 0 ₽ за токены</span>
-      </div>
 
-      <div class="hero-shot">
-        <img src="assets/photo_2026-09-13_22-54-33.jpg" alt="Cookie Code — кастомизированный интерфейс с оверлеем">
-      </div>
-    </div>
-  </section>
+        <nav>
+          <ul class="top-nav">
+            <li>
+              <a href="#features">
+                <span class="material-symbols-outlined">apps</span>
+                Возможности
+              </a>
+            </li>
+            <li>
+              <a href="#tools">
+                <span class="material-symbols-outlined">handyman</span>
+                Инструменты
+              </a>
+            </li>
+            <li>
+              <a href="#gallery">
+                <span class="material-symbols-outlined">photo_library</span>
+                Скриншоты
+              </a>
+            </li>
+            <li>
+              <a href="#install">
+                <span class="material-symbols-outlined">rocket_launch</span>
+                Установка
+              </a>
+            </li>
+          </ul>
+        </nav>
 
-  <!-- ===================== WHY ===================== -->
-  <section class="block">
-    <div class="container">
-      <div class="section-head">
-        <div class="section-icon"><span class="material-symbols-outlined filled">psychology</span></div>
-        <div>
-          <h2 class="section-title">Зачем это нужно</h2>
-          <div class="section-sub">Веб-чаты умеют думать, но не действовать на вашей машине</div>
+        <div class="top-actions">
+          <a class="lang-switch" href="en.html" title="English">EN</a>
+          <a
+            class="icon-btn"
+            href="https://github.com/merfiDEV/Cookie-code"
+            target="_blank"
+            rel="noopener"
+            title="GitHub"
+          >
+            <span class="material-symbols-outlined">code</span>
+          </a>
+          <a
+            class="btn btn-filled"
+            href="https://github.com/merfiDEV/Cookie-code/releases/latest"
+            target="_blank"
+            rel="noopener"
+          >
+            <span class="material-symbols-outlined" style="font-size: 18px"
+              >download</span
+            >
+            <span class="label">Скачать</span>
+          </a>
         </div>
       </div>
-      <ul class="check-list">
-        <li>
-          <span class="material-symbols-outlined">savings</span>
-          <div>
-            <strong>Нулевая стоимость токенов</strong>
-            <span class="desc">Всё идёт через обычный веб-интерфейс DeepSeek. Никакого API-ключа, никаких счётчиков.</span>
+    </header>
+
+    <main id="top">
+      <!-- ===================== HERO ===================== -->
+      <section class="hero">
+        <div class="container">
+          <div class="hero-eyebrow">
+            <span class="material-symbols-outlined">verified</span>
+            Версия 4.0.13 · MIT License · Бесплатно
           </div>
-        </li>
-        <li>
-          <span class="material-symbols-outlined">autorenew</span>
-          <div>
-            <strong>Настоящий агентный цикл</strong>
-            <span class="desc">Думай → Действуй → Наблюдай → Повторяй. Файлы, код, shell, БД, MCP — всё в одном цикле.</span>
+          <h1>
+            AI-агент на рабочем столе<br />с
+            <span class="accent">нулевой стоимостью токенов</span>
+          </h1>
+          <p class="lead">
+            Cookie Code встраивает веб-чат DeepSeek в нативное окно Electron,
+            добавляет боковой оверлей и превращает чат в локальный исполнитель.
+            AI генерирует вызовы инструментов — они перехватываются,
+            подтверждаются, выполняются в локальной песочнице и стримятся
+            обратно в чат.
+          </p>
+          <div class="hero-cta">
+            <a
+              class="btn btn-filled"
+              href="https://github.com/merfiDEV/Cookie-code/releases/latest"
+              target="_blank"
+              rel="noopener"
+            >
+              <span class="material-symbols-outlined" style="font-size: 18px"
+                >rocket_launch</span
+              >
+              Скачать последний релиз
+            </a>
+            <a
+              class="btn btn-outlined"
+              href="https://github.com/merfiDEV/Cookie-code"
+              target="_blank"
+              rel="noopener"
+            >
+              <span class="material-symbols-outlined" style="font-size: 18px"
+                >code</span
+              >
+              Исходники на GitHub
+            </a>
           </div>
-        </li>
-        <li>
-          <span class="material-symbols-outlined">widgets</span>
-          <div>
-            <strong>Нативная оболочка</strong>
-            <span class="desc">Electron-обёртка с собственным оверлеем, темами, стеклянным эффектом и настройками.</span>
+
+          <div class="hero-stats">
+            <div class="hero-stat">
+              <span class="material-symbols-outlined">devices</span>
+              <span><strong>Windows · macOS · Linux</strong></span>
+            </div>
+            <div class="hero-stat">
+              <span class="material-symbols-outlined">payments</span>
+              <span><strong>0 ₽</strong> за токены</span>
+            </div>
+            <div class="hero-stat">
+              <span class="material-symbols-outlined">sell</span>
+              <span>Лицензия <strong>MIT</strong></span>
+            </div>
+            <div class="hero-stat">
+              <span class="material-symbols-outlined">key_off</span>
+              <span><strong>Без API-ключа</strong></span>
+            </div>
           </div>
-        </li>
-      </ul>
-    </div>
-  </section>
 
-  <!-- ===================== FEATURES ===================== -->
-  <section class="block">
-    <div class="container">
-      <div class="section-head">
-        <div class="section-icon"><span class="material-symbols-outlined filled">apps</span></div>
-        <div>
-          <h2 class="section-title">Возможности</h2>
-          <div class="section-sub">Всё, что делает Cookie Code полноценным локальным агентом</div>
+          <div class="hero-shot reveal">
+            <img
+              src="assets/photo_2026-09-13_22-54-33.jpg"
+              alt="Cookie Code — кастомизированный интерфейс с оверлеем"
+            />
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="grid">
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">terminal</span></div>
-          <h3 class="card-title">Выполнение инструментов</h3>
-          <p class="card-text">AI отправляет вызовы как блоки JavaScript (<code>cuckoo</code>). Каждый перехватывается, показывается в оверлее и выполняется в песочнице Node. Ошибки подсвечиваются красным.</p>
+      <div class="section-divider"></div>
+
+      <!-- ===================== WHY ===================== -->
+      <section class="block">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-icon">
+              <span class="material-symbols-outlined filled">psychology</span>
+            </div>
+            <div>
+              <h2 class="section-title">Зачем это нужно</h2>
+              <div class="section-sub">
+                Веб-чаты умеют думать, но не действовать на вашей машине
+              </div>
+            </div>
+          </div>
+          <ul class="check-list">
+            <li class="reveal">
+              <span class="material-symbols-outlined">savings</span>
+              <div>
+                <strong>Нулевая стоимость токенов</strong>
+                <span class="desc"
+                  >Всё идёт через обычный веб-интерфейс DeepSeek. Никакого
+                  API-ключа, никаких счётчиков.</span
+                >
+              </div>
+            </li>
+            <li class="reveal">
+              <span class="material-symbols-outlined">autorenew</span>
+              <div>
+                <strong>Настоящий агентный цикл</strong>
+                <span class="desc"
+                  >Думай → Действуй → Наблюдай → Повторяй. Файлы, код, shell,
+                  БД, MCP — всё в одном цикле.</span
+                >
+              </div>
+            </li>
+            <li class="reveal">
+              <span class="material-symbols-outlined">widgets</span>
+              <div>
+                <strong>Нативная оболочка</strong>
+                <span class="desc"
+                  >Electron-обёртка с собственным оверлеем, темами, стеклянным
+                  эффектом и настройками.</span
+                >
+              </div>
+            </li>
+          </ul>
         </div>
+      </section>
 
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">view_agenda</span></div>
-          <h3 class="card-title">Инлайн tool-блоки</h3>
-          <p class="card-text">Каждый <code>cuckoo</code>-блок превращается в раскрывающуюся карточку с иконкой, названием инструмента и подсказкой файла из первого аргумента.</p>
+      <div class="section-divider"></div>
+
+      <!-- ===================== FEATURES ===================== -->
+      <section class="block" id="features">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-icon">
+              <span class="material-symbols-outlined filled">apps</span>
+            </div>
+            <div>
+              <h2 class="section-title">Возможности</h2>
+              <div class="section-sub">
+                Всё, что делает Cookie Code полноценным локальным агентом
+              </div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">terminal</span>
+              </div>
+              <h3 class="card-title">Выполнение инструментов</h3>
+              <p class="card-text">
+                AI отправляет вызовы как блоки JavaScript (<code>cuckoo</code>).
+                Каждый перехватывается, показывается в оверлее и выполняется в
+                песочнице Node. Ошибки подсвечиваются красным.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">view_agenda</span>
+              </div>
+              <h3 class="card-title">Инлайн tool-блоки</h3>
+              <p class="card-text">
+                Каждый <code>cuckoo</code>-блок превращается в раскрывающуюся
+                карточку с иконкой, названием инструмента и подсказкой файла из
+                первого аргумента.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">timer</span>
+              </div>
+              <h3 class="card-title">Мета ответа</h3>
+              <p class="card-text">
+                Под каждым ответом AI — бейдж <code>⏱ 5.2s · ~380 tok</code>.
+                Реальное время стрима и приблизительная оценка токенов.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon tertiary">
+                <span class="material-symbols-outlined">wallpaper</span>
+              </div>
+              <h3 class="card-title">Фоны и стекло</h3>
+              <p class="card-text">
+                27 вручную отобранных обоев. Полный контроль над размытием и
+                прозрачностью шапки, сайдбара и tool-блоков. Смена — мгновенная.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon tertiary">
+                <span class="material-symbols-outlined">palette</span>
+              </div>
+              <h3 class="card-title">RGB-ник и акценты</h3>
+              <p class="card-text">
+                Анимированный радужный градиент ника в сайдбаре. Настройка
+                акцентного цвета кнопок панели и её фона через палитру MD3.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">send</span>
+              </div>
+              <h3 class="card-title">
+                Telegram-бот <span class="badge">new</span>
+              </h3>
+              <p class="card-text">
+                Управление и наблюдение с телефона: уведомления о вызовах,
+                ответы AI, команды <code>/todos</code>, <code>/settings</code>,
+                входящие сообщения.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">extension</span>
+              </div>
+              <h3 class="card-title">Поддержка MCP</h3>
+              <p class="card-text">
+                Формат конфигурации, совместимый с Claude Desktop.
+                <code>stdio</code> и <code>http</code>-серверы, управление из
+                оверлея.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">auto_fix_high</span>
+              </div>
+              <h3 class="card-title">Авто-форматтеры</h3>
+              <p class="card-text">
+                prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format — по
+                расширению и конфигу проекта. Код AI приводится к стилю вашего
+                проекта.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">folder_open</span>
+              </div>
+              <h3 class="card-title">Инициализация проекта</h3>
+              <p class="card-text">
+                Выберите каталог один раз — AI получает дерево и системный
+                промпт, адаптированный к реальному проекту. Все пути —
+                относительно него.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">psychology_alt</span>
+              </div>
+              <h3 class="card-title">Пользовательские скиллы</h3>
+              <p class="card-text">
+                Положите папку в <code>.cuckoo/skills/&lt;name&gt;/</code> с
+                <code>SKILL.md</code> и опциональным <code>tool.js</code> — и
+                она вызывается через <code>skillList</code>,
+                <code>skillLoad</code>, <code>skillExecute</code>.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon error">
+                <span class="material-symbols-outlined">verified_user</span>
+              </div>
+              <h3 class="card-title">Безопасность</h3>
+              <p class="card-text">
+                Гейт подтверждения вызовов (off / risky / all), таймауты 30–60
+                с, буфер 1 МБ, редактируемый блэклист опасных команд,
+                ограничение путей каталогом проекта.
+              </p>
+            </div>
+
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">cloud_sync</span>
+              </div>
+              <h3 class="card-title">Персистентность сессии</h3>
+              <p class="card-text">
+                Логин, проекты и настройки хранятся в userData приложения и
+                переживают перезапуск. Восстановление вкладок — автоматическое.
+              </p>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">timer</span></div>
-          <h3 class="card-title">Мета ответа</h3>
-          <p class="card-text">Под каждым ответом AI — бейдж <code>⏱ 5.2s · ~380 tok</code>. Реальное время стрима и приблизительная оценка токенов.</p>
+      <div class="section-divider"></div>
+
+      <!-- ===================== TOOLS TABLE ===================== -->
+      <section class="block" id="tools">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-icon tertiary">
+              <span class="material-symbols-outlined filled">handyman</span>
+            </div>
+            <div>
+              <h2 class="section-title">Доступные инструменты</h2>
+              <div class="section-sub">
+                Полные TypeScript-декларации — в
+                <code>tools/cuckoo-tools.d.ts</code>
+              </div>
+            </div>
+          </div>
+          <div class="tbl-wrap reveal">
+            <table>
+              <thead>
+                <tr>
+                  <th>Инструмент</th>
+                  <th>Описание</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <span class="tool">read</span>,
+                    <span class="tool">readLines</span>
+                  </td>
+                  <td>Чтение файлов (с номерами строк, offset/limit)</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="tool">write</span>,
+                    <span class="tool">edit</span>
+                  </td>
+                  <td>
+                    Создание / изменение файлов (авто-форматирование при
+                    сохранении)
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="tool">deleteFile</span></td>
+                  <td>Удаление файла</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="tool">glob</span>,
+                    <span class="tool">grep</span>
+                  </td>
+                  <td>Поиск по файлам (на базе ripgrep)</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="tool">bash</span>,
+                    <span class="tool">pwsh</span>
+                  </td>
+                  <td>Выполнение команд в cmd.exe / PowerShell</td>
+                </tr>
+                <tr>
+                  <td><span class="tool">todoWrite</span></td>
+                  <td>Структурированный список задач</td>
+                </tr>
+                <tr>
+                  <td><span class="tool">webFetch</span></td>
+                  <td>Загрузка HTTP(S) как Markdown</td>
+                </tr>
+                <tr>
+                  <td><span class="tool">mysql</span></td>
+                  <td>SQL-запросы</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="tool">mcpCall</span>,
+                    <span class="tool">mcpListServers</span>,
+                    <span class="tool">mcpGetTools</span>
+                  </td>
+                  <td>Инструменты MCP-серверов</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="tool">skillList</span>,
+                    <span class="tool">skillLoad</span>,
+                    <span class="tool">skillExecute</span>
+                  </td>
+                  <td>Пользовательские скиллы</td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="tool">openBrowserWindow</span>,
+                    <span class="tool">injectJS</span>
+                  </td>
+                  <td>Окно браузера Electron + инъекция JS</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
+      </section>
 
-        <div class="card">
-          <div class="card-icon tertiary"><span class="material-symbols-outlined">wallpaper</span></div>
-          <h3 class="card-title">Фоны и стекло</h3>
-          <p class="card-text">27 вручную отобранных обоев. Полный контроль над размытием и прозрачностью шапки, сайдбара и tool-блоков. Смена — мгновенная.</p>
+      <div class="section-divider"></div>
+
+      <!-- ===================== GALLERY ===================== -->
+      <section class="block" id="gallery">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-icon tertiary">
+              <span class="material-symbols-outlined filled"
+                >photo_library</span
+              >
+            </div>
+            <div>
+              <h2 class="section-title">Скриншоты</h2>
+              <div class="section-sub">
+                Кликните по изображению, чтобы открыть во весь экран
+              </div>
+            </div>
+          </div>
+          <div class="gallery">
+            <figure data-src="assets/photo_2026-09-13_22-54-33.jpg" class="reveal">
+              <img
+                src="assets/photo_2026-09-13_22-54-33.jpg"
+                alt="Полный кастомизированный интерфейс"
+              />
+              <figcaption>Полный кастомизированный интерфейс</figcaption>
+            </figure>
+            <figure data-src="assets/photo_1_2026-09-13_13-16-57.jpg" class="reveal">
+              <img
+                src="assets/photo_1_2026-09-13_13-16-57.jpg"
+                alt="Настройки кастомизации"
+              />
+              <figcaption>Настройки кастомизации</figcaption>
+            </figure>
+            <figure data-src="assets/photo_2_2026-09-13_13-16-57.jpg" class="reveal">
+              <img
+                src="assets/photo_2_2026-09-13_13-16-57.jpg"
+                alt="Собственная тема"
+              />
+              <figcaption>Собственная тема</figcaption>
+            </figure>
+            <figure data-src="assets/photo_6_2026-09-12_19-02-00.jpg" class="reveal">
+              <img
+                src="assets/photo_6_2026-09-12_19-02-00.jpg"
+                alt="Telegram-бот — настройки"
+              />
+              <figcaption>Telegram-бот — настройки</figcaption>
+            </figure>
+            <figure data-src="assets/photo_1_2026-09-12_19-08-16.jpg" class="reveal">
+              <img
+                src="assets/photo_1_2026-09-12_19-08-16.jpg"
+                alt="Telegram-бот — настройки"
+              />
+              <figcaption>Telegram-бот — настройки</figcaption>
+            </figure>
+            <figure data-src="assets/photo_2_2026-09-12_19-08-16.jpg" class="reveal">
+              <img
+                src="assets/photo_2_2026-09-12_19-08-16.jpg"
+                alt="Telegram-бот — уведомления"
+              />
+              <figcaption>Telegram-бот — уведомления</figcaption>
+            </figure>
+            <figure data-src="assets/photo_1_2026-09-12_19-02-00.jpg" class="reveal">
+              <img
+                src="assets/photo_1_2026-09-12_19-02-00.jpg"
+                alt="Cookie Code — панель"
+              />
+              <figcaption>Панель Cookie Code</figcaption>
+            </figure>
+            <figure data-src="assets/photo_3_2026-09-12_19-02-00.jpg" class="reveal">
+              <img
+                src="assets/photo_3_2026-09-12_19-02-00.jpg"
+                alt="Cookie Code — настройки"
+              />
+              <figcaption>Настройки Cookie Code</figcaption>
+            </figure>
+          </div>
         </div>
+      </section>
 
-        <div class="card">
-          <div class="card-icon tertiary"><span class="material-symbols-outlined">palette</span></div>
-          <h3 class="card-title">RGB-ник и акценты</h3>
-          <p class="card-text">Анимированный радужный градиент ника в сайдбаре. Настройка акцентного цвета кнопок панели и её фона через палитру MD3.</p>
-        </div>
+      <div class="section-divider"></div>
 
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">send</span></div>
-          <h3 class="card-title">Telegram-бот <span class="badge">new</span></h3>
-          <p class="card-text">Управление и наблюдение с телефона: уведомления о вызовах, ответы AI, команды <code>/todos</code>, <code>/settings</code>, входящие сообщения.</p>
-        </div>
+      <!-- ===================== INSTALL ===================== -->
+      <section class="block" id="install">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-icon">
+              <span class="material-symbols-outlined filled"
+                >rocket_launch</span
+              >
+            </div>
+            <div>
+              <h2 class="section-title">Установка</h2>
+              <div class="section-sub">Node.js ≥ 16.0.0 и npm</div>
+            </div>
+          </div>
 
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">extension</span></div>
-          <h3 class="card-title">Поддержка MCP</h3>
-          <p class="card-text">Формат конфигурации, совместимый с Claude Desktop. <code>stdio</code> и <code>http</code>-серверы, управление из оверлея.</p>
-        </div>
-
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">auto_fix_high</span></div>
-          <h3 class="card-title">Авто-форматтеры</h3>
-          <p class="card-text">prettier, biome, gofmt, ruff, rustfmt, shfmt, clang-format — по расширению и конфигу проекта. Код AI приводится к стилю вашего проекта.</p>
-        </div>
-
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">folder_open</span></div>
-          <h3 class="card-title">Инициализация проекта</h3>
-          <p class="card-text">Выберите каталог один раз — AI получает дерево и системный промпт, адаптированный к реальному проекту. Все пути — относительно него.</p>
-        </div>
-
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">psychology_alt</span></div>
-          <h3 class="card-title">Пользовательские скиллы</h3>
-          <p class="card-text">Положите папку в <code>.cuckoo/skills/&lt;name&gt;/</code> с <code>SKILL.md</code> и опциональным <code>tool.js</code> — и она вызывается через <code>skillList</code>, <code>skillLoad</code>, <code>skillExecute</code>.</p>
-        </div>
-
-        <div class="card">
-          <div class="card-icon error"><span class="material-symbols-outlined">verified_user</span></div>
-          <h3 class="card-title">Безопасность</h3>
-          <p class="card-text">Гейт подтверждения вызовов (off / risky / all), таймауты 30–60 с, буфер 1 МБ, редактируемый блэклист опасных команд, ограничение путей каталогом проекта.</p>
-        </div>
-
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">cloud_sync</span></div>
-          <h3 class="card-title">Персистентность сессии</h3>
-          <p class="card-text">Логин, проекты и настройки хранятся в userData приложения и переживают перезапуск. Восстановление вкладок — автоматическое.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== TOOLS TABLE ===================== -->
-  <section class="block">
-    <div class="container">
-      <div class="section-head">
-        <div class="section-icon tertiary"><span class="material-symbols-outlined filled">handyman</span></div>
-        <div>
-          <h2 class="section-title">Доступные инструменты</h2>
-          <div class="section-sub">Полные TypeScript-декларации — в <code>tools/cuckoo-tools.d.ts</code></div>
-        </div>
-      </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead>
-            <tr><th>Инструмент</th><th>Описание</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><span class="tool">read</span>, <span class="tool">readLines</span></td><td>Чтение файлов (с номерами строк, offset/limit)</td></tr>
-            <tr><td><span class="tool">write</span>, <span class="tool">edit</span></td><td>Создание / изменение файлов (авто-форматирование при сохранении)</td></tr>
-            <tr><td><span class="tool">deleteFile</span></td><td>Удаление файла</td></tr>
-            <tr><td><span class="tool">glob</span>, <span class="tool">grep</span></td><td>Поиск по файлам (на базе ripgrep)</td></tr>
-            <tr><td><span class="tool">bash</span>, <span class="tool">pwsh</span></td><td>Выполнение команд в cmd.exe / PowerShell</td></tr>
-            <tr><td><span class="tool">todoWrite</span></td><td>Структурированный список задач</td></tr>
-            <tr><td><span class="tool">webFetch</span></td><td>Загрузка HTTP(S) как Markdown</td></tr>
-            <tr><td><span class="tool">mysql</span></td><td>SQL-запросы</td></tr>
-            <tr><td><span class="tool">mcpCall</span>, <span class="tool">mcpListServers</span>, <span class="tool">mcpGetTools</span></td><td>Инструменты MCP-серверов</td></tr>
-            <tr><td><span class="tool">skillList</span>, <span class="tool">skillLoad</span>, <span class="tool">skillExecute</span></td><td>Пользовательские скиллы</td></tr>
-            <tr><td><span class="tool">openBrowserWindow</span>, <span class="tool">injectJS</span></td><td>Окно браузера Electron + инъекция JS</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== GALLERY ===================== -->
-  <section class="block">
-    <div class="container">
-      <div class="section-head">
-        <div class="section-icon tertiary"><span class="material-symbols-outlined filled">photo_library</span></div>
-        <div>
-          <h2 class="section-title">Скриншоты</h2>
-          <div class="section-sub">Кликните по изображению, чтобы открыть во весь экран</div>
-        </div>
-      </div>
-      <div class="gallery">
-        <figure data-src="assets/photo_2026-09-13_22-54-33.jpg">
-          <img src="assets/photo_2026-09-13_22-54-33.jpg" alt="Полный кастомизированный интерфейс">
-          <figcaption>Полный кастомизированный интерфейс</figcaption>
-        </figure>
-        <figure data-src="assets/photo_1_2026-09-13_13-16-57.jpg">
-          <img src="assets/photo_1_2026-09-13_13-16-57.jpg" alt="Настройки кастомизации">
-          <figcaption>Настройки кастомизации</figcaption>
-        </figure>
-        <figure data-src="assets/photo_2_2026-09-13_13-16-57.jpg">
-          <img src="assets/photo_2_2026-09-13_13-16-57.jpg" alt="Собственная тема">
-          <figcaption>Собственная тема</figcaption>
-        </figure>
-        <figure data-src="assets/photo_6_2026-09-12_19-02-00.jpg">
-          <img src="assets/photo_6_2026-09-12_19-02-00.jpg" alt="Telegram-бот — настройки">
-          <figcaption>Telegram-бот — настройки</figcaption>
-        </figure>
-        <figure data-src="assets/photo_1_2026-09-12_19-08-16.jpg">
-          <img src="assets/photo_1_2026-09-12_19-08-16.jpg" alt="Telegram-бот — настройки">
-          <figcaption>Telegram-бот — настройки</figcaption>
-        </figure>
-        <figure data-src="assets/photo_2_2026-09-12_19-08-16.jpg">
-          <img src="assets/photo_2_2026-09-12_19-08-16.jpg" alt="Telegram-бот — уведомления">
-          <figcaption>Telegram-бот — уведомления</figcaption>
-        </figure>
-        <figure data-src="assets/photo_1_2026-09-12_19-02-00.jpg">
-          <img src="assets/photo_1_2026-09-12_19-02-00.jpg" alt="Cookie Code — панель">
-          <figcaption>Панель Cookie Code</figcaption>
-        </figure>
-        <figure data-src="assets/photo_3_2026-09-12_19-02-00.jpg">
-          <img src="assets/photo_3_2026-09-12_19-02-00.jpg" alt="Cookie Code — настройки">
-          <figcaption>Настройки Cookie Code</figcaption>
-        </figure>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== INSTALL ===================== -->
-  <section class="block">
-    <div class="container">
-      <div class="section-head">
-        <div class="section-icon"><span class="material-symbols-outlined filled">rocket_launch</span></div>
-        <div>
-          <h2 class="section-title">Установка</h2>
-          <div class="section-sub">Node.js ≥ 16.0.0 и npm</div>
-        </div>
-      </div>
-
-      <div class="steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div>
-            <h3 class="step-title">Клонировать репозиторий</h3>
-            <pre class="code-block"><span class="cmd">git clone https://github.com/merfiDEV/Cookie-code.git
+          <div class="steps">
+            <div class="step reveal">
+              <div class="step-num">1</div>
+              <div>
+                <h3 class="step-title">Клонировать репозиторий</h3>
+                <pre
+                  class="code-block"
+                ><span class="cmd">git clone https://github.com/merfiDEV/Cookie-code.git
 cd Cookie-code</span></pre>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div>
-            <h3 class="step-title">Установить зависимости</h3>
-            <pre class="code-block"><span class="cmd">npm install</span>
+              </div>
+            </div>
+            <div class="step reveal">
+              <div class="step-num">2</div>
+              <div>
+                <h3 class="step-title">Установить зависимости</h3>
+                <pre class="code-block"><span class="cmd">npm install</span>
 <span class="cmt"># Если npm блокирует postinstall electron (allowScripts), одобрить:</span>
 <span class="cmd">npm install-scripts ls
 npm install-scripts approve electron
 npm install</span></pre>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div>
-            <h3 class="step-title">Запустить или собрать</h3>
-            <pre class="code-block"><span class="cmt"># Запустить в режиме разработки</span>
+              </div>
+            </div>
+            <div class="step reveal">
+              <div class="step-num">3</div>
+              <div>
+                <h3 class="step-title">Запустить или собрать</h3>
+                <pre
+                  class="code-block"
+                ><span class="cmt"># Запустить в режиме разработки</span>
 <span class="cmd">npm start</span>
 
 <span class="cmt"># Собрать установщик</span>
 <span class="cmd">npm run build:win             </span><span class="cmt"># Windows NSIS</span>
 <span class="cmd">npm run build:win:portable    </span><span class="cmt"># Windows Portable</span>
 <span class="cmd">npm run build:mac:dmg         </span><span class="cmt"># macOS DMG</span></pre>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <!-- ===================== USAGE ===================== -->
-  <section class="block">
-    <div class="container">
-      <div class="section-head">
-        <div class="section-icon tertiary"><span class="material-symbols-outlined filled">school</span></div>
-        <div>
-          <h2 class="section-title">Как пользоваться</h2>
-          <div class="section-sub">От запуска до первого вызова инструмента — четыре шага</div>
-        </div>
-      </div>
+      <div class="section-divider"></div>
 
-      <div class="grid cols-2">
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">login</span></div>
-          <h3 class="card-title">1. Войдите в DeepSeek</h3>
-          <p class="card-text">Приложение сразу открывается в веб-чате DeepSeek. Используйте свой обычный аккаунт — никакой API-ключ не нужен.</p>
-        </div>
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">folder_open</span></div>
-          <h3 class="card-title">2. Инициализируйте проект</h3>
-          <p class="card-text">Нажмите «Инициализировать проект» и выберите каталог. AI получает дерево каталога и системный промпт.</p>
-        </div>
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">chat</span></div>
-          <h3 class="card-title">3. Общайтесь с AI</h3>
-          <p class="card-text">Просите отредактировать файлы, выполнить команды, найти что-то в коде. Всё выполняется локально в песочнице.</p>
-        </div>
-        <div class="card">
-          <div class="card-icon"><span class="material-symbols-outlined">sync</span></div>
-          <h3 class="card-title">4. Наблюдайте цикл</h3>
-          <p class="card-text">Результаты автоматически отправляются обратно AI, и цикл продолжается, пока задача не будет решена.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+      <!-- ===================== USAGE ===================== -->
+      <section class="block">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-icon tertiary">
+              <span class="material-symbols-outlined filled">school</span>
+            </div>
+            <div>
+              <h2 class="section-title">Как пользоваться</h2>
+              <div class="section-sub">
+                От запуска до первого вызова инструмента — четыре шага
+              </div>
+            </div>
+          </div>
 
-  <!-- ===================== CONFIG ===================== -->
-  <section class="block">
-    <div class="container">
-      <div class="section-head">
-        <div class="section-icon"><span class="material-symbols-outlined filled">tune</span></div>
-        <div>
-          <h2 class="section-title">Конфигурация</h2>
-          <div class="section-sub">Все настройки — в <code>cuckoo-settings.json</code> в userData приложения</div>
+          <div class="grid cols-2">
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">login</span>
+              </div>
+              <h3 class="card-title">1. Войдите в DeepSeek</h3>
+              <p class="card-text">
+                Приложение сразу открывается в веб-чате DeepSeek. Используйте
+                свой обычный аккаунт — никакой API-ключ не нужен.
+              </p>
+            </div>
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">folder_open</span>
+              </div>
+              <h3 class="card-title">2. Инициализируйте проект</h3>
+              <p class="card-text">
+                Нажмите «Инициализировать проект» и выберите каталог. AI
+                получает дерево каталога и системный промпт.
+              </p>
+            </div>
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">chat</span>
+              </div>
+              <h3 class="card-title">3. Общайтесь с AI</h3>
+              <p class="card-text">
+                Просите отредактировать файлы, выполнить команды, найти что-то в
+                коде. Всё выполняется локально в песочнице.
+              </p>
+            </div>
+            <div class="card reveal">
+              <div class="card-icon">
+                <span class="material-symbols-outlined">sync</span>
+              </div>
+              <h3 class="card-title">4. Наблюдайте цикл</h3>
+              <p class="card-text">
+                Результаты автоматически отправляются обратно AI, и цикл
+                продолжается, пока задача не будет решена.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
-      <pre class="code-block"><span class="cmt">// cuckoo-settings.json</span>
+      </section>
+
+      <div class="section-divider"></div>
+
+      <!-- ===================== CONFIG ===================== -->
+      <section class="block">
+        <div class="container">
+          <div class="section-head reveal">
+            <div class="section-icon">
+              <span class="material-symbols-outlined filled">tune</span>
+            </div>
+            <div>
+              <h2 class="section-title">Конфигурация</h2>
+              <div class="section-sub">
+                Все настройки — в <code>cuckoo-settings.json</code> в userData
+                приложения
+              </div>
+            </div>
+          </div>
+          <pre
+            class="code-block reveal"
+          ><span class="cmt">// cuckoo-settings.json</span>
 {
   <span class="cmd">"background"</span>: "miku",
   <span class="cmd">"backgroundBlur"</span>: 0,
@@ -726,65 +727,126 @@ npm install</span></pre>
   <span class="cmd">"telegramNotifyTools"</span>: false,
   <span class="cmd">"telegramChatFeed"</span>: false
 }</pre>
+        </div>
+      </section>
+
+      <!-- ===================== CTA ===================== -->
+      <section class="container">
+        <div class="cta-banner reveal">
+          <h2>Готовы попробовать Cookie Code?</h2>
+          <p>
+            Бесплатно, с открытым исходным кодом и без единого токена. Просто
+            скачайте релиз и запустите.
+          </p>
+          <div class="hero-cta">
+            <a
+              class="btn btn-filled"
+              href="https://github.com/merfiDEV/Cookie-code/releases/latest"
+              target="_blank"
+              rel="noopener"
+            >
+              <span class="material-symbols-outlined" style="font-size: 18px"
+                >download</span
+              >
+              Скачать релиз
+            </a>
+            <a
+              class="btn btn-tonal"
+              href="https://github.com/merfiDEV/Cookie-code"
+              target="_blank"
+              rel="noopener"
+            >
+              <span class="material-symbols-outlined" style="font-size: 18px"
+                >star</span
+              >
+              Поставить звезду на GitHub
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <footer class="site-footer">
+        <div class="container foot-inner">
+          <div>
+            © Cookie Code Contributors ·
+            <a
+              href="https://github.com/merfiDEV/Cookie-code"
+              target="_blank"
+              rel="noopener"
+              >GitHub</a
+            >
+            · Лицензия MIT
+          </div>
+          <div class="foot-links">
+            <a href="en.html">English</a>
+            <a
+              href="https://github.com/merfiDEV/Cookie-code/releases"
+              target="_blank"
+              rel="noopener"
+              >Releases</a
+            >
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <!-- ===================== LIGHTBOX ===================== -->
+    <div class="lightbox" id="lightbox">
+      <button class="lightbox-close" id="lightbox-close" title="Закрыть">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      <img id="lightbox-img" src="" alt="" />
     </div>
-  </section>
 
-  <!-- ===================== CTA ===================== -->
-  <section class="container">
-    <div class="cta-banner">
-      <h2>Готовы попробовать Cookie Code?</h2>
-      <p>Бесплатно, с открытым исходным кодом и без единого токена. Просто скачайте релиз и запустите.</p>
-      <div class="hero-cta">
-        <a class="btn btn-filled" href="https://github.com/merfiDEV/Cookie-code/releases/latest" target="_blank" rel="noopener">
-          <span class="material-symbols-outlined" style="font-size:18px;">download</span>
-          Скачать релиз
-        </a>
-        <a class="btn btn-tonal" href="https://github.com/merfiDEV/Cookie-code" target="_blank" rel="noopener">
-          <span class="material-symbols-outlined" style="font-size:18px;">star</span>
-          Поставить звезду на GitHub
-        </a>
-      </div>
-    </div>
-  </section>
+    <script>
+      (function () {
+        /* --- Scroll-reveal --- */
+        var observer = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                e.target.classList.add("visible");
+                observer.unobserve(e.target);
+              }
+            });
+          },
+          { threshold: 0.08 }
+        );
+        document.querySelectorAll(".reveal").forEach(function (el) {
+          observer.observe(el);
+        });
 
-  <footer class="site-footer">
-    <div class="container foot-inner">
-      <div>
-        © Cookie Code Contributors · <a href="https://github.com/merfiDEV/Cookie-code" target="_blank" rel="noopener">GitHub</a> · Лицензия MIT
-      </div>
-    </div>
-  </footer>
+        /* --- Top-bar shadow on scroll --- */
+        var topBar = document.getElementById("top-bar");
+        window.addEventListener("scroll", function () {
+          topBar.classList.toggle("scrolled", window.scrollY > 10);
+        });
 
-</main>
+        /* --- Lightbox --- */
+        var lb = document.getElementById("lightbox");
+        var lbImg = document.getElementById("lightbox-img");
+        var lbClose = document.getElementById("lightbox-close");
 
-<!-- ===================== LIGHTBOX ===================== -->
-<div class="lightbox" id="lightbox">
-  <button class="lightbox-close" id="lightbox-close" title="Закрыть">
-    <span class="material-symbols-outlined">close</span>
-  </button>
-  <img id="lightbox-img" src="" alt="">
-</div>
-
-<script>
-  (function () {
-    var lb = document.getElementById('lightbox');
-    var lbImg = document.getElementById('lightbox-img');
-    var lbClose = document.getElementById('lightbox-close');
-
-    document.querySelectorAll('.gallery figure').forEach(function (fig) {
-      fig.addEventListener('click', function () {
-        var src = fig.getAttribute('data-src');
-        if (!src) return;
-        lbImg.src = src;
-        lb.classList.add('open');
-      });
-    });
-    function close() { lb.classList.remove('open'); lbImg.src = ''; }
-    lbClose.addEventListener('click', close);
-    lb.addEventListener('click', function (e) { if (e.target === lb) close(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
-  })();
-</script>
-
-</body>
+        document.querySelectorAll(".gallery figure").forEach(function (fig) {
+          fig.addEventListener("click", function () {
+            var src = fig.getAttribute("data-src");
+            if (!src) return;
+            lbImg.src = src;
+            lb.classList.add("open");
+          });
+        });
+        function closeLb() {
+          lb.classList.remove("open");
+          lbImg.src = "";
+        }
+        lbClose.addEventListener("click", closeLb);
+        lb.addEventListener("click", function (e) {
+          if (e.target === lb) closeLb();
+        });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") closeLb();
+        });
+      })();
+    </script>
+  </body>
 </html>
