@@ -63,6 +63,8 @@ const DEFAULTS = {
   fileChipEnabled: true,
   // Показывать под ответом AI блок «Затронуто» с файлами из успешных write/edit
   showProducedFiles: true,
+  // Показывать блок «Токены диалога» в оверлее (по умолчанию выключено).
+  showConvTokens: false,
 };
 
 let cachedPath = null;

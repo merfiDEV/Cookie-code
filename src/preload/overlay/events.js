@@ -301,29 +301,120 @@ function readSavedConversationTokens() {
 }
 
 /**
- * Обновить панель: локальная оценка токенов всего диалога (user + AI из DOM).
- * Если в DOM пока ничего нет — берём сохранённое значение по сессии.
- * Серверное accumulated_token_usage у DeepSeek считает только входной промпт,
- * поэтому не используем его здесь.
+ * Ключ текущей сессии (sessionId или 'default').
+ * @returns {string}
+ */
+function sessionKey() {
+  return getCurrentSessionId() || 'default';
+}
+
+/**
+ * Записать серверное accumulated_token_usage для текущей сессии (монотонно).
+ * В пределах одной сессии значение только растёт — сбросы сервера игнорируем,
+ * чтобы счётчик не «падал» без причины.
+ * @param {number} total
+ */
+function setServerTokensForCurrentSession(total) {
+  if (!Number.isFinite(total) || total <= 0) return;
+  const sid = sessionKey();
+  if (!state.serverTokensBySession || typeof state.serverTokensBySession !== 'object') {
+    state.serverTokensBySession = {};
+  }
+  const prev = Number(state.serverTokensBySession[sid]) || 0;
+  if (total > prev) state.serverTokensBySession[sid] = total;
+  state.serverTokens = total;
+}
+
+/**
+ * Прочитать серверное accumulated_token_usage для текущей сессии.
+ * @returns {number}
+ */
+function getServerTokensForCurrentSession() {
+  const sid = sessionKey();
+  const map = state.serverTokensBySession;
+  const n = map && typeof map === 'object' ? Number(map[sid]) : 0;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Локальная оценка токенов для сессии (монотонный максимум).
+ * @param {string} sid
+ * @returns {number}
+ */
+function getLocalEstimateForSession(sid) {
+  const m = state.localEstimateBySession;
+  const n = m && typeof m === 'object' ? Number(m[sid]) : 0;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Обновить локальную оценку для сессии, только вверх (монотонно).
+ * @param {string} sid
+ * @param {number} value
+ */
+function bumpLocalEstimateForSession(sid, value) {
+  if (!Number.isFinite(value) || value <= 0) return;
+  if (!state.localEstimateBySession || typeof state.localEstimateBySession !== 'object') {
+    state.localEstimateBySession = {};
+  }
+  const prev = Number(state.localEstimateBySession[sid]) || 0;
+  if (value > prev) state.localEstimateBySession[sid] = value;
+}
+
+/**
+ * Обновить панель токенов диалога.
+ *
+ * Логика стабильности:
+ *   1. Приоритет — серверное accumulated_token_usage текущей сессии (монотонно).
+ *   2. Если серверного ещё нет — локальная оценка, но тоже монотонная по сессии
+ *      (при перерисовке DOM оценка скачет — берём максимум, не даём «падать»).
+ *   3. Math.max(серверное, оценка) НЕ используем: они меряют разное, и именно
+ *      это давало прыжки 900 → 4K → 1.9K.
  */
 function updateConversationTokenDisplay() {
   const countEl = document.getElementById('cuckoo-conv-token-count');
   if (!countEl) return;
 
-  const fresh = computeAndSaveConversationTokens();
-  if (fresh > 0) {
-    countEl.textContent = formatTokenCount(fresh);
-    return;
-  }
+  const sid = sessionKey();
 
-  const saved = readSavedConversationTokens();
-  countEl.textContent = saved > 0 ? formatTokenCount(saved) : '0';
+  // Локальная оценка: считаем и запоминаем монотонный максимум по сессии.
+  const fresh = computeAndSaveConversationTokens();
+  bumpLocalEstimateForSession(sid, fresh);
+  const localEstimate = getLocalEstimateForSession(sid);
+
+  // Приоритет — серверное значение (монотонно растёт в пределах сессии).
+  const server = getServerTokensForCurrentSession();
+  const value = server > 0 ? server : localEstimate;
+
+  countEl.textContent = formatTokenCount(value);
+}
+
+/**
+ * Слушаем серверные токены из token-interceptor и обновляем state + панель.
+ */
+function registerTokenInterceptorListener() {
+  window.addEventListener('cuckoo:token-update', (e) => {
+    try {
+      const d = e && e.detail ? e.detail : {};
+      if (typeof d.total === 'number' && d.total > 0) setServerTokensForCurrentSession(d.total);
+      if (typeof d.delta === 'number' && d.delta > 0) state.serverTokenDelta = d.delta;
+    } catch (_) {}
+    safeUpdateConversationTokenDisplay();
+  });
+}
+
+/**
+ * Безопасный вызов updateConversationTokenDisplay (не роняет слушателя).
+ */
+function safeUpdateConversationTokenDisplay() {
+  try { updateConversationTokenDisplay(); } catch (_) {}
 }
 
 /**
  * 启动对话 token 显示（每秒刷新）
  */
 function startTokenCounter() {
+  registerTokenInterceptorListener();
   setInterval(updateConversationTokenDisplay, 1000);
   updateConversationTokenDisplay();
 }
@@ -644,4 +735,5 @@ function bindEvents() {
 
 bindEvents.updateConversationTokenDisplay = updateConversationTokenDisplay;
 bindEvents.computeAndSaveConversationTokens = computeAndSaveConversationTokens;
+bindEvents.registerTokenInterceptorListener = registerTokenInterceptorListener;
 module.exports = bindEvents;

@@ -127,8 +127,21 @@ function createWindow(profile) {
   // Всегда открываем homeUrl провайдера (DeepSeek). Выбор платформы отключён.
   mainWindow.loadURL(provider.homeUrl);
 
+  // Инжект перехватчика токенов в ОСНОВНОЙ мир: preload в изолированном мире
+  // (contextIsolation: true) не видит window.fetch сайта, поэтому патч ставим
+  // через executeJavaScript и шлём данные в preload через postMessage.
+  const injectTokenInterceptor = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    try {
+      const { buildTokenInterceptorScript } = require('./token-interceptor-inject');
+      mainWindow.webContents.executeJavaScript(buildTokenInterceptorScript(), true).catch(() => {});
+    } catch (_) {}
+  };
+  mainWindow.webContents.on('dom-ready', injectTokenInterceptor);
+
   mainWindow.webContents.on('did-finish-load', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      injectTokenInterceptor();
       mainWindow.webContents.send('page-loaded');
       sessionStore.tryRestoreSessionFromUrl(mainWindow);
     }

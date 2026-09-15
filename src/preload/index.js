@@ -31,6 +31,7 @@ const qrOverride = require('./dom/qr-override');
 const fileChip = require('./dom/file-chip');
 const i18n = require('./i18n/i18n');
 const state = require('./dom/state');
+const tokenInterceptor = require('./dom/token-interceptor');
 const { getProviderByUrl } = require('../providers');
 const { safe } = require('./dom/safe');
 
@@ -57,11 +58,17 @@ async function init() {
       state.fileChipEnabled = !settings || settings.fileChipEnabled !== false;
       // Блок «Затронуто» под ответом (по умолчанию включено)
       state.showProducedFiles = !settings || settings.showProducedFiles !== false;
+      // Блок «Токены диалога» в панели (по умолчанию выключено)
+      state.showConvTokens = Boolean(settings && settings.showConvTokens === true);
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,
     // а визуальный рендеринг tool-блоков гейтится этим флагом.
     state.customizationEnabled = customizationEnabled;
+
+    // Перехват серверных токенов DeepSeek: ставим как можно раньше,
+    // чтобы поймать первый же запрос completion. Работает через safe().
+    safe('init.tokenInterceptor', () => tokenInterceptor.install());
 
     // Регистрируем IPC-листенеры всегда — от них зависит ввод и парсинг tool-блоков
     safe('init.registerIpcListeners', () => chatInput.registerIpcListeners());
@@ -72,6 +79,16 @@ async function init() {
     // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события
     safe('init.injectCSS', () => ui.injectCSS());
     safe('init.injectOverlay', () => ui.injectOverlay());
+    // Скрыть блок «Токены диалога», если он выключен в настройках (по умолчанию).
+    safe('init.applyConvTokensVisibility', () => {
+      if (state.showConvTokens === true) return;
+      const section = document.querySelector('.cuckoo-token-section');
+      if (section) {
+        section.style.display = 'none';
+        const prev = section.previousElementSibling;
+        if (prev && prev.classList && prev.classList.contains('cuckoo-divider')) prev.style.display = 'none';
+      }
+    });
     safe('init.initProjectDirSection', () => projectDir.initProjectDirSection());
     safe('init.bindEvents', () => bindEvents());
     safe('init.updateHomeMode', () => ui.updateHomeMode());

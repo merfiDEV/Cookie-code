@@ -296,6 +296,12 @@ function buildContentHTML() {
     '    </span>' +
     '  </label>' +
     '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;margin-top:8px;">' +
+    '    <input type="checkbox" id="cuckoo-show-conv-tokens" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
+    '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.showConvTokens') +
+    '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.showConvTokens.hint') + '</span>' +
+    '    </span>' +
+    '  </label>' +
+    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;cursor:pointer;margin-top:8px;">' +
     '    <input type="checkbox" id="cuckoo-formatters-enabled" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
     '    <span style="font-size:13px;color:#cfd3ff;">' + t('settings.formatters') +
     '      <span style="display:block;font-size:11px;color:#8a90b8;margin-top:2px;">' + t('settings.formatters.hint') + '</span>' +
@@ -905,6 +911,35 @@ function bindAgentSettings() {
       }
     });
   }
+
+  const convTokensCb = document.getElementById('cuckoo-show-conv-tokens');
+  if (convTokensCb) {
+    convTokensCb.addEventListener('change', async () => {
+      const enabled = convTokensCb.checked;
+      state.showConvTokens = enabled;
+      try { applyConvTokensVisibility(enabled); } catch (_) {}
+      try {
+        await window.electronAPI.setCuckooSetting('showConvTokens', enabled);
+      } catch (err) {
+        console.error('[Cookie Code] Не удалось сохранить showConvTokens:', err.message);
+      }
+    });
+  }
+}
+
+/**
+ * Показать/скрыть блок «Токены диалога» в оверлее.
+ * @param {boolean} on
+ */
+function applyConvTokensVisibility(on) {
+  const section = document.querySelector('.cuckoo-token-section');
+  if (!section) return;
+  section.style.display = on ? '' : 'none';
+  // Скрываем и соседний разделитель перед блоком, если он есть.
+  const prev = section.previousElementSibling;
+  if (prev && prev.classList && prev.classList.contains('cuckoo-divider')) {
+    prev.style.display = on ? '' : 'none';
+  }
 }
 
 /**
@@ -952,6 +987,13 @@ async function refreshAgentSettings() {
     const fmtCb = document.getElementById('cuckoo-formatters-enabled');
     if (fmtCb) {
       fmtCb.checked = !s || s.formattersEnabled !== false;
+    }
+    const convTokensCb = document.getElementById('cuckoo-show-conv-tokens');
+    if (convTokensCb) {
+      // По умолчанию выключено: показываем только если явно true.
+      convTokensCb.checked = Boolean(s && s.showConvTokens === true);
+      state.showConvTokens = convTokensCb.checked;
+      try { applyConvTokensVisibility(convTokensCb.checked); } catch (_) {}
     }
   } catch (_) {}
 }
