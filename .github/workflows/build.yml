@@ -88,6 +88,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: master
 
       - uses: actions/setup-node@v4
         with:
@@ -99,7 +101,7 @@ jobs:
         env:
           APP_VERSION: ${{ needs.bump.outputs.tag }}
 
-      - run: npm ci
+      - run: npm install --no-fund --no-audit
 
       - name: Build
         run: npm run ${{ matrix.command }}
