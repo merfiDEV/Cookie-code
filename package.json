@@ -45,7 +45,8 @@
   "homepage": "https://github.com/merfiDEV/Cookie-code#readme",
   "devDependencies": {
     "electron": "^33.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "prettier": "^3.3.3"
   },
   "engines": {
     "node": ">=16.0.0"

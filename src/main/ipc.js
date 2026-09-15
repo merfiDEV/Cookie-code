@@ -417,6 +417,26 @@ function registerIpcHandlers() {
     }
   });
 
+  // Открыть новый чат (переход на домашнюю страницу провайдера).
+  ipcMain.handle('new-chat', async (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const win = ctx ? ctx.win : null;
+    if (!win || win.isDestroyed()) return { success: false, error: '窗口已关闭' };
+    let url = null;
+    try {
+      const { getProviderByUrl } = require('../providers');
+      const provider = getProviderByUrl(win.webContents.getURL());
+      if (provider && provider.homeUrl) url = provider.homeUrl;
+    } catch (_) {}
+    if (!url) url = 'https://chat.deepseek.com/';
+    try {
+      await win.webContents.loadURL(url);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // 执行命令
   ipcMain.handle('execute-command', async (event, { command, id }) => {
     if (!command || typeof command !== 'string') {

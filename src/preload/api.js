@@ -54,6 +54,9 @@ let electronAPI = {
   navigateSession: (sessionId) => {
     return ipcRenderer.invoke('navigate-session', { sessionId });
   },
+  newChat: () => {
+    return ipcRenderer.invoke('new-chat');
+  },
   createProfileWindow: () => {
     return ipcRenderer.invoke('create-profile-window');
   },
@@ -191,6 +194,12 @@ let electronAPI = {
   },
   openChangelogFile: () => {
     return ipcRenderer.invoke('whats-new-open-changelog');
+  },
+  // ========== Диагностика интеграции (выполняется в контексте страницы) ==========
+  runDiagnosticsText: async () => {
+    const { runDiagnostics, formatReportText } = require('./dom/diagnostics');
+    const report = await runDiagnostics();
+    return formatReportText(report);
   },
 };
 
