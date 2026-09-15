@@ -39,6 +39,12 @@ if (RENDERER_LOG_DIR) {
 }
 
 const { registerIpcHandlers } = require('./ipc');
+const whatsNew = require('./whats-new');
+
+// Whats-new: проверить факт обновления ДО создания окна.
+// Внутри — атомарное сохранение новой lastSeenVersion, чтобы повторный
+// запуск той же версии не показывал список ещё раз.
+const __whatsNewCheck = whatsNew.checkAndMark();
 
 // 退出前需要 flush 的 sessions
 const sessionsToFlush = new Set();
@@ -144,6 +150,18 @@ function createWindow(profile) {
       injectTokenInterceptor();
       mainWindow.webContents.send('page-loaded');
       sessionStore.tryRestoreSessionFromUrl(mainWindow);
+
+      // Whats-new: отправить в окно один раз, если был апдейт.
+      // consumePendingForWindow() очищает pending, поэтому на F5 или
+      // повторный did-finish-load модалка не появится снова.
+      if (__whatsNewCheck && __whatsNewCheck.shouldShow) {
+        const pending = whatsNew.consumePendingForWindow();
+        if (pending) {
+          try {
+            mainWindow.webContents.send('whats-new-show', pending);
+          } catch (_) {}
+        }
+      }
     }
   });
 

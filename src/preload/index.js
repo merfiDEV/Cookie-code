@@ -29,6 +29,7 @@ const inputGlass = require('./dom/input-glass');
 const forceDarkTheme = require('./dom/force-dark-theme');
 const qrOverride = require('./dom/qr-override');
 const fileChip = require('./dom/file-chip');
+const whatsNew = require('./dom/whats-new');
 const i18n = require('./i18n/i18n');
 const state = require('./dom/state');
 const tokenInterceptor = require('./dom/token-interceptor');
@@ -74,6 +75,7 @@ async function init() {
     safe('init.registerIpcListeners', () => chatInput.registerIpcListeners());
     safe('init.registerAskUserQuestionListener', () => askUserQuestion.registerAskUserQuestionListener());
     safe('init.registerExitPlanModeListener', () => exitPlanMode.registerExitPlanModeListener());
+    safe('init.registerWhatsNewListener', () => whatsNew.registerWhatsNewListener());
     safe('init.planModeToggleStart', () => planModeToggle.startWatch());
 
     // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события

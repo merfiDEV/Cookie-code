@@ -398,6 +398,30 @@ function buildContentHTML() {
     '    <button id="cuckoo-btn-clear-storage" class="ck-btn" title="' + t('settings.btn.clearStorage.title') + '">' + t('settings.btn.clearStorage') + '</button>' +
     '    <button id="cuckoo-btn-reset" class="ck-btn ck-btn-danger">' + t('settings.btn.reset') + '</button>' +
     '  </div>' +
+    '</div>' +
+    // ===== Диагностика интеграции =====
+    '<div>' +
+    '  <div class="cuckoo-section-title">' + t('settings.section.diagnostics') + '</div>' +
+    '  <div class="ck-card" style="padding:14px 16px;">' +
+    '    <div class="ck-row-title" style="margin-bottom:6px;">' + t('settings.diagnostics.title') + '</div>' +
+    '    <div class="ck-row-hint" style="margin-bottom:10px;">' + t('settings.diagnostics.hint') + '</div>' +
+    '    <div class="ck-btn-row">' +
+    '      <button id="cuckoo-btn-diagnostics" class="ck-btn">' + t('settings.diagnostics.run') + '</button>' +
+    '    </div>' +
+    '  </div>' +
+    '</div>' +
+    // ===== Модалка отчёта =====
+    '<div id="cuckoo-diag-modal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(6,8,18,0.72);align-items:center;justify-content:center;">' +
+    '  <div style="background:#141726;border:1px solid rgba(139,147,255,0.35);border-radius:14px;max-width:720px;width:92%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.6);">' +
+    '    <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;justify-content:space-between;align-items:center;">' +
+    '      <div style="font-size:15px;font-weight:700;color:#eef0ff;">' + t('settings.diagnostics.modalTitle') + '</div>' +
+    '      <button id="cuckoo-diag-close" class="ck-btn" style="padding:6px 12px;font-size:12px;">✕</button>' +
+    '    </div>' +
+    '    <pre id="cuckoo-diag-body" style="flex:1;overflow:auto;margin:0;padding:16px 20px;font-family:Consolas,monospace;font-size:12px;line-height:1.55;color:#dde1ff;white-space:pre-wrap;word-break:break-word;"></pre>' +
+    '    <div style="padding:12px 20px;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:8px;justify-content:flex-end;">' +
+    '      <button id="cuckoo-diag-copy" class="ck-btn">' + t('settings.diagnostics.copy') + '</button>' +
+    '    </div>' +
+    '  </div>' +
     '</div>';
 }
 
@@ -715,6 +739,53 @@ function bindResetButton() {
           clearBtn.disabled = false;
           clearBtn.textContent = originalText;
         }, 300);
+      }
+    });
+  }
+
+  // Кнопка «Диагностика интеграции» — прогоняет проверки провайдера и показывает отчёт.
+  const diagBtn = document.getElementById('cuckoo-btn-diagnostics');
+  if (diagBtn) {
+    diagBtn.addEventListener('click', async () => {
+      diagBtn.disabled = true;
+      const originalText = diagBtn.textContent;
+      diagBtn.textContent = t('settings.diagnostics.running');
+      try {
+        const { runDiagnostics, formatReportText } = require('./diagnostics');
+        const report = await runDiagnostics();
+        const text = formatReportText(report);
+        const modal = document.getElementById('cuckoo-diag-modal');
+        const body = document.getElementById('cuckoo-diag-body');
+        if (modal && body) {
+          body.textContent = text;
+          modal.style.display = 'flex';
+          // Копирование
+          const copyBtn = document.getElementById('cuckoo-diag-copy');
+          const closeBtn = document.getElementById('cuckoo-diag-close');
+          const close = () => { modal.style.display = 'none'; };
+          if (closeBtn) closeBtn.onclick = close;
+          if (copyBtn) copyBtn.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(text);
+              copyBtn.textContent = t('settings.diagnostics.copied');
+              setTimeout(() => { copyBtn.textContent = t('settings.diagnostics.copy'); }, 1500);
+            } catch (_) {
+              // Fallback — выделяем текст, чтобы пользователь скопировал вручную
+              if (body) {
+                const range = document.createRange();
+                range.selectNodeContents(body);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+              }
+            }
+          };
+        }
+      } catch (err) {
+        console.error('[Cookie Code] diagnostics error:', err && err.message);
+      } finally {
+        diagBtn.disabled = false;
+        diagBtn.textContent = originalText;
       }
     });
   }

@@ -149,6 +149,15 @@ const KEYS = {
   'settings.tab.system':        { ru: '⚙️ Система и безопасность', en: '⚙️ System & Security' },
   'settings.section.maintenance':{ ru: 'Обслуживание и сброс',    en: 'Maintenance & Reset' },
   'settings.section.service':    { ru: 'Сервис',                   en: 'Service' },
+  // ---- Настройки: диагностика интеграции ----
+  'settings.section.diagnostics': { ru: 'Диагностика интеграции',   en: 'Integration diagnostics' },
+  'settings.diagnostics.title':   { ru: 'Проверка селекторов и методов провайдера', en: 'Check provider selectors and methods' },
+  'settings.diagnostics.hint':    { ru: 'Если после обновления DeepSeek что-то сломалось — запустите диагностику и скопируйте отчёт в issue.', en: 'If something breaks after a DeepSeek update — run diagnostics and paste the report into an issue.' },
+  'settings.diagnostics.run':     { ru: 'Запустить диагностику',   en: 'Run diagnostics' },
+  'settings.diagnostics.running': { ru: 'Проверка...',             en: 'Checking...' },
+  'settings.diagnostics.modalTitle': { ru: 'Отчёт диагностики',    en: 'Diagnostics report' },
+  'settings.diagnostics.copy':    { ru: '📋 Копировать отчёт',     en: '📋 Copy report' },
+  'settings.diagnostics.copied':  { ru: '✅ Скопировано',           en: '✅ Copied' },
 
   // ---- Настройки: слайдеры ----
   'settings.blur.bg':           { ru: 'Размытие фонового изображения', en: 'Background image blur' },

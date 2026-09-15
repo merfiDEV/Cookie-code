@@ -218,31 +218,6 @@ function tryOpenInVSCode(filePath) {
   });
 }
 
-/**
- * Попытаться открыть файл в VS Code (команда code --goto <path>).
- * @param {string} filePath — абсолютный путь
- * @returns {Promise<{success: boolean, error?: string}>}
- */
-function tryOpenInVSCode(filePath) {
-  return new Promise((resolve) => {
-    const { exec } = require('child_process');
-    // Обёртка: code --goto "путь" — откроет файл в VS Code.
-    // На Windows 'code' — это code.cmd, доступный через cmd.exe.
-    const safePath = String(filePath).replace(/"/g, '""');
-    const cmd = process.platform === 'win32'
-      ? `cmd /c code --goto "${safePath}"`
-      : `code --goto "${safePath}"`;
-
-    exec(cmd, { timeout: 5000 }, (error, _stdout, stderr) => {
-      if (error) {
-        resolve({ success: false, error: (stderr || error.message || 'code не найден').trim() });
-        return;
-      }
-      resolve({ success: true });
-    });
-  });
-}
-
 function registerIpcHandlers() {
   // Мост Telegram → окно: ответ на вопрос из TG резолвит тот же promise.
   try {
@@ -283,6 +258,29 @@ function registerIpcHandlers() {
       return;
     }
     pending.resolve(Array.isArray(answers) ? answers : []);
+  });
+
+  // Whats-new: открыть CHANGELOG.md в системном редакторе (по кнопке в модалке)
+  ipcMain.handle('whats-new-open-changelog', async () => {
+    try {
+      const { shell } = require('electron');
+      const path = require('path');
+      const candidates = [
+        path.join(__dirname, '..', '..', 'CHANGELOG.md'),
+        path.join(process.resourcesPath || '', 'CHANGELOG.md'),
+      ];
+      for (const p of candidates) {
+        try {
+          if (require('fs').existsSync(p)) {
+            const err = await shell.openPath(p);
+            return err ? { success: false, error: err } : { success: true };
+          }
+        } catch (_) {}
+      }
+      return { success: false, error: 'CHANGELOG.md не найден' };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 
   // Открыть файл/папку в системе (из file-chip в ответе AI)

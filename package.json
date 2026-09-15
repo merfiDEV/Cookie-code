@@ -120,6 +120,7 @@
       "build/icon.png",
       "!**/*.md",
       "!LICENSE",
+      "CHANGELOG.md",
       "systemPrompt.md",
       "tools/rules.md",
       "src/prompt/*.md"
