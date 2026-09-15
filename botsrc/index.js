@@ -8,11 +8,40 @@
  *  - notifyToolResult(toolName, ok, detail)  → уведомление в TG (diff-стиль для edit).
  *  - входящее сообщение из TG → sendToChat в активном окне DeepSeek.
  */
-const { telegramBot } = require('./telegram');
+const { telegramBot, TelegramBot } = require('./telegram');
 const settingsStore = require('../src/main/settings-store');
 const windowState = require('../src/main/window');
 
 let started = false;
+
+// ==================== Файловый лог ====================
+const fs = require('fs');
+const path = require('path');
+let _logFile = null;
+const LOG_MAX_BYTES = 512 * 1024; // 512 KB, затем ротация в .1
+
+function _getLogFile() {
+  if (_logFile) return _logFile;
+  try {
+    const { app } = require('electron');
+    _logFile = path.join(app.getPath('userData'), 'telegram-bot.log');
+  } catch (_) {
+    _logFile = path.join(__dirname, 'telegram-bot.log');
+  }
+  return _logFile;
+}
+
+function _appendLogFile(line) {
+  try {
+    const file = _getLogFile();
+    try {
+      if (fs.existsSync(file) && fs.statSync(file).size > LOG_MAX_BYTES) {
+        fs.renameSync(file, file + '.1');
+      }
+    } catch (_) {}
+    fs.appendFileSync(file, line + '\n', 'utf-8');
+  } catch (_) {}
+}
 
 function _read() {
   const s = settingsStore.readSettings();
@@ -28,9 +57,17 @@ function _read() {
 
 function _log(level, ...args) {
   const tag = '[Cookie Code][telegram]';
-  if (level === 'error') console.error(tag, ...args);
-  else if (level === 'warn') console.warn(tag, ...args);
-  else console.log(tag, ...args);
+  const token = (() => { try { return settingsStore.readSettings().telegramBotToken; } catch (_) { return ''; } })();
+  const safe = args.map((a) => (typeof a === 'string' ? TelegramBot.maskToken(a, token) : a));
+  if (level === 'error') console.error(tag, ...safe);
+  else if (level === 'warn') console.warn(tag, ...safe);
+  else console.log(tag, ...safe);
+  // Дублируем в файл для отладки (уровни warn/error + info).
+  try {
+    const ts = new Date().toISOString();
+    const text = safe.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+    _appendLogFile(ts + ' [' + level + '] ' + text);
+  } catch (_) {}
 }
 
 /**
@@ -66,6 +103,29 @@ async function _sendToChat(text) {
     _log('error', 'sendToChat error:', err.message);
     return { success: false, error: err.message };
   }
+}
+
+/** Выполнить JS в активном окне и вернуть результат. */
+async function _evalInWindow(script) {
+  const win = windowState.getMainWindow();
+  if (!win || win.isDestroyed()) return { success: false, error: 'нет активного окна' };
+  try {
+    const result = await win.webContents.executeJavaScript(script, true);
+    return { success: true, result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/** Получить контекст активного окна (профиль/сессия/projectDir). */
+function _activeContext() {
+  try {
+    const win = windowState.getMainWindow();
+    if (win && !win.isDestroyed() && win.webContents) {
+      return windowState.getContextByWebContents(win.webContents);
+    }
+  } catch (_) {}
+  return null;
 }
 
 /** Получить id активного окна (для доступа к его todo-списку). */
@@ -597,15 +657,129 @@ async function _handleSettingsCallback(data, cbq) {
   await telegramBot.answerCallbackQuery(cbq.id);
 }
 
+/** /stop — прервать задачу и убить активные дочерние процессы. */
+async function _cmdStop() {
+  let count = 0;
+  try {
+    const win = windowState.getMainWindow();
+    if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+      try { win.webContents.stop(); } catch (_) {}
+    }
+    const { processManager } = require('../src/main/process-manager');
+    const r = await processManager.killAll();
+    count = r.count || 0;
+  } catch (err) {
+    _log('error', '/stop error:', err.message);
+    return telegramBot.sendMessage('❌ Не удалось остановить: ' + escapeHtml(err.message));
+  }
+  return telegramBot.sendMessage('🛑 Остановлено. Убито процессов: <b>' + count + '</b>.', { parseMode: 'HTML' });
+}
+
+/** /status — окно, проект, процессы, версия, polling. */
+async function _cmdStatus() {
+  const cfg = _read();
+  const lines = ['📊 <b>Статус Cookie Code</b>', ''];
+
+  let version = '?';
+  try { version = require('electron').app.getVersion(); } catch (_) {}
+  lines.push('📦 Версия: <b>' + escapeHtml(version) + '</b>');
+
+  const win = windowState.getMainWindow();
+  const winOk = !!(win && !win.isDestroyed());
+  lines.push('🪟 Окно: ' + (winOk ? 'активно' : '❌ нет'));
+
+  const ctx = _activeContext();
+  const projectDir = ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir;
+  lines.push('📁 Проект: ' + (projectDir ? '<code>' + escapeHtml(projectDir) + '</code>' : 'не выбран'));
+  if (ctx && ctx.providerId) lines.push('🌐 Провайдер: ' + escapeHtml(ctx.providerId));
+
+  let procCount = 0;
+  try {
+    const { processManager } = require('../src/main/process-manager');
+    procCount = (processManager.activeProcesses && processManager.activeProcesses.size) || 0;
+  } catch (_) {}
+  lines.push('⚙️ Активных процессов: <b>' + procCount + '</b>');
+
+  let todos = 0, done = 0;
+  try {
+    const sid = _activeSenderId();
+    if (sid != null) {
+      const list = require('../src/main/todo-store').getList(sid) || [];
+      todos = list.length;
+      done = list.filter((t) => t.status === 'completed').length;
+    }
+  } catch (_) {}
+  lines.push('☑️ Задачи: ' + done + '/' + todos);
+
+  const st = telegramBot.getStatus();
+  lines.push('📡 Бот: ' + (cfg.enabled ? (st.polling ? '✅ работает' : '⚠️ включён, но не опрашивает') : '⚪ выключен'));
+  if (st.lastError) lines.push('⚠️ Последняя ошибка: ' + escapeHtml(String(st.lastError).slice(0, 200)));
+
+  return telegramBot.sendMessage(lines.join('\n'), { parseMode: 'HTML' });
+}
+
+/** /new — новый чат (очистка контекста текущей сессии). */
+async function _cmdNew() {
+  const res = await _evalInWindow('(async () => { try { const r = await window.electronAPI.newChat(); return r; } catch (e) { return { success: false, error: e.message }; } })()');
+  if (!res.success) return telegramBot.sendMessage('⚠️ ' + escapeHtml(res.error));
+  const inner = res.result || {};
+  if (inner.success === false) return telegramBot.sendMessage('⚠️ ' + escapeHtml(inner.error || 'не удалось'));
+  return telegramBot.sendMessage('🆕 Новый чат открыт.');
+}
+
+/** /diff — показать текущие изменения (git diff) в проекте. */
+async function _cmdDiff() {
+  const ctx = _activeContext();
+  const projectDir = ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir;
+  if (!projectDir) return telegramBot.sendMessage('⚠️ Проект не выбран.');
+
+  const gitDiff = require('../src/main/git-diff');
+  const status = await gitDiff.getStatus(projectDir);
+  if (!status.success) return telegramBot.sendMessage('⚠️ ' + escapeHtml(status.reason || 'git недоступен'));
+  const files = status.files || [];
+  if (files.length === 0) return telegramBot.sendMessage('✅ Изменений нет.');
+
+  const chunks = [];
+  let total = 0;
+  const MAX_TOTAL = 3000;
+  for (const f of files) {
+    if (total >= MAX_TOTAL) break;
+    const d = await gitDiff.getFileDiff(projectDir, f.path, f.status);
+    if (!d.success || !d.diff) continue;
+    const text = d.diff.slice(0, MAX_TOTAL - total);
+    chunks.push('===== ' + f.path + ' =====\n' + text);
+    total += text.length;
+  }
+
+  const header = '📝 <b>Изменения (' + files.length + ')</b>\n';
+  const fileList = files.map((f) => '• ' + escapeHtml(f.path)).join('\n');
+  const body = chunks.join('\n\n') || '(diff недоступен)';
+  const msg = header + '<blockquote>' + escapeHtml(fileList) + '</blockquote>\n<pre>' + escapeHtml(body) + '</pre>';
+  return telegramBot.sendMessage(msg, { parseMode: 'HTML' });
+}
+
+/** /diagnostics — отчёт диагностики интеграции. */
+async function _cmdDiagnostics() {
+  const res = await _evalInWindow('(async () => { try { return await window.electronAPI.runDiagnosticsText(); } catch (e) { return "ERROR: " + e.message; } })()');
+  if (!res.success) return telegramBot.sendMessage('⚠️ ' + escapeHtml(res.error));
+  const text = String(res.result || '(пусто)').slice(0, 3500);
+  return telegramBot.sendMessage('🩺 <b>Диагностика</b>\n<pre>' + escapeHtml(text) + '</pre>', { parseMode: 'HTML' });
+}
+
 async function _cmdHelp() {
   const text = [
     '🦆 <b>Cookie Code — помощь</b>',
     '',
     '<b>Команды</b>',
-    '/settings — открыть меню настроек',
-    '/help     — эта справка',
-    '/todos    — список задач активного окна',
-    '/cancel   — отменить ввод значения',
+    '/settings    — открыть меню настроек',
+    '/status      — статус: окно, проект, процессы',
+    '/stop        — прервать задачу и убить процессы',
+    '/new         — новый чат',
+    '/diff        — показать изменения (git diff)',
+    '/diagnostics — диагностика интеграции',
+    '/todos       — список задач активного окна',
+    '/cancel      — отменить ввод / подтверждение',
+    '/help        — эта справка',
     '',
     '<b>Возможности</b>',
     '• Уведомления о вызовах инструментов',
@@ -668,9 +842,37 @@ async function _handleIncoming(chatId, text) {
     await _cmdSettings(chatId);
     return;
   }
+  if (cmd === '/stop' || cmd === '/kill') {
+    await _cmdStop();
+    return;
+  }
+  if (cmd === '/status' || cmd === '/stat') {
+    await _cmdStatus();
+    return;
+  }
+  if (cmd === '/new') {
+    await _cmdNew();
+    return;
+  }
+  if (cmd === '/diff') {
+    await _cmdDiff();
+    return;
+  }
+  if (cmd === '/diagnostics' || cmd === '/diag') {
+    await _cmdDiagnostics();
+    return;
+  }
   if (cmd === '/cancel') {
-    const had = _settingsWaiting.delete(chatId);
-    await telegramBot.sendMessage(had ? '✖️ Ввод отменён.' : 'Нечего отменять.');
+    const hadSettings = _settingsWaiting.delete(chatId);
+    // Отменяем все ожидающие approval (AI больше не ждёт подтверждения).
+    let cancelledApprovals = 0;
+    for (const id of Array.from(_pendingApprovals.keys())) {
+      const r = cancelApproval(id);
+      if (r && r.success && !r.skipped) cancelledApprovals++;
+    }
+    if (hadSettings) await telegramBot.sendMessage('✖️ Ввод отменён.');
+    else if (cancelledApprovals > 0) await telegramBot.sendMessage('✖️ Отменено подтверждений: ' + cancelledApprovals);
+    else await telegramBot.sendMessage('Нечего отменять.');
     return;
   }
   // Команда /todos — показать список задач активного окна.

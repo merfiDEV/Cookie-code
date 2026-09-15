@@ -28,12 +28,24 @@ class TelegramBot {
     this.onLog = null;       // (level, ...args) => void
     this._lastError = null;
     this._pollDelayMs = 2000; // пауза при ошибке/пустом ответе
+    this._queue = [];         // очередь исходящих сообщений
+    this._draining = false;
+    this._minGapMs = 1100;    // ~1 msg/sec на чат (лимит Telegram)
+  }
+
+  /** Замаскировать токен бота (bot<token>) в произвольной строке. */
+  static maskToken(str, token) {
+    const s = String(str == null ? '' : str);
+    if (!token) return s;
+    return s.split(token).join('bot<TOKEN>');
   }
 
   _log(level, ...args) {
-    if (typeof this.onLog === 'function') {
-      try { this.onLog(level, ...args); } catch (_) {}
-    }
+    if (typeof this.onLog !== 'function') return;
+    const masked = args.map((a) =>
+      typeof a === 'string' ? TelegramBot.maskToken(a, this.token) : a
+    );
+    try { this.onLog(level, ...masked); } catch (_) {}
   }
 
   /** Настроить токен/chat_id. Возвращает true, если параметры валидны. */
@@ -52,28 +64,125 @@ class TelegramBot {
   }
 
   /**
-   * Отправить сообщение в Telegram.
+   * Низкоуровневый вызов Telegram Bot API с retry на 429 (rate limit).
+   * @param {string} method
+   * @param {object} body
+   * @param {{attempts?: number}} [opts]
+   * @returns {Promise<{success:boolean, status?:number, data?:object, error?:string}>}
+   */
+  async _callApi(method, body, opts = {}) {
+    if (!this.token) return { success: false, error: 'token не задан' };
+    const attempts = opts.attempts || 3;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        const res = await fetch(this._apiUrl(method), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        // Rate limit: уважаем retry_after и повторяем.
+        if (res.status === 429 || (data && data.error_code === 429)) {
+          const retryAfter = (data && data.parameters && data.parameters.retry_after) || 3;
+          this._log('warn', method + ': 429 rate limit, retry через ' + retryAfter + 'с');
+          await this._sleep(retryAfter * 1000);
+          continue;
+        }
+
+        if (!res.ok || !data.ok) {
+          return { success: false, status: res.status, error: (data && data.description) || ('HTTP ' + res.status) };
+        }
+        return { success: true, status: res.status, data };
+      } catch (err) {
+        if (attempt < attempts - 1) {
+          await this._sleep(1000 * (attempt + 1));
+          continue;
+        }
+        return { success: false, error: err.message };
+      }
+    }
+    return { success: false, error: 'rate limit: превышено число попыток' };
+  }
+
+  /**
+   * Отправить сообщение в Telegram (через очередь, с троттлингом).
    * @param {string} text
    * @param {{chatId?: string, parseMode?: string, replyMarkup?: object}} [opts]
    * @returns {Promise<{success: boolean, error?: string, messageId?: number}>}
    */
-  async sendMessage(text, opts = {}) {
-    if (!this.token) return { success: false, error: 'token не задан' };
+  sendMessage(text, opts = {}) {
+    if (!this.token) return Promise.resolve({ success: false, error: 'token не задан' });
     const chatId = opts.chatId || this.chatId;
-    if (!chatId) return { success: false, error: 'chat_id не задан' };
+    if (!chatId) return Promise.resolve({ success: false, error: 'chat_id не задан' });
 
-    try {
-      const res = await fetch(this._apiUrl('sendMessage'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    return new Promise((resolve) => {
+      this._queue.push({
+        method: 'sendMessage',
+        body: {
           chat_id: chatId,
           text: String(text || ''),
           parse_mode: opts.parseMode || undefined,
           disable_web_page_preview: true,
           reply_markup: opts.replyMarkup || undefined,
-        }),
+        },
+        resolve,
       });
+      this._drainQueue();
+    });
+  }
+
+  /** Последовательно разгребает очередь с минимальным интервалом между запросами. */
+  async _drainQueue() {
+    if (this._draining) return;
+    this._draining = true;
+    while (this._queue.length > 0) {
+      const job = this._queue.shift();
+      const res = await this._callApi(job.method, job.body);
+      if (res.success) {
+        this._lastError = null;
+        job.resolve({ success: true, messageId: res.data.result && res.data.result.message_id });
+      } else {
+        this._lastError = res.error;
+        job.resolve({ success: false, error: res.error });
+      }
+      if (this._queue.length > 0) await this._sleep(this._minGapMs);
+    }
+    this._draining = false;
+  }
+
+  /**
+   * Отправить документ/файл в Telegram.
+   * @param {string} filePath — путь к файлу на диске
+   * @param {{chatId?: string, caption?: string, fileName?: string}} [opts]
+   * @returns {Promise<{success:boolean, messageId?:number, error?:string}>}
+   */
+  async sendDocument(filePath, opts = {}) {
+    return this._sendFile('sendDocument', 'document', filePath, opts);
+  }
+
+  /** Отправить фото в Telegram. */
+  async sendPhoto(filePath, opts = {}) {
+    return this._sendFile('sendPhoto', 'photo', filePath, opts);
+  }
+
+  /** Общая реализация отправки файла через multipart/form-data. */
+  async _sendFile(method, field, filePath, opts = {}) {
+    if (!this.token) return { success: false, error: 'token не задан' };
+    const chatId = opts.chatId || this.chatId;
+    if (!chatId) return { success: false, error: 'chat_id не задан' };
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      if (!fs.existsSync(filePath)) return { success: false, error: 'файл не найден: ' + filePath };
+      const buf = fs.readFileSync(filePath);
+      const form = new FormData();
+      form.append('chat_id', String(chatId));
+      if (opts.caption) form.append('caption', String(opts.caption));
+      const name = opts.fileName || path.basename(filePath);
+      form.append(field, new Blob([buf]), name);
+
+      const res = await fetch(this._apiUrl(method), { method: 'POST', body: form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
         const err = (data && data.description) || ('HTTP ' + res.status);
@@ -94,25 +203,12 @@ class TelegramBot {
    * @param {{text?: string, showAlert?: boolean}} [opts]
    */
   async answerCallbackQuery(callbackQueryId, opts = {}) {
-    if (!this.token) return { success: false, error: 'token не задан' };
-    try {
-      const res = await fetch(this._apiUrl('answerCallbackQuery'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          callback_query_id: callbackQueryId,
-          text: opts.text || undefined,
-          show_alert: !!opts.showAlert,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) {
-        return { success: false, error: (data && data.description) || ('HTTP ' + res.status) };
-      }
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
+    const r = await this._callApi('answerCallbackQuery', {
+      callback_query_id: callbackQueryId,
+      text: opts.text || undefined,
+      show_alert: !!opts.showAlert,
+    });
+    return r.success ? { success: true } : { success: false, error: r.error };
   }
 
   /**
@@ -125,27 +221,15 @@ class TelegramBot {
     if (!this.token) return { success: false, error: 'token не задан' };
     const chatId = opts.chatId || this.chatId;
     if (!chatId) return { success: false, error: 'chat_id не задан' };
-    try {
-      const res = await fetch(this._apiUrl('editMessageText'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          message_id: messageId,
-          text: String(text || ''),
-          parse_mode: opts.parseMode || undefined,
-          disable_web_page_preview: true,
-          reply_markup: opts.replyMarkup || undefined,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) {
-        return { success: false, error: (data && data.description) || ('HTTP ' + res.status) };
-      }
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
+    const r = await this._callApi('editMessageText', {
+      chat_id: chatId,
+      message_id: messageId,
+      text: String(text || ''),
+      parse_mode: opts.parseMode || undefined,
+      disable_web_page_preview: true,
+      reply_markup: opts.replyMarkup || undefined,
+    });
+    return r.success ? { success: true } : { success: false, error: r.error };
   }
 
   /**
@@ -263,9 +347,9 @@ class TelegramBot {
   }
 
   _sleep(ms) {
-    return new Promise((resolve) => {
-      this.pollTimer = setTimeout(resolve, ms);
-    });
+    // Внимание: не используем this.pollTimer — иначе retry/очередь
+    // перезапишут таймер long-polling. Обычный setTimeout.
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   getStatus() {
