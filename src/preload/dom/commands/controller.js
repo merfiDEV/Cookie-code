@@ -3,12 +3,12 @@
  * показывает меню и по выбору заменяет slash-токен на промпт.
  */
 
-const { detectTrigger } = require('./detect');
-const { searchCommands, findCommand, descOf } = require('./registry');
-const { t } = require('../../i18n/i18n');
-const menu = require('./menu');
-const chatInput = require('../chat-input');
-const { collectReviewDiff, buildReviewPrompt } = require('./review-context');
+const { detectTrigger } = require("./detect");
+const { searchCommands, findCommand, descOf } = require("./registry");
+const { t } = require("../../i18n/i18n");
+const menu = require("./menu");
+const chatInput = require("../chat-input");
+const { collectReviewDiff, buildReviewPrompt } = require("./review-context");
 
 /** Текущий активный токен (span в поле). */
 let activeHit = null;
@@ -17,7 +17,7 @@ let menuOpen = false;
 /** Текущий список элементов меню (для навигации). */
 let currentItems = [];
 /** Тип активного меню: 'command' | 'file'. */
-let activeKind = 'command';
+let activeKind = "command";
 /** Таймер debounce для поиска файлов. */
 let fileSearchTimer = null;
 /** Счётчик запросов файлов (для отбрасывания устаревших ответов). */
@@ -34,7 +34,11 @@ function onFieldUpdate(e) {
   if (!isTrackedField(field)) return;
   // keyup после навигации не меняет текст. Перерисовка здесь сбрасывает
   // подсветку меню на первый пункт, поэтому такие события игнорируем.
-  if (e.type === 'keyup' && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) return;
+  if (
+    e.type === "keyup" &&
+    ["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(e.key)
+  )
+    return;
   update(e);
 }
 
@@ -58,15 +62,15 @@ function update(e) {
   }
 
   // Ветка @-файлов: запрашиваем список файлов проекта через IPC.
-  if (hit.trigger === '@') {
+  if (hit.trigger === "@") {
     activeHit = { hit, field };
-    activeKind = 'file';
+    activeKind = "file";
     scheduleFileSearch(field, hit.query);
     return;
   }
 
   // Ветка slash-команд.
-  activeKind = 'command';
+  activeKind = "command";
   cancelFileSearch();
   const candidates = searchCommands(hit.query).map((c) => ({
     name: c.name,
@@ -106,18 +110,24 @@ function cancelFileSearch() {
 function scheduleFileSearch(field, query) {
   // Тот же запрос уже показан — не перезапрашиваем и не перерисовываем меню
   // (иначе навигация стрелками сбрасывает подсветку на первый элемент).
-  if (menuOpen && activeKind === 'file' && query === lastFileQuery) return;
+  if (menuOpen && activeKind === "file" && query === lastFileQuery) return;
   cancelFileSearch();
   const seq = ++fileSearchSeq;
   fileSearchTimer = setTimeout(async () => {
     fileSearchTimer = null;
     if (!activeHit || activeHit.field !== field) return;
-    if (!window.electronAPI || typeof window.electronAPI.listProjectFiles !== 'function') return;
+    if (
+      !window.electronAPI ||
+      typeof window.electronAPI.listProjectFiles !== "function"
+    )
+      return;
     let files = [];
     try {
       const res = await window.electronAPI.listProjectFiles(query);
       if (res && res.success && Array.isArray(res.files)) files = res.files;
-    } catch (_) { files = []; }
+    } catch (_) {
+      files = [];
+    }
     // Устаревший ответ (пользователь уже набрал другое) — игнорируем.
     if (seq !== fileSearchSeq) return;
     if (!activeHit || activeHit.field !== field) return;
@@ -128,16 +138,21 @@ function scheduleFileSearch(field, query) {
       return;
     }
 
-    const wasOpen = menuOpen && activeKind === 'file';
+    const wasOpen = menuOpen && activeKind === "file";
     const prevHighlight = wasOpen ? menu.getState().highlight : 0;
-    currentItems = files.map((f) => ({ name: f.rel, abs: f.abs, isDir: !!f.isDir, description: '' }));
-    activeKind = 'file';
-    menu.show(
-      currentItems,
-      field,
-      (idx) => pick(idx),
-      { prefix: '', title: t('cmd.menu.files'), monospace: false }
-    );
+    currentItems = files.map((f) => ({
+      name: f.rel,
+      abs: f.abs,
+      isDir: !!f.isDir,
+      description: "",
+    }));
+    activeKind = "file";
+    menu.show(currentItems, field, (idx) => pick(idx), {
+      prefix: "",
+      title: t("cmd.menu.files"),
+      monospace: false,
+      icons: true,
+    });
     if (wasOpen && prevHighlight > 0) {
       const idx = Math.min(prevHighlight, currentItems.length - 1);
       menu.highlightItem(idx);
@@ -157,17 +172,17 @@ function onKeyDown(e) {
   if (!menuOpen || !activeHit) return false;
 
   switch (e.key) {
-    case 'ArrowDown':
+    case "ArrowDown":
       move(1);
       return true;
-    case 'ArrowUp':
+    case "ArrowUp":
       move(-1);
       return true;
-    case 'Enter':
-    case 'Tab':
+    case "Enter":
+    case "Tab":
       pick(menu.getState().highlight);
       return true;
-    case 'Escape':
+    case "Escape":
       closeMenu();
       return true;
     default:
@@ -201,7 +216,7 @@ function pick(idx) {
 
   // Для файлов вставляем абсолютный путь, для команд — промпт.
   let replacement;
-  if (activeKind === 'file') {
+  if (activeKind === "file") {
     replacement = item.abs || item.name;
   } else {
     const cmd = findCommand(item.name);
@@ -209,22 +224,27 @@ function pick(idx) {
     replacement = cmd.prompt;
   }
 
-  const isReviewCommand = activeKind === 'command' && item.name === 'review';
+  const isReviewCommand = activeKind === "command" && item.name === "review";
 
   // Review отправляется после async-сбора diff. Не вставляем промежуточный
   // prompt в поле: событие input может повторно открыть меню и выбрать команду.
   if (isReviewCommand) {
     closeMenu();
     activeHit = null;
-    collectReviewDiff(window.electronAPI).then((result) => {
-      chatInput.sendToChat(buildReviewPrompt(result), 'review', 0);
-    }).catch((err) => {
-      chatInput.sendToChat(
-        buildReviewPrompt({ diff: '', reason: err.message || 'Не удалось подготовить review' }),
-        'review',
-        0
-      );
-    });
+    collectReviewDiff(window.electronAPI)
+      .then((result) => {
+        chatInput.sendToChat(buildReviewPrompt(result), "review", 0);
+      })
+      .catch((err) => {
+        chatInput.sendToChat(
+          buildReviewPrompt({
+            diff: "",
+            reason: err.message || "Не удалось подготовить review",
+          }),
+          "review",
+          0,
+        );
+      });
     return;
   }
 
@@ -245,7 +265,6 @@ function pick(idx) {
   // Устанавливаем курсор после вставленного текста
   const pos = before.length + replacement.length;
   setCaret(field, pos);
-
 }
 
 /** Закрывает меню. */
@@ -253,7 +272,7 @@ function closeMenu() {
   menu.hide();
   menuOpen = false;
   currentItems = [];
-  activeKind = 'command';
+  activeKind = "command";
   lastFileQuery = null;
   cancelFileSearch();
 }
@@ -266,18 +285,22 @@ function attachField(field) {
   if (!field || field.__cuckooCmdBound) return;
   field.__cuckooCmdBound = true;
 
-  field.addEventListener('input', onFieldUpdate);
-  field.addEventListener('keyup', onFieldUpdate);
-  field.addEventListener('click', onFieldUpdate);
-  field.addEventListener('keydown', (e) => {
-    const handled = onKeyDown(e);
-    if (handled) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }, true);
+  field.addEventListener("input", onFieldUpdate);
+  field.addEventListener("keyup", onFieldUpdate);
+  field.addEventListener("click", onFieldUpdate);
+  field.addEventListener(
+    "keydown",
+    (e) => {
+      const handled = onKeyDown(e);
+      if (handled) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true,
+  );
 
-  field.addEventListener('blur', () => {
+  field.addEventListener("blur", () => {
     // небольшая задержка, чтобы mousedown по пункту успел сработать
     setTimeout(() => {
       if (menuOpen) closeMenu();
@@ -289,34 +312,39 @@ function attachField(field) {
 
 function isTrackedField(el) {
   if (!el) return false;
-  if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') return true;
-  if (el.isContentEditable || el.getAttribute('contenteditable') === 'true') return true;
+  if (el.tagName === "TEXTAREA" || el.tagName === "INPUT") return true;
+  if (el.isContentEditable || el.getAttribute("contenteditable") === "true")
+    return true;
   return false;
 }
 
 function getValue(field) {
-  if (field.tagName === 'TEXTAREA' || field.tagName === 'INPUT') return field.value || '';
-  return field.textContent || '';
+  if (field.tagName === "TEXTAREA" || field.tagName === "INPUT")
+    return field.value || "";
+  return field.textContent || "";
 }
 
 function setValue(field, value) {
-  if (field.tagName === 'TEXTAREA' || field.tagName === 'INPUT') {
-    const proto = field.tagName === 'TEXTAREA'
-      ? window.HTMLTextAreaElement.prototype
-      : window.HTMLInputElement.prototype;
-    const nativeSetter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+  if (field.tagName === "TEXTAREA" || field.tagName === "INPUT") {
+    const proto =
+      field.tagName === "TEXTAREA"
+        ? window.HTMLTextAreaElement.prototype
+        : window.HTMLInputElement.prototype;
+    const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value").set;
     nativeSetter.call(field, value);
-    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event("input", { bubbles: true }));
   } else {
     // contenteditable
     field.textContent = value;
-    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event("input", { bubbles: true }));
   }
 }
 
 function getCaret(field) {
-  if (field.tagName === 'TEXTAREA' || field.tagName === 'INPUT') {
-    return typeof field.selectionStart === 'number' ? field.selectionStart : null;
+  if (field.tagName === "TEXTAREA" || field.tagName === "INPUT") {
+    return typeof field.selectionStart === "number"
+      ? field.selectionStart
+      : null;
   }
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return null;
@@ -329,8 +357,10 @@ function getCaret(field) {
 }
 
 function setCaret(field, pos) {
-  if (field.tagName === 'TEXTAREA' || field.tagName === 'INPUT') {
-    try { field.setSelectionRange(pos, pos); } catch (_) {}
+  if (field.tagName === "TEXTAREA" || field.tagName === "INPUT") {
+    try {
+      field.setSelectionRange(pos, pos);
+    } catch (_) {}
     return;
   }
   // contenteditable — приблизительно: ставим в конец
@@ -348,6 +378,10 @@ module.exports = {
   closeMenu,
   onKeyDown,
   update,
-  get activeHit() { return activeHit; },
-  get menuOpen() { return menuOpen; },
+  get activeHit() {
+    return activeHit;
+  },
+  get menuOpen() {
+    return menuOpen;
+  },
 };
