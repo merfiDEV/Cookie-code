@@ -894,6 +894,25 @@ function registerIpcHandlers() {
     }
   });
 
+  // Индикатор «ИИ печатает…» в Telegram (пока идёт генерация ответа).
+  ipcMain.handle("telegram-typing-start", async () => {
+    try {
+      const bot = require("../../botsrc");
+      return bot.startTyping();
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("telegram-typing-stop", async () => {
+    try {
+      const bot = require("../../botsrc");
+      return bot.stopTyping();
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle(
     "telegram-approval-request",
     async (_event, { requestId, info } = {}) => {
