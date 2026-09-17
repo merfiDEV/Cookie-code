@@ -695,6 +695,17 @@ function buildContentHTML() {
     "    </div>" +
     '    <input type="checkbox" id="cuckoo-stats-debug">' +
     "  </label>" +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    "    <div>" +
+    '      <div class="ck-row-title">' +
+    t("settings.stats.showTitle") +
+    "</div>" +
+    '      <div class="ck-row-hint">' +
+    t("settings.stats.showHint") +
+    "</div>" +
+    "    </div>" +
+    '    <input type="checkbox" id="cuckoo-stats-show">' +
+    "  </label>" +
     "  </div>" +
     '  <div class="ck-btn-row" style="margin-top:8px;">' +
     '    <button id="cuckoo-stats-reset" class="ck-btn ck-btn-danger">' +
@@ -1592,6 +1603,7 @@ async function refreshFontSelection() {
 function bindStatsSection() {
   const enabledChk = document.getElementById("cuckoo-stats-enabled");
   const debugChk = document.getElementById("cuckoo-stats-debug");
+  const showChk = document.getElementById("cuckoo-stats-show");
   const resetBtn = document.getElementById("cuckoo-stats-reset");
 
   if (enabledChk) {
@@ -1617,6 +1629,23 @@ function bindStatsSection() {
           dash.setDebugMode(on);
       } catch (err) {
         console.error("[Cookie Code] statsDebugMode save error:", err.message);
+      }
+    });
+  }
+
+  if (showChk) {
+    showChk.addEventListener("change", async () => {
+      const on = showChk.checked;
+      state.statsDashboardEnabled = on;
+      try {
+        await window.electronAPI.setCuckooSetting("statsDashboardEnabled", on);
+        const dash = require("./stats-dashboard");
+        if (dash && typeof dash.setEnabled === "function") dash.setEnabled(on);
+      } catch (err) {
+        console.error(
+          "[Cookie Code] statsDashboardEnabled save error:",
+          err.message,
+        );
       }
     });
   }
@@ -1649,6 +1678,7 @@ function bindStatsSection() {
     .then((s) => {
       if (enabledChk) enabledChk.checked = !s || s.statsEnabled !== false;
       if (debugChk) debugChk.checked = !!(s && s.statsDebugMode === true);
+      if (showChk) showChk.checked = !s || s.statsDashboardEnabled !== false;
     })
     .catch(() => {});
 }

@@ -501,6 +501,14 @@ const KEYS = {
     ru: "Горячие клавиши: F6 — рамка дашборда, F7 — обновить данные.",
     en: "Hotkeys: F6 — dashboard frame, F7 — refresh data.",
   },
+  "settings.stats.showTitle": {
+    ru: "Показывать дашборд",
+    en: "Show dashboard",
+  },
+  "settings.stats.showHint": {
+    ru: "Отображение дашборда на домашней странице. Сбор статистики продолжается независимо от этого.",
+    en: "Whether the dashboard is shown on the home page. Statistics collection continues regardless.",
+  },
   "settings.stats.reset": {
     ru: "Сбросить статистику",
     en: "Reset statistics",

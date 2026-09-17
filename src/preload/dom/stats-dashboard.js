@@ -10,6 +10,14 @@
  * Горячие клавиши (только в debug-режиме, тумблер в настройках):
  *   F6 — показать/скрыть отладочную рамку дашборда
  *   F7 — принудительно перечитать статистику
+ *
+ * Оптимизации рендера:
+ *   - видимость и данные разделены (syncVisibility не тянет сводку);
+ *   - в main не ходим, когда дашборд скрыт;
+ *   - MutationObserver дебаунсится, а не дёргает syncVisibility на каждую мутацию;
+ *   - скелет DOM строится один раз, дальше обновляются только изменившиеся узлы;
+ *   - при отсутствии изменений в сводке render пропускается (сравнение сигнатуры);
+ *   - guard от повторного входа в refresh.
  */
 const { getProviderByUrl } = require("../../../src/providers");
 const state = require("./state");
@@ -21,11 +29,24 @@ const POS_KEY = "cuckoo-stats-dash-pos";
 // Период heatmap (дней). Метрики при этом считаются за всё время.
 const RANGE_DAYS = 180;
 
+// Минимальный интервал между обновлениями данных при показе (мс).
+const MIN_REFRESH_MS = 5000;
+
 let rootEl = null;
 let started = false;
 let debugFrame = false;
 let debugMode = false;
 let refreshTimer = null;
+let observerTimer = null;
+// Показывать сам дашборд (настройка). Сбор статистики независим.
+let enabled = true;
+
+// Кэш последнего отрисованного состояния.
+let lastSignature = "";
+let lastRefreshAt = 0;
+let refreshing = false;
+// Узлы скелета (строятся один раз).
+let ui = null;
 
 /**
  * Открыта ли модалка настроек DeepSeek (тогда дашборд прячем).
@@ -151,66 +172,160 @@ function levelFor(messages) {
   return "l4";
 }
 
+const CARD_LABELS = [
+  ["sessions", "Сессии"],
+  ["messages", "Сообщения"],
+  ["tokens", "Токены"],
+  ["activeDays", "Активных дней"],
+  ["currentStreak", "Текущая серия"],
+  ["longestStreak", "Макс. серия"],
+  ["peakHour", "Пик. час"],
+  ["favoriteModel", "Любимая модель"],
+];
+
 /**
- * Отрендерить/обновить дашборд по сводке из main.
+ * Построить скелет дашборда (один раз). Дальше обновляем только значения.
+ */
+function buildSkeleton() {
+  if (!rootEl) return;
+  rootEl.innerHTML = "";
+
+  const head = document.createElement("div");
+  head.className = "ckd-head";
+  const title = document.createElement("div");
+  title.className = "ckd-title";
+  title.textContent = "Cookie Code · Обзор";
+  const hint = document.createElement("span");
+  hint.className = "ckd-drag-hint";
+  hint.textContent = "⠿ тяни (debug)";
+  title.appendChild(hint);
+  const range = document.createElement("div");
+  range.className = "ckd-range";
+  range.textContent = RANGE_DAYS + " дн · всего за всё время";
+  head.appendChild(title);
+  head.appendChild(range);
+
+  const grid = document.createElement("div");
+  grid.className = "ckd-grid";
+  const cardNodes = {};
+  CARD_LABELS.forEach(([key, label]) => {
+    const c = document.createElement("div");
+    c.className = "ckd-card";
+    const k = document.createElement("div");
+    k.className = "k";
+    k.textContent = label;
+    const v = document.createElement("div");
+    v.className = "v";
+    c.appendChild(k);
+    c.appendChild(v);
+    grid.appendChild(c);
+    cardNodes[key] = v;
+  });
+
+  const heat = document.createElement("div");
+  heat.className = "ckd-heat";
+
+  const foot = document.createElement("div");
+  foot.className = "ckd-foot";
+
+  rootEl.appendChild(head);
+  rootEl.appendChild(grid);
+  rootEl.appendChild(heat);
+  rootEl.appendChild(foot);
+
+  ui = { cardNodes, heat, foot, heatCells: [] };
+}
+
+/**
+ * Компактная сигнатура сводки — чтобы пропускать render без изменений.
+ */
+function signatureOf(s) {
+  const t = s.totals || {};
+  const days = Array.isArray(s.days) ? s.days : [];
+  let acc = "";
+  for (let i = 0; i < days.length; i++) acc += (days[i].messages || 0) + ",";
+  return (
+    t.sessions +
+    "|" +
+    t.messages +
+    "|" +
+    t.tokens +
+    "|" +
+    (s.activeDays || 0) +
+    "|" +
+    (s.currentStreak || 0) +
+    "|" +
+    (s.longestStreak || 0) +
+    "|" +
+    (s.peakHour == null ? "" : s.peakHour) +
+    "|" +
+    (s.favoriteModel || "") +
+    "|" +
+    (debugMode ? 1 : 0) +
+    "|" +
+    acc
+  );
+}
+
+/**
+ * Обновить скелет данными сводки. Трогает только изменившиеся узлы.
  */
 function render(summary) {
   if (!rootEl) return;
+  if (!ui) buildSkeleton();
   const s = summary || {};
   const t = s.totals || {};
   const days = Array.isArray(s.days) ? s.days : [];
-  const cells = days
-    .map((d) => {
-      const lvl = levelFor(d.messages);
-      const title = d.date + ": " + (d.messages || 0) + " сообщ.";
-      return (
-        '<div class="ckd-cell ' + lvl + '" title="' + esc(title) + '"></div>'
-      );
-    })
-    .join("");
 
   const peakLabel =
     s.peakHour === "—" || s.peakHour == null
       ? "—"
       : String(s.peakHour).padStart(2, "0") + ":00";
 
-  rootEl.innerHTML =
-    '<div class="ckd-head">' +
-    '<div class="ckd-title">Cookie Code · Обзор' +
-    '<span class="ckd-drag-hint">⠿ тяни (debug)</span></div>' +
-    '<div class="ckd-range">' +
-    RANGE_DAYS +
-    " дн · всего за всё время</div>" +
-    "</div>" +
-    '<div class="ckd-grid">' +
-    card("Сессии", t.sessions || 0) +
-    card("Сообщения", t.messages || 0) +
-    card("Токены", formatTokens(t.tokens || 0)) +
-    card("Активных дней", s.activeDays || 0) +
-    card("Текущая серия", (s.currentStreak || 0) + " дн") +
-    card("Макс. серия", (s.longestStreak || 0) + " дн") +
-    card("Пик. час", peakLabel) +
-    card("Любимая модель", s.favoriteModel || "—") +
-    "</div>" +
-    '<div class="ckd-heat">' +
-    cells +
-    "</div>" +
-    '<div class="ckd-foot">' +
+  const values = {
+    sessions: String(t.sessions || 0),
+    messages: String(t.messages || 0),
+    tokens: formatTokens(t.tokens || 0),
+    activeDays: String(s.activeDays || 0),
+    currentStreak: (s.currentStreak || 0) + " дн",
+    longestStreak: (s.longestStreak || 0) + " дн",
+    peakHour: peakLabel,
+    favoriteModel: s.favoriteModel || "—",
+  };
+  Object.keys(values).forEach((key) => {
+    const node = ui.cardNodes[key];
+    if (node && node.textContent !== values[key])
+      node.textContent = values[key];
+  });
+
+  // Heatmap: пересобираем ячейки только если число дней изменилось.
+  if (ui.heatCells.length !== days.length) {
+    ui.heat.innerHTML = "";
+    ui.heatCells = [];
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < days.length; i++) {
+      const cell = document.createElement("div");
+      cell.className = "ckd-cell";
+      frag.appendChild(cell);
+      ui.heatCells.push(cell);
+    }
+    ui.heat.appendChild(frag);
+  }
+  for (let i = 0; i < days.length; i++) {
+    const d = days[i];
+    const cell = ui.heatCells[i];
+    const cls = "ckd-cell " + levelFor(d.messages);
+    if (cell.className !== cls) cell.className = cls;
+    const title = d.date + ": " + (d.messages || 0) + " сообщ.";
+    if (cell.title !== title) cell.title = title;
+  }
+
+  const foot =
     (debugMode ? "F6 — рамка · F7 — обновить · " : "") +
     "Метрики — за всё время · теплокарта — " +
     RANGE_DAYS +
-    " дн" +
-    "</div>";
-}
-
-function card(k, v) {
-  return (
-    '<div class="ckd-card"><div class="k">' +
-    esc(k) +
-    '</div><div class="v">' +
-    esc(v) +
-    "</div></div>"
-  );
+    " дн";
+  if (ui.foot.textContent !== foot) ui.foot.textContent = foot;
 }
 
 function formatTokens(n) {
@@ -377,6 +492,7 @@ function ensureRoot() {
   rootEl.id = ROOT_ID;
   rootEl.className = "cuckoo-hidden";
   (document.body || document.documentElement).appendChild(rootEl);
+  buildSkeleton();
   restorePosition();
   makeDraggable();
   return rootEl;
@@ -384,25 +500,39 @@ function ensureRoot() {
 
 /**
  * Показать/скрыть в зависимости от текущей страницы.
+ * Данные тянет только при показе и не чаще MIN_REFRESH_MS (если не force).
  */
-async function syncVisibility() {
+async function syncVisibility(force) {
   if (!rootEl) return;
+  // Выключен в настройках — прячем насовсем.
+  if (!enabled) {
+    rootEl.classList.add("cuckoo-hidden");
+    return;
+  }
   const home = isHomePage();
   // Настройки открыты — прячем дашборд, чтобы не мешал.
   if (!home || isSettingsOpen()) {
     rootEl.classList.add("cuckoo-hidden");
     return;
   }
-  // На home — показываем и обновляем данные.
-  await refresh();
+  // На home — показываем; данные обновляем не чаще MIN_REFRESH_MS.
+  const now = Date.now();
+  if (force || now - lastRefreshAt > MIN_REFRESH_MS) {
+    await refresh();
+  }
   rootEl.classList.remove("cuckoo-hidden");
   logPos("shown");
 }
 
 /**
  * Перечитать статистику из main и отрендерить.
+ * Пропускает запрос при скрытом дашборде и повторный вход.
  */
-async function refresh() {
+async function refresh(force) {
+  if (refreshing) return;
+  if (!force && !enabled) return;
+  if (!force && rootEl && rootEl.classList.contains("cuckoo-hidden")) return;
+  refreshing = true;
   try {
     if (
       !window.electronAPI ||
@@ -410,10 +540,27 @@ async function refresh() {
     )
       return;
     const res = await window.electronAPI.statsGetSummary(RANGE_DAYS);
-    if (res && res.success && res.summary) render(res.summary);
+    lastRefreshAt = Date.now();
+    if (res && res.success && res.summary) {
+      const sig = signatureOf(res.summary);
+      if (sig === lastSignature) return;
+      lastSignature = sig;
+      render(res.summary);
+    }
   } catch (err) {
     console.warn("[Cookie Code] dashboard refresh error:", err.message);
+  } finally {
+    refreshing = false;
   }
+}
+
+/**
+ * Включить/выключить показ дашборда (тумблер в настройках).
+ */
+function setEnabled(on) {
+  enabled = !!on;
+  syncVisibility(true);
+  return enabled;
 }
 
 /**
@@ -429,6 +576,8 @@ function setDebugMode(on) {
       debugFrame = false;
     }
   }
+  // Сбрасываем сигнатуру, чтобы подпись debug-подсказки перерисовалась.
+  lastSignature = "";
   if (rootEl) refresh();
   return debugMode;
 }
@@ -444,54 +593,62 @@ function toggleDebugFrame() {
 function start() {
   if (started) return;
   started = true;
+  // Применяем настройку показа до первого syncVisibility.
+  enabled = state.statsDashboardEnabled !== false;
   injectStyle();
   ensureRoot();
   // Применяем debug-режим (draggable) из настроек.
   setDebugMode(state.statsDebugMode === true);
-  syncVisibility();
+  syncVisibility(true);
 
   // Регулярная проверка (URL меняется в SPA без перезагрузки).
   refreshTimer = setInterval(() => syncVisibility(), 1500);
 
   // Мгновенная реакция на открытие/закрытие настроек.
+  // Дебаунс: во время стриминга ответа мутаций сотни в секунду,
+  // а нам нужна лишь реакция на появление/исчезновение модалки.
   try {
-    const mo = new MutationObserver(() => syncVisibility());
+    const mo = new MutationObserver(() => {
+      if (observerTimer) return;
+      observerTimer = setTimeout(() => {
+        observerTimer = null;
+        syncVisibility();
+      }, 250);
+    });
     mo.observe(document.body || document.documentElement, {
       childList: true,
       subtree: true,
     });
   } catch (_) {}
 
-  // Мгновенная реакция на открытие/закрытие настроек.
+  window.addEventListener("popstate", () => syncVisibility(true));
+  window.addEventListener("hashchange", () => syncVisibility(true));
+
+  // SPA-навигация через history.pushState/replaceState не вызывает
+  // popstate/hashchange — оборачиваем, чтобы дашборд скрывался сразу
+  // при входе в сессию (а не через 1.5 с по таймеру).
   try {
-    const mo = new MutationObserver(() => syncVisibility());
-    mo.observe(document.body || document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
+    const wrap = (name) => {
+      const orig = history[name];
+      if (typeof orig !== "function" || orig.__ckWrapped) return;
+      const wrapped = function () {
+        const ret = orig.apply(this, arguments);
+        try {
+          syncVisibility();
+        } catch (_) {}
+        return ret;
+      };
+      wrapped.__ckWrapped = true;
+      history[name] = wrapped;
+    };
+    wrap("pushState");
+    wrap("replaceState");
   } catch (_) {}
 
-  window.addEventListener("popstate", syncVisibility);
-  window.addEventListener("hashchange", syncVisibility);
-
   // При изменении размера окна — пересчитываем позицию из сохранённых долей,
   // чтобы окно оставалось в том же относительном месте на любом разрешении.
   window.addEventListener("resize", () => {
     if (!rootEl) return;
-    // Если позиция сохранялась вручную — пересчитываем из долей.
-    // Иначе оставляем CSS-центрирование по умолчанию.
-    if (localStorage.getItem(POS_KEY)) {
-      restorePosition();
-    }
-    logPos("resize");
-  });
-
-  // При изменении размера окна — пересчитываем позицию из сохранённых долей,
-  // чтобы окно оставалось в том же относительном месте на любом разрешении.
-  window.addEventListener("resize", () => {
-    if (!rootEl) return;
-    // Если позиция сохранялась вручную — пересчитываем из долей.
-    // Иначе оставляем CSS-центрирование по умолчанию.
     if (localStorage.getItem(POS_KEY)) {
       restorePosition();
     }
@@ -508,7 +665,7 @@ function start() {
         toggleDebugFrame();
       } else if (e.key === "F7") {
         e.preventDefault();
-        refresh();
+        refresh(true);
       }
     },
     true,
@@ -524,4 +681,4 @@ function start() {
   } catch (_) {}
 }
 
-module.exports = { start, refresh, setDebugMode };
+module.exports = { start, refresh, setDebugMode, setEnabled };

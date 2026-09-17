@@ -29,6 +29,8 @@ module.exports = {
   // Дашборд статистики: собирать ли статистику и включён ли debug-режим.
   statsEnabled: true,
   statsDebugMode: false,
+  // Показывать сам дашборд на домашней странице.
+  statsDashboardEnabled: true,
   // Режим плана: пока включён — изменяющие инструменты заблокированы,
   // модель пишет plan.md и завершает режим через exit_plan_mode().
   planMode: false,

@@ -76,6 +76,8 @@ async function init() {
       state.statsDebugMode = Boolean(
         settings && settings.statsDebugMode === true,
       );
+      state.statsDashboardEnabled =
+        !settings || settings.statsDashboardEnabled !== false;
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,
