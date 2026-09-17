@@ -321,6 +321,108 @@ const KEYS = {
     en: "Dangerous commands (regex, one per line)",
   },
   "settings.section.background": { ru: "Фон страницы", en: "Page background" },
+  // ---- Чубрики (петы) ----
+  "settings.section.pets": { ru: "Чубрики", en: "Pets" },
+  "settings.pets.chromaBtn": { ru: "🎨 Фон", en: "🎨 BG" },
+  "settings.pets.chromaTitle": {
+    ru: "Вырезать цвет фона (chroma-key)",
+    en: "Remove background color (chroma-key)",
+  },
+  "settings.pets.chromaModalTitle": {
+    ru: "Вырезать фон GIF",
+    en: "Remove GIF background",
+  },
+  "settings.pets.chromaHint": {
+    ru: "Кликните по картинке, чтобы выбрать цвет фона. Все пиксели этого цвета станут прозрачными во всех кадрах.",
+    en: "Click the image to pick the background color. All pixels of that color become transparent in every frame.",
+  },
+  "settings.pets.chromaPicked": {
+    ru: "Выбран цвет: {color}",
+    en: "Picked color: {color}",
+  },
+  "settings.pets.chromaTolerance": {
+    ru: "Допуск (похожесть оттенков)",
+    en: "Tolerance (color similarity)",
+  },
+  "settings.pets.chromaApply": { ru: "Применить", en: "Apply" },
+  "settings.pets.chromaCancel": { ru: "Отмена", en: "Cancel" },
+  "settings.pets.chromaNoColor": {
+    ru: "Сначала выберите цвет кликом по картинке",
+    en: "Pick a color by clicking the image first",
+  },
+  "settings.pets.chromaDone": {
+    ru: "Готово! Фон удалён во всех кадрах.",
+    en: "Done! Background removed in all frames.",
+  },
+  "settings.pets.chromaError": {
+    ru: "Ошибка: {msg}",
+    en: "Error: {msg}",
+  },
+  "settings.pets.chromaProcessing": {
+    ru: "Обработка…",
+    en: "Processing…",
+  },
+  "settings.pets.chromaPreviewHint": {
+    ru: "Превью — 1-й кадр. Цвет применяется ко всем кадрам.",
+    en: "Preview is frame 1. Color is applied to every frame.",
+  },
+  "settings.pets.enabledTitle": { ru: "Пет включён", en: "Pet enabled" },
+  "settings.pets.enabledHint": {
+    ru: "Показывать чубрика на экране. По умолчанию — да.",
+    en: "Show the pet on screen. Enabled by default.",
+  },
+  "settings.pets.pickTitle": { ru: "Выбрать пета", en: "Choose a pet" },
+  "settings.pets.pickHint": {
+    ru: "PNG/GIF/WebP/JPG. Большие картинки автоматически сжимаются до 600×600. Кликните на превью, чтобы выбрать.",
+    en: "PNG/GIF/WebP/JPG. Large images are auto-resized to 600×600. Click a preview to select.",
+  },
+  "settings.pets.import": { ru: "Загрузить…", en: "Upload…" },
+  "settings.pets.reset": { ru: "Сбросить", en: "Reset" },
+  // ---- Таймаут JS-скриптов ----
+  "settings.jsTimeout.title": {
+    ru: "Таймаут выполнения JS-скриптов",
+    en: "JS script execution timeout",
+  },
+  "settings.jsTimeout.hint": {
+    ru: "Максимальное время выполнения одного блока кода от AI. От 10 до 1000 секунд. По умолчанию 60 сек.",
+    en: "Maximum execution time for a single AI code block. From 10 to 1000 seconds. Default is 60 sec.",
+  },
+  "settings.jsTimeout.unit": { ru: "сек", en: "sec" },
+  "settings.jsTimeout.save": { ru: "Сохранить", en: "Save" },
+  "settings.jsTimeout.saved": {
+    ru: "Таймаут сохранён: {sec} сек",
+    en: "Timeout saved: {sec} sec",
+  },
+  "settings.jsTimeout.invalid": {
+    ru: "Введите число от 10 до 1000",
+    en: "Enter a number between 10 and 1000",
+  },
+  "settings.pets.resetDone": {
+    ru: "Настройки пета сброшены к дефолтам",
+    en: "Pet settings reset to defaults",
+  },
+  "settings.pets.refresh": { ru: "Обновить", en: "Refresh" },
+  "settings.pets.openFolder": { ru: "Открыть папку", en: "Open folder" },
+  "settings.pets.empty": {
+    ru: "В папке пока нет PNG/GIF. Нажмите «Открыть папку» и положите туда спрайт.",
+    en: 'No PNG/GIF in the folder yet. Click "Open folder" and drop a sprite there.',
+  },
+  "settings.pets.debugTitle": {
+    ru: "Debug-режим пета",
+    en: "Pet debug mode",
+  },
+  "settings.pets.debugHint": {
+    ru: "Разблокирует горячие клавиши: F8 — прицел (посадить пета), F9 — рамка поля, F10 — режим, F11 — сброс размера.",
+    en: "Unlocks hotkeys: F8 — aim (place the pet), F9 — field frame, F10 — mode, F11 — reset size.",
+  },
+  "settings.pets.importError": {
+    ru: "Не удалось загрузить пета: {msg}",
+    en: "Failed to upload pet: {msg}",
+  },
+  "settings.pets.importCompressed": {
+    ru: "Пет сжат: {w1}×{h1} → {w2}×{h2}",
+    en: "Pet compressed: {w1}×{h1} → {w2}×{h2}",
+  },
   "settings.bg.openFolder": {
     ru: "Открыть папку фонов",
     en: "Open backgrounds folder",

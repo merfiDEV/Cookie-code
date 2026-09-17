@@ -134,12 +134,33 @@ let electronAPI = {
   openCuckooSettingsFile: () => {
     return ipcRenderer.invoke("cuckoo-settings-open-file");
   },
+  // ========== Событие «настройки изменились» (из TG-бота или других окон) ==========
+  // Подписка: callback получает объект-patch ({key: value}) или null (перечитать всё).
+  onSettingsChanged: (callback) => {
+    const listener = (_event, patch) => callback(patch);
+    ipcRenderer.on("cuckoo-settings-changed", listener);
+    return () =>
+      ipcRenderer.removeListener("cuckoo-settings-changed", listener);
+  },
   // ========== Пользовательские фоны (userData/backgrounds) ==========
   listCustomBackgrounds: () => {
     return ipcRenderer.invoke("cuckoo-backgrounds-list");
   },
   openCustomBackgroundsFolder: () => {
     return ipcRenderer.invoke("cuckoo-backgrounds-open-folder");
+  },
+  // ========== Спрайты петов (userData/pets) ==========
+  listPets: () => {
+    return ipcRenderer.invoke("cuckoo-pets-list");
+  },
+  openPetsFolder: () => {
+    return ipcRenderer.invoke("cuckoo-pets-open-folder");
+  },
+  importPet: () => {
+    return ipcRenderer.invoke("cuckoo-pets-import");
+  },
+  chromaKeyPet: (file, color, tolerance) => {
+    return ipcRenderer.invoke("cuckoo-pets-chroma", { file, color, tolerance });
   },
   // ========== Todo-задачи ==========
   getTodos: () => {

@@ -6,35 +6,35 @@
  * Каждый шаг обёрнут в safe(): сбой одного модуля (например, из-за изменений
  * вёрстки DeepSeek) не валит init() и не мешает остальным модулям.
  */
-console.log('[Cookie Code] Preload script 开始执行');
+console.log("[Cookie Code] Preload script 开始执行");
 
 // 暴露 electronAPI 到渲染进程（contextBridge + window 兜底）
-require('./api');
+require("./api");
 
-const ui = require('./overlay/ui');
-const projectDir = require('./overlay/project-dir');
-const bindEvents = require('./overlay/events');
-const observer = require('./dom/observer');
-const chatExport = require('./dom/chat-export');
-const chatInput = require('./dom/chat-input');
-const askUserQuestion = require('./dom/ask-user-question');
-const exitPlanMode = require('./dom/exit-plan-mode');
-const planModeToggle = require('./dom/plan-mode-toggle');
-const stealth = require('./dom/stealth');
-const settingsTab = require('./dom/settings-tab');
-const commands = require('./dom/commands');
-const background = require('./dom/background');
-const reasoningGlass = require('./dom/reasoning-glass');
-const inputGlass = require('./dom/input-glass');
-const forceDarkTheme = require('./dom/force-dark-theme');
-const qrOverride = require('./dom/qr-override');
-const fileChip = require('./dom/file-chip');
-const whatsNew = require('./dom/whats-new');
-const i18n = require('./i18n/i18n');
-const state = require('./dom/state');
-const tokenInterceptor = require('./dom/token-interceptor');
-const { getProviderByUrl } = require('../providers');
-const { safe } = require('./dom/safe');
+const ui = require("./overlay/ui");
+const projectDir = require("./overlay/project-dir");
+const bindEvents = require("./overlay/events");
+const observer = require("./dom/observer");
+const chatExport = require("./dom/chat-export");
+const chatInput = require("./dom/chat-input");
+const askUserQuestion = require("./dom/ask-user-question");
+const exitPlanMode = require("./dom/exit-plan-mode");
+const planModeToggle = require("./dom/plan-mode-toggle");
+const stealth = require("./dom/stealth");
+const settingsTab = require("./dom/settings-tab");
+const commands = require("./dom/commands");
+const background = require("./dom/background");
+const reasoningGlass = require("./dom/reasoning-glass");
+const inputGlass = require("./dom/input-glass");
+const forceDarkTheme = require("./dom/force-dark-theme");
+const qrOverride = require("./dom/qr-override");
+const fileChip = require("./dom/file-chip");
+const whatsNew = require("./dom/whats-new");
+const i18n = require("./i18n/i18n");
+const state = require("./dom/state");
+const tokenInterceptor = require("./dom/token-interceptor");
+const { getProviderByUrl } = require("../providers");
+const { safe } = require("./dom/safe");
 
 // ========== 初始化 ==========
 
@@ -45,22 +45,28 @@ const { safe } = require('./dom/safe');
 async function init() {
   try {
     // Загружаем язык до инъекции HTML — тексты в template.js строятся через t()
-    await safe('init.loadLanguage', () => i18n.loadLanguage());
+    await safe("init.loadLanguage", () => i18n.loadLanguage());
 
     let customizationEnabled = true;
     try {
       const settings = await window.electronAPI.getCuckooSettings();
-      customizationEnabled = !settings || settings.customizationEnabled !== false;
+      customizationEnabled =
+        !settings || settings.customizationEnabled !== false;
       // Approval gate: режим подтверждения tool-вызовов ('off' | 'risky' | 'all')
-      state.toolApprovalMode = (settings && settings.toolApprovalMode) || 'off';
+      state.toolApprovalMode = (settings && settings.toolApprovalMode) || "off";
       // Скрытие служебных сообщений (по умолчанию выключено)
-      state.hideSystemMessages = Boolean(settings && settings.hideSystemMessages === true);
+      state.hideSystemMessages = Boolean(
+        settings && settings.hideSystemMessages === true,
+      );
       // Чипы файловых путей (по умолчанию включено)
       state.fileChipEnabled = !settings || settings.fileChipEnabled !== false;
       // Блок «Затронуто» под ответом (по умолчанию включено)
-      state.showProducedFiles = !settings || settings.showProducedFiles !== false;
+      state.showProducedFiles =
+        !settings || settings.showProducedFiles !== false;
       // Блок «Токены диалога» в панели (по умолчанию выключено)
-      state.showConvTokens = Boolean(settings && settings.showConvTokens === true);
+      state.showConvTokens = Boolean(
+        settings && settings.showConvTokens === true,
+      );
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,
@@ -69,119 +75,167 @@ async function init() {
 
     // Перехват серверных токенов DeepSeek: ставим как можно раньше,
     // чтобы поймать первый же запрос completion. Работает через safe().
-    safe('init.tokenInterceptor', () => tokenInterceptor.install());
+    safe("init.tokenInterceptor", () => tokenInterceptor.install());
 
     // Регистрируем IPC-листенеры всегда — от них зависит ввод и парсинг tool-блоков
-    safe('init.registerIpcListeners', () => chatInput.registerIpcListeners());
-    safe('init.registerAskUserQuestionListener', () => askUserQuestion.registerAskUserQuestionListener());
-    safe('init.registerExitPlanModeListener', () => exitPlanMode.registerExitPlanModeListener());
-    safe('init.registerWhatsNewListener', () => whatsNew.registerWhatsNewListener());
-    safe('init.planModeToggleStart', () => planModeToggle.startWatch());
+    safe("init.registerIpcListeners", () => chatInput.registerIpcListeners());
+    safe("init.registerAskUserQuestionListener", () =>
+      askUserQuestion.registerAskUserQuestionListener(),
+    );
+    safe("init.registerExitPlanModeListener", () =>
+      exitPlanMode.registerExitPlanModeListener(),
+    );
+    safe("init.registerWhatsNewListener", () =>
+      whatsNew.registerWhatsNewListener(),
+    );
+    safe("init.planModeToggleStart", () => planModeToggle.startWatch());
 
     // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события
-    safe('init.injectCSS', () => ui.injectCSS());
-    safe('init.injectOverlay', () => ui.injectOverlay());
+    safe("init.injectCSS", () => ui.injectCSS());
+    safe("init.injectOverlay", () => ui.injectOverlay());
     // Скрыть блок «Токены диалога», если он выключен в настройках (по умолчанию).
-    safe('init.applyConvTokensVisibility', () => {
+    safe("init.applyConvTokensVisibility", () => {
       if (state.showConvTokens === true) return;
-      const section = document.querySelector('.cuckoo-token-section');
+      const section = document.querySelector(".cuckoo-token-section");
       if (section) {
-        section.style.display = 'none';
+        section.style.display = "none";
         const prev = section.previousElementSibling;
-        if (prev && prev.classList && prev.classList.contains('cuckoo-divider')) prev.style.display = 'none';
+        if (prev && prev.classList && prev.classList.contains("cuckoo-divider"))
+          prev.style.display = "none";
       }
     });
-    safe('init.initProjectDirSection', () => projectDir.initProjectDirSection());
-    safe('init.bindEvents', () => bindEvents());
-    safe('init.updateHomeMode', () => ui.updateHomeMode());
+    safe("init.initProjectDirSection", () =>
+      projectDir.initProjectDirSection(),
+    );
+    safe("init.bindEvents", () => bindEvents());
+    safe("init.updateHomeMode", () => ui.updateHomeMode());
 
     // Сохранить токены текущего диалога перед уходом/закрытием.
-    window.addEventListener('beforeunload', () => {
-      safe('init.saveTokensBeforeUnload', () => bindEvents.computeAndSaveConversationTokens());
+    window.addEventListener("beforeunload", () => {
+      safe("init.saveTokensBeforeUnload", () =>
+        bindEvents.computeAndSaveConversationTokens(),
+      );
     });
 
     // 监听 URL 变化（SPA 路由）
-    window.addEventListener('popstate', () => {
-      safe('init.updateHomeModePop', () => ui.updateHomeMode());
-      safe('init.refreshTokensPop', () => bindEvents.updateConversationTokenDisplay());
+    window.addEventListener("popstate", () => {
+      safe("init.updateHomeModePop", () => ui.updateHomeMode());
+      safe("init.refreshTokensPop", () =>
+        bindEvents.updateConversationTokenDisplay(),
+      );
     });
-    window.addEventListener('hashchange', () => {
-      safe('init.updateHomeModeHash', () => ui.updateHomeMode());
-      safe('init.refreshTokensHash', () => bindEvents.updateConversationTokenDisplay());
+    window.addEventListener("hashchange", () => {
+      safe("init.updateHomeModeHash", () => ui.updateHomeMode());
+      safe("init.refreshTokensHash", () =>
+        bindEvents.updateConversationTokenDisplay(),
+      );
     });
-    setInterval(() => safe('init.updateHomeModeInterval', () => ui.updateHomeMode()), 5000);
+    setInterval(
+      () => safe("init.updateHomeModeInterval", () => ui.updateHomeMode()),
+      5000,
+    );
     // 首次延迟执行，确保 overlay 已注入
-    setTimeout(() => safe('init.updateHomeModeDelayed', () => ui.updateHomeMode()), 500);
+    setTimeout(
+      () => safe("init.updateHomeModeDelayed", () => ui.updateHomeMode()),
+      500,
+    );
 
     // 默认显示覆盖层 - 兜底强制显示
-    safe('init.forceShowOverlay', () => ui.forceShowOverlay());
+    safe("init.forceShowOverlay", () => ui.forceShowOverlay());
 
     // 延迟启动观察器，等待页面框架渲染
-    setTimeout(() => safe('init.startObserver', () => observer.startObserver()), 2000);
+    setTimeout(
+      () => safe("init.startObserver", () => observer.startObserver()),
+      2000,
+    );
 
     // Скрытие служебных сообщений (результаты инструментов, системный промпт).
     // Поведенческая фича — работает независимо от customizationEnabled.
-    safe('init.startStealthWatcher', () => stealth.startStealthWatcher());
+    safe("init.startStealthWatcher", () => stealth.startStealthWatcher());
 
     // 启动设置面板标签注入
-    safe('init.settingsTabStart', () => settingsTab.start());
+    safe("init.settingsTabStart", () => settingsTab.start());
 
     // Slash-команды: автодополнение (review/summarize)
-    safe('init.commandsStart', () => commands.start());
+    safe("init.commandsStart", () => commands.start());
 
     // Принудительно держим тёмную тему DeepSeek
-    safe('init.forceDarkThemeStart', () => forceDarkTheme.startWatch());
+    safe("init.forceDarkThemeStart", () => forceDarkTheme.startWatch());
 
     // Подмена QR-кода в попапе «Скачать приложение»
-    safe('init.qrOverrideStart', () => qrOverride.startWatch());
+    safe("init.qrOverrideStart", () => qrOverride.startWatch());
+
+    // Подписка на изменения настроек из TG-бота / других окон:
+    // фон, блюр и стекло применяются мгновенно без перезахода в настройки.
+    safe("init.backgroundSettingsListener", () =>
+      background.installSettingsListener(),
+    );
 
     // Стилизация абсолютных путей к файлам как чипов с открытием в системе
-    safe('init.fileChipSetEnabled', () => fileChip.setEnabled(state.fileChipEnabled !== false));
-    safe('init.fileChipStart', () => fileChip.startWatch());
+    safe("init.fileChipSetEnabled", () =>
+      fileChip.setEnabled(state.fileChipEnabled !== false),
+    );
+    safe("init.fileChipStart", () => fileChip.startWatch());
 
     // Блок «Затронуто» под ответом AI — вкл/выкл через настройки
-    safe('init.producedFilesSetEnabled', () => {
-      const rm = require('./dom/response-meta');
-      if (typeof rm.setEnabled === 'function') rm.setEnabled(state.showProducedFiles !== false);
+    safe("init.producedFilesSetEnabled", () => {
+      const rm = require("./dom/response-meta");
+      if (typeof rm.setEnabled === "function")
+        rm.setEnabled(state.showProducedFiles !== false);
     });
 
     // Кнопка экспорта ответа в PDF/DOCX под каждым ответом AI
-    safe('init.chatExportStart', () => chatExport.startWatch());
+    safe("init.chatExportStart", () => chatExport.startWatch());
 
     // Визуальные эффекты применяем только при включённой кастомизации
     if (customizationEnabled) {
       // Загружаем настройки и применяем фон
-      safe('init.backgroundLoadAndApply', () => background.loadAndApply());
+      safe("init.backgroundLoadAndApply", () => background.loadAndApply());
 
       // Матовое стекло для плашки «Размышление N секунд»
-      safe('init.reasoningGlassStart', () => reasoningGlass.startWatch());
+      safe("init.reasoningGlassStart", () => reasoningGlass.startWatch());
 
       // Матовое стекло для поля ввода сообщения
-      safe('init.inputGlassStart', () => inputGlass.startWatch());
+      safe("init.inputGlassStart", () => inputGlass.startWatch());
+
+      // Пет (чубрик) на поле ввода + debug-рамка на F9
+      safe("init.petStart", () => require("./dom/pet").start());
     } else {
       // Сбрасываем возможные визуальные эффекты (фон, блюры, RGB-ник)
-      safe('init.backgroundReset', () => background.apply('none'));
-      safe('init.backgroundBlurReset', () => background.applyBlur({ backgroundBlur: 0, headerBlur: 0, sidebarBlur: 0, headerOpacity: 0, sidebarOpacity: 0, toolBlockOpacity: 0, toolBlockBlur: 0 }));
-      safe('init.backgroundRgbReset', () => background.applyRgbUsername(false));
+      safe("init.backgroundReset", () => background.apply("none"));
+      safe("init.backgroundBlurReset", () =>
+        background.applyBlur({
+          backgroundBlur: 0,
+          headerBlur: 0,
+          sidebarBlur: 0,
+          headerOpacity: 0,
+          sidebarOpacity: 0,
+          toolBlockOpacity: 0,
+          toolBlockBlur: 0,
+        }),
+      );
+      safe("init.backgroundRgbReset", () => background.applyRgbUsername(false));
     }
 
     // Снимаем базовый цвет фона/::before-слой при выключенной кастомизации
-    safe('init.applyCustomizationEnabled', () => background.applyCustomizationEnabled(customizationEnabled));
+    safe("init.applyCustomizationEnabled", () =>
+      background.applyCustomizationEnabled(customizationEnabled),
+    );
   } catch (err) {
-    console.error('[Cookie Code] init() 出错:', err);
+    console.error("[Cookie Code] init() 出错:", err);
     // 兜底：即使出错也强制显示面板
-    safe('init.forceShowOverlayFallback', () => ui.forceShowOverlay());
+    safe("init.forceShowOverlayFallback", () => ui.forceShowOverlay());
   }
 
   // 定期巡检：防止面板被意外隐藏
-  safe('init.startOverlayWatcher', () => ui.startOverlayWatcher());
+  safe("init.startOverlayWatcher", () => ui.startOverlayWatcher());
 
   // 定期提取当前平台用户信息并更新窗口名
-  let lastSentUserName = '';
+  let lastSentUserName = "";
   setInterval(() => {
-    safe('init.updateWindowName', () => {
+    safe("init.updateWindowName", () => {
       const provider = getProviderByUrl(window.location.href);
-      if (!provider || typeof provider.extractUserInfo !== 'function') return;
+      if (!provider || typeof provider.extractUserInfo !== "function") return;
       const text = provider.extractUserInfo();
       if (text && text !== lastSentUserName) {
         lastSentUserName = text;
@@ -191,8 +245,10 @@ async function init() {
   }, 3000);
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => { init().catch(err => console.error('[Cookie Code] init error:', err)); });
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    init().catch((err) => console.error("[Cookie Code] init error:", err));
+  });
 } else {
-  init().catch(err => console.error('[Cookie Code] init error:', err));
+  init().catch((err) => console.error("[Cookie Code] init error:", err));
 }
