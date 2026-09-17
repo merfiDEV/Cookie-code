@@ -157,6 +157,15 @@ Control and monitor Cookie Code from your phone:
 
 No Electron system menu — the app opens straight into DeepSeek. All standard keyboard shortcuts (Ctrl+C/V, Ctrl+R, F12) still work.
 
+### Context transfer
+
+Continue a long chat in a new one without losing progress:
+
+- **"Transfer context"** button in the Cookie Code panel
+- The current chat history is read from the DOM and **the AI compresses it into a structured summary** (goal, decisions, changed files, open questions)
+- A new chat opens automatically and the summary is injected as context — work continues from the same point
+- Long histories are auto-trimmed by token estimate
+
 ### Project initialization
 
 Pick a project directory once — the AI receives the directory tree and a system prompt tailored to the real project. Every tool call then resolves paths relative to that directory.
@@ -378,6 +387,7 @@ src/
 │   │   ├── response-meta.js  ⏱ badge under replies
 │   │   ├── settings-tab.js   Cookie Code tab in Settings
 │   │   ├── background.js     Wallpaper & blur engine
+│   │   ├── context-port.js   Chat context transfer
 │   │   ├── fonts.js          UI & page font engine
 │   │   └── ...
 │   └── overlay/         Overlay panel UI

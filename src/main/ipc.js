@@ -13,6 +13,7 @@ const { initProject } = require("./project-context");
 const { isDangerous } = require("./dangerous-commands");
 const settingsStore = require("./settings-store");
 const chatExport = require("./chat-export");
+const contextPort = require("./context-port");
 const { decodeOutput, normalizeCommand } = require("../../tools/decodeOutput");
 const gitDiff = require("./git-diff");
 const todoStore = require("./todo-store");
@@ -542,6 +543,55 @@ function registerIpcHandlers() {
     if (!url) url = "https://chat.deepseek.com/";
     try {
       await win.webContents.loadURL(url);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ========== Перенос контекста (Context Port) ==========
+  // Хранилище живёт в main и переживает reload страницы при смене чата.
+  ipcMain.handle("context-port:start", async (event, { history, stage }) => {
+    try {
+      const wcId = event.sender.id;
+      contextPort.set(wcId, {
+        history: history || "",
+        stage: stage || "history",
+      });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("context-port:summary", async (event, { summary }) => {
+    try {
+      const wcId = event.sender.id;
+      const cur = contextPort.get(wcId) || {};
+      contextPort.set(wcId, {
+        stage: "summary",
+        history: cur.history || "",
+        summary: summary || "",
+      });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("context-port:take", async (event) => {
+    try {
+      const wcId = event.sender.id;
+      const data = contextPort.get(wcId);
+      return { success: true, data: data || null };
+    } catch (err) {
+      return { success: false, error: err.message, data: null };
+    }
+  });
+
+  ipcMain.handle("context-port:clear", async (event) => {
+    try {
+      contextPort.clear(event.sender.id);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };

@@ -65,6 +65,19 @@ let electronAPI = {
   newChat: () => {
     return ipcRenderer.invoke("new-chat");
   },
+  // ========== Перенос контекста (Context Port) ==========
+  contextPortStart: (history, stage) => {
+    return ipcRenderer.invoke("context-port:start", { history, stage });
+  },
+  contextPortSummary: (summary) => {
+    return ipcRenderer.invoke("context-port:summary", { summary });
+  },
+  contextPortTake: () => {
+    return ipcRenderer.invoke("context-port:take");
+  },
+  contextPortClear: () => {
+    return ipcRenderer.invoke("context-port:clear");
+  },
   createProfileWindow: () => {
     return ipcRenderer.invoke("create-profile-window");
   },

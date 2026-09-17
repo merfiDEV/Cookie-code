@@ -84,6 +84,13 @@ function buildOverlayHTML() {
       t("overlay.btn.manualParse") +
       "</button>",
     "    </div>",
+    '    <div class="cuckoo-actions">',
+    '      <button id="cuckoo-btn-context-port" class="cuckoo-btn cuckoo-btn-secondary" title="' +
+      t("overlay.btn.contextPort.title") +
+      '">' +
+      t("overlay.btn.contextPort") +
+      "</button>",
+    "    </div>",
     '    <div class="cuckoo-divider"></div>',
     '    <div class="cuckoo-section cuckoo-session-section">',
     '      <div class="cuckoo-session-header">',
