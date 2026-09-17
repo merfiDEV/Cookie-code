@@ -24,7 +24,7 @@ It embeds the DeepSeek web chat into a native Electron window, injects a side ov
 
 ## Why it exists
 
-Web chats are great at *thinking*, but they cannot *act* on your machine. Cookie Code closes that loop:
+Web chats are great at _thinking_, but they cannot _act_ on your machine. Cookie Code closes that loop:
 
 - **Zero token cost** — everything goes through the DeepSeek web UI, no API calls.
 - **Real agent loop** — Think → Act → Observe → Repeat. File I/O, code search, shell commands, database queries, MCP tools.
@@ -100,6 +100,18 @@ Under each AI reply you get an automatic badge:
 
 Change instantly, no reload required.
 
+### Fonts
+
+Full control over the font of the Cookie Code UI **and** the DeepSeek page:
+
+- **System font** by default — nothing forced
+- **Built-in Anthropic Mono** — one-click choice
+- **Your own fonts** — drop files (`.ttf` / `.otf` / `.woff` / `.woff2`) into `<userData>/fonts` (button **"Open fonts folder"**) and click **"Refresh"** — the font appears in the preview grid
+- **Weight slider** (100–900) — works for both the system font and any custom font
+- Pick from a preview grid in **Settings → Cookie Code**; applies instantly to the whole UI and the page
+
+All settings persist in `cuckoo-settings.json` (`font`, `fontWeight`).
+
 ### Blur & transparency
 
 Full control over the UI glass effect:
@@ -159,15 +171,15 @@ Every `write` and `edit` runs the file through a language-specific formatter so 
 
 Built-in formatters:
 
-| Formatter | Trigger | What it needs |
-|-----------|---------|---------------|
-| `prettier` | `.js .jsx .ts .tsx .json .css .md .yaml` … | `prettier` in the nearest `package.json` + binary in `node_modules/.bin` or `PATH` |
-| `biome` | same as prettier | `biome.json` / `biome.jsonc` in the project |
-| `gofmt` | `.go` | `gofmt` in `PATH` |
-| `ruff` | `.py .pyi` | `ruff` in `PATH` + `[tool.ruff]` in `pyproject.toml` (or `ruff.toml`) |
-| `rustfmt` | `.rs` | `rustfmt` in `PATH` |
-| `shfmt` | `.sh .bash` | `shfmt` in `PATH` |
-| `clang-format` | `.c .cpp .h` … | `.clang-format` config + `clang-format` in `PATH` |
+| Formatter      | Trigger                                    | What it needs                                                                      |
+| -------------- | ------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `prettier`     | `.js .jsx .ts .tsx .json .css .md .yaml` … | `prettier` in the nearest `package.json` + binary in `node_modules/.bin` or `PATH` |
+| `biome`        | same as prettier                           | `biome.json` / `biome.jsonc` in the project                                        |
+| `gofmt`        | `.go`                                      | `gofmt` in `PATH`                                                                  |
+| `ruff`         | `.py .pyi`                                 | `ruff` in `PATH` + `[tool.ruff]` in `pyproject.toml` (or `ruff.toml`)              |
+| `rustfmt`      | `.rs`                                      | `rustfmt` in `PATH`                                                                |
+| `shfmt`        | `.sh .bash`                                | `shfmt` in `PATH`                                                                  |
+| `clang-format` | `.c .cpp .h` …                             | `.clang-format` config + `clang-format` in `PATH`                                  |
 
 - Detection is **config-aware**: ruff won't run in a project without a `[tool.ruff]` section; prettier won't run without a `package.json` dependency. No unexpected reformatting of foreign code.
 - Formatter errors are swallowed — a failed formatter never blocks `write`/`edit`.
@@ -246,19 +258,19 @@ Cookie Code intercepts it, executes it in a sandbox, and returns the result to t
 
 ## Available tools
 
-| Tool | Description |
-|------|-------------|
-| `read`, `readLines` | Read files (with line numbers, offset/limit) |
-| `write`, `edit` | Create / modify files (auto-formatted on save — see below) |
-| `deleteFile` | Delete a file |
-| `glob`, `grep` | File search (ripgrep-backed) |
-| `bash`, `pwsh` | Execute shell commands |
-| `todoWrite` | Structured task list |
-| `webFetch` | Fetch HTTP(S) content as Markdown |
-| `mysql` | Run SQL queries |
-| `mcpCall`, `mcpListServers`, `mcpGetTools` | MCP tools |
-| `skillList`, `skillLoad`, `skillExecute` | Custom skills |
-| `openBrowserWindow`, `injectJS` | Electron browser window + JS injection |
+| Tool                                       | Description                                                |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| `read`, `readLines`                        | Read files (with line numbers, offset/limit)               |
+| `write`, `edit`                            | Create / modify files (auto-formatted on save — see below) |
+| `deleteFile`                               | Delete a file                                              |
+| `glob`, `grep`                             | File search (ripgrep-backed)                               |
+| `bash`, `pwsh`                             | Execute shell commands                                     |
+| `todoWrite`                                | Structured task list                                       |
+| `webFetch`                                 | Fetch HTTP(S) content as Markdown                          |
+| `mysql`                                    | Run SQL queries                                            |
+| `mcpCall`, `mcpListServers`, `mcpGetTools` | MCP tools                                                  |
+| `skillList`, `skillLoad`, `skillExecute`   | Custom skills                                              |
+| `openBrowserWindow`, `injectJS`            | Electron browser window + JS injection                     |
 
 Full TypeScript declarations are shipped at `tools/cuckoo-tools.d.ts`.
 
@@ -282,6 +294,7 @@ Everything visual lives in **Settings → Cookie Code** and persists in `cuckoo-
 
 - **Backgrounds** — 27 built-in wallpapers, or drop your own image into `src/ui/backgrounds/` and register it in `registry.json`.
 - **Glass effect** — background / header / sidebar blur, opacity, and tool-block glass blur.
+- **Fonts** — system by default, built-in Anthropic Mono, or your own fonts from a folder; weight slider (100–900). Applies to both the UI and the DeepSeek page.
 - **RGB username** — animated rainbow gradient in the sidebar, toggled under **Effects**.
 
 ---
@@ -305,6 +318,8 @@ User settings live in `cuckoo-settings.json` under the app's userData directory:
 {
   "background": "miku",
   "backgroundBlur": 0,
+  "font": "system",
+  "fontWeight": 400,
   "headerBlur": 12,
   "sidebarBlur": 12,
   "headerOpacity": 45,
@@ -357,6 +372,7 @@ src/
 │   │   ├── response-meta.js  ⏱ badge under replies
 │   │   ├── settings-tab.js   Cookie Code tab in Settings
 │   │   ├── background.js     Wallpaper & blur engine
+│   │   ├── fonts.js          UI & page font engine
 │   │   └── ...
 │   └── overlay/         Overlay panel UI
 │       ├── template.js       buildOverlayHTML() + OVERLAY_CSS
@@ -366,6 +382,7 @@ src/
 │   └── deepseek.js      Platform adapter
 ├── ui/
 │   ├── backgrounds/     27 wallpapers + registry.json
+│   ├── fonts/           Built-in fonts (Anthropic Mono)
 │   └── logos/
 tools/                 Tool implementations (run in main process)
 └── cuckoo-tools.d.ts  Type declarations for the AI

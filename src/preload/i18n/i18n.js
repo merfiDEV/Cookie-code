@@ -432,6 +432,18 @@ const KEYS = {
     ru: "Свои картинки: положите файлы (.webp/.jpg/.png/.gif) в папку и нажмите «Обновить».",
     en: "Custom images: drop files (.webp/.jpg/.png/.gif) into the folder and click Refresh.",
   },
+  // ---- Шрифт ----
+  "settings.section.font": { ru: "Шрифт", en: "Font" },
+  "settings.font.openFolder": {
+    ru: "Открыть папку шрифтов",
+    en: "Open fonts folder",
+  },
+  "settings.font.refresh": { ru: "Обновить", en: "Refresh" },
+  "settings.font.weight": { ru: "Жирность", en: "Weight" },
+  "settings.font.hint": {
+    ru: "Свои шрифты: положите файлы (.ttf/.otf/.woff/.woff2) в папку и нажмите «Обновить». Шрифт применяется ко всему интерфейсу и странице.",
+    en: "Custom fonts: drop files (.ttf/.otf/.woff/.woff2) into the folder and click Refresh. The font applies to the whole UI and page.",
+  },
   "settings.section.language": { ru: "Язык", en: "Language" },
   // ---- Категории / подвкладки настроек ----
   "settings.tab.theme": { ru: "🎨 Тема и стекло", en: "🎨 Theme & Glass" },

@@ -29,6 +29,7 @@ const inputGlass = require("./dom/input-glass");
 const forceDarkTheme = require("./dom/force-dark-theme");
 const qrOverride = require("./dom/qr-override");
 const fileChip = require("./dom/file-chip");
+const fonts = require("./dom/fonts");
 const whatsNew = require("./dom/whats-new");
 const i18n = require("./i18n/i18n");
 const state = require("./dom/state");
@@ -93,6 +94,9 @@ async function init() {
     // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события
     safe("init.injectCSS", () => ui.injectCSS());
     safe("init.injectOverlay", () => ui.injectOverlay());
+    // Кастомный шрифт интерфейса и страницы — до остальной отрисовки.
+    safe("init.fontsLoadAndApply", () => fonts.loadAndApply());
+    safe("init.fontsSettingsListener", () => fonts.installSettingsListener());
     // Скрыть блок «Токены диалога», если он выключен в настройках (по умолчанию).
     safe("init.applyConvTokensVisibility", () => {
       if (state.showConvTokens === true) return;

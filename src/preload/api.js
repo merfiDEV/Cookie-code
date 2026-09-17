@@ -149,6 +149,13 @@ let electronAPI = {
   openCustomBackgroundsFolder: () => {
     return ipcRenderer.invoke("cuckoo-backgrounds-open-folder");
   },
+  // ========== Пользовательские шрифты (userData/fonts) ==========
+  listCustomFonts: () => {
+    return ipcRenderer.invoke("cuckoo-fonts-list");
+  },
+  openCustomFontsFolder: () => {
+    return ipcRenderer.invoke("cuckoo-fonts-open-folder");
+  },
   // ========== Спрайты петов (userData/pets) ==========
   listPets: () => {
     return ipcRenderer.invoke("cuckoo-pets-list");

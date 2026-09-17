@@ -14,6 +14,7 @@
  *   .d316d158                             ← контейнер кнопок вкладок
  */
 const background = require("./background");
+const fonts = require("./fonts");
 const state = require("./state");
 const { t } = require("../i18n/i18n");
 
@@ -99,6 +100,9 @@ function activateCuckooTab() {
     refreshAgentSettings();
     // Чубрики (петы)
     bindPetsSection();
+    // Шрифт
+    bindFontsSection();
+    refreshFontWeight();
   }
   ourContent.style.display = "";
 
@@ -111,6 +115,7 @@ function activateCuckooTab() {
  */
 function buildContentHTML() {
   const items = background.getAllBackgrounds().map(backgroundItemHTML).join("");
+  const fontItems = fonts.getAllFonts().map(fontItemHTML).join("");
 
   return (
     "" +
@@ -154,6 +159,9 @@ function buildContentHTML() {
     "  .cuckoo-bg-preview { width: 100%; aspect-ratio: 16/10; background-size: cover; background-position: center; background-color: #0f1220; }" +
     "  .cuckoo-bg-label { font-size: 11px; padding: 6px 8px; text-align: center; color: #cfd3ff; " +
     "                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }" +
+    "  .cuckoo-font-preview { width: 100%; aspect-ratio: 16/10; display: flex; align-items: center; " +
+    "                         justify-content: center; background: #0f1220; color: #e8eaff; " +
+    "                         font-size: 20px; line-height: 1.2; }" +
     // ===== Слайдеры =====
     "  .cuckoo-blur-row { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; " +
     "                     background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.07); " +
@@ -518,6 +526,32 @@ function buildContentHTML() {
     "</div>" +
     '  <div class="ck-row-hint" style="margin-top:8px;">' +
     t("settings.bg.hint") +
+    "</div>" +
+    "</div>" +
+    // ===== Шрифт =====
+    "<div>" +
+    '  <div class="cuckoo-section-title">' +
+    t("settings.section.font") +
+    "</div>" +
+    '  <div class="ck-btn-row" style="margin-bottom:10px;">' +
+    '    <button id="cuckoo-font-open-folder" class="ck-btn">' +
+    t("settings.font.openFolder") +
+    "</button>" +
+    '    <button id="cuckoo-font-refresh" class="ck-btn">' +
+    t("settings.font.refresh") +
+    "</button>" +
+    "  </div>" +
+    '  <div class="cuckoo-bg-grid" id="cuckoo-font-grid">' +
+    fontItems +
+    "</div>" +
+    '  <div class="cuckoo-blur-row" style="margin-top:10px;">' +
+    '    <div class="cuckoo-blur-label"><span>' +
+    t("settings.font.weight") +
+    '</span><span class="cuckoo-blur-value" id="cuckoo-font-weight-val">400</span></div>' +
+    '    <input type="range" id="cuckoo-font-weight" class="cuckoo-blur-slider" min="100" max="900" step="100" value="400">' +
+    "  </div>" +
+    '  <div class="ck-row-hint" style="margin-top:8px;">' +
+    t("settings.font.hint") +
     "</div>" +
     "</div>" +
     "<div>" +
@@ -1332,6 +1366,183 @@ function bindBackgroundFolderButtons() {
       refreshBackgroundGrid();
     });
   }
+}
+
+/**
+ * Собрать HTML одного превью шрифта. Название шрифта набрано им же.
+ */
+function fontItemHTML(f) {
+  const family = f.system
+    ? ""
+    : (f.family || f.label || "") + ", -apple-system, sans-serif";
+  const nameStyle = family ? ' style="font-family: ' + family + ';"' : "";
+  return (
+    '<div class="cuckoo-bg-item cuckoo-font-item" data-font-id="' +
+    escapeHtml(f.id) +
+    '" title="' +
+    escapeHtml(f.label) +
+    '">' +
+    '  <div class="cuckoo-font-preview"' +
+    nameStyle +
+    ">Aa Бб 123</div>" +
+    '  <div class="cuckoo-bg-label">' +
+    escapeHtml(f.label) +
+    "</div>" +
+    "</div>"
+  );
+}
+
+/**
+ * Перерисовать сетку шрифтов (встроенные + пользовательские).
+ */
+async function refreshFontGrid() {
+  const gridEl = document.querySelector(
+    "#" + TAB_CONTENT_ID + " #cuckoo-font-grid",
+  );
+  if (!gridEl) return;
+  await fonts.loadCustomFonts();
+  gridEl.innerHTML = fonts.getAllFonts().map(fontItemHTML).join("");
+  bindFontGrid();
+  await refreshFontSelection();
+}
+
+/**
+ * Обработчики клика по превью шрифта: сохраняем и применяем.
+ */
+function bindFontGrid() {
+  const grid = document.querySelectorAll(
+    "#" + TAB_CONTENT_ID + " .cuckoo-font-item",
+  );
+  grid.forEach((el) => {
+    el.addEventListener("click", async () => {
+      const id = el.getAttribute("data-font-id");
+      if (!id) return;
+      fonts.apply(id);
+      document
+        .querySelectorAll("#" + TAB_CONTENT_ID + " .cuckoo-font-item")
+        .forEach((x) => x.classList.remove("cuckoo-bg-selected"));
+      el.classList.add("cuckoo-bg-selected");
+      try {
+        const res = await window.electronAPI.setCuckooSetting("font", id);
+        if (!res || !res.success) {
+          console.error(
+            "[Cookie Code] Не удалось сохранить шрифт:",
+            res && res.error,
+          );
+        }
+      } catch (err) {
+        console.error("[Cookie Code] Ошибка сохранения шрифта:", err.message);
+      }
+    });
+  });
+}
+
+/**
+ * Кнопки «Открыть папку шрифтов» и «Обновить».
+ */
+function bindFontFolderButtons() {
+  const openBtn = document.querySelector(
+    "#" + TAB_CONTENT_ID + " #cuckoo-font-open-folder",
+  );
+  if (openBtn) {
+    openBtn.addEventListener("click", async () => {
+      try {
+        await window.electronAPI.openCustomFontsFolder();
+      } catch (err) {
+        console.error(
+          "[Cookie Code] Не удалось открыть папку шрифтов:",
+          err.message,
+        );
+      }
+    });
+  }
+  const refreshBtn = document.querySelector(
+    "#" + TAB_CONTENT_ID + " #cuckoo-font-refresh",
+  );
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      refreshFontGrid();
+    });
+  }
+}
+
+/**
+ * Подсветить выбранный шрифт.
+ */
+async function refreshFontSelection() {
+  let currentId = fonts.DEFAULT_ID;
+  try {
+    const settings = await window.electronAPI.getCuckooSettings();
+    currentId = (settings && settings.font) || fonts.DEFAULT_ID;
+  } catch (_) {}
+  document
+    .querySelectorAll("#" + TAB_CONTENT_ID + " .cuckoo-font-item")
+    .forEach((el) => {
+      if (el.getAttribute("data-font-id") === currentId) {
+        el.classList.add("cuckoo-bg-selected");
+      } else {
+        el.classList.remove("cuckoo-bg-selected");
+      }
+    });
+}
+
+/**
+ * Инициализация секции «Шрифт».
+ */
+function bindFontsSection() {
+  bindFontGrid();
+  bindFontFolderButtons();
+  refreshFontSelection();
+  bindFontWeightSlider();
+  // Подтягиваем пользовательские шрифты с диска и перерисовываем сетку.
+  refreshFontGrid();
+}
+
+/**
+ * Слайдер жирности шрифта: на input — мгновенно применяем,
+ * на change — сохраняем в settings.json.
+ */
+function bindFontWeightSlider() {
+  const input = document.getElementById("cuckoo-font-weight");
+  const label = document.getElementById("cuckoo-font-weight-val");
+  if (!input) return;
+  const updateLabel = (v) => {
+    if (label) label.textContent = String(v);
+  };
+  input.addEventListener("input", () => {
+    const v = Number(input.value);
+    updateLabel(v);
+    fonts.applyWeight(v);
+  });
+  input.addEventListener("change", async () => {
+    const v = Number(input.value);
+    try {
+      const res = await window.electronAPI.setCuckooSetting("fontWeight", v);
+      if (!res || !res.success) {
+        console.error(
+          "[Cookie Code] Не удалось сохранить жирность:",
+          res && res.error,
+        );
+      }
+    } catch (err) {
+      console.error("[Cookie Code] Ошибка сохранения жирности:", err.message);
+    }
+  });
+}
+
+/**
+ * Выставить слайдер жирности по сохранённой настройке.
+ */
+async function refreshFontWeight() {
+  try {
+    const settings = await window.electronAPI.getCuckooSettings();
+    const w =
+      settings && settings.fontWeight != null ? settings.fontWeight : 400;
+    const input = document.getElementById("cuckoo-font-weight");
+    const label = document.getElementById("cuckoo-font-weight-val");
+    if (input) input.value = String(w);
+    if (label) label.textContent = String(w);
+  } catch (_) {}
 }
 
 /**

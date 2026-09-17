@@ -1190,6 +1190,60 @@ function registerIpcHandlers() {
     }
   });
 
+  // ========== Пользовательские шрифты (userData/fonts) ==========
+  // Папка: <userData>/fonts — пользователь кладёт туда .ttf/.otf/.woff/.woff2,
+  // они автоматически появляются в выборе шрифта в настройках.
+  const CUSTOM_FONT_EXT = [".ttf", ".otf", ".woff", ".woff2"];
+  const getCustomFontsDir = () => path.join(app.getPath("userData"), "fonts");
+
+  ipcMain.handle("cuckoo-fonts-list", async () => {
+    try {
+      const fs = require("fs");
+      const dir = getCustomFontsDir();
+      fs.mkdirSync(dir, { recursive: true });
+      const files = fs.readdirSync(dir).filter((f) => {
+        return CUSTOM_FONT_EXT.includes(path.extname(f).toLowerCase());
+      });
+      const list = files.map((f) => {
+        const ext = path.extname(f);
+        const base = f.slice(0, -ext.length);
+        return {
+          id: "custom:" + base,
+          label: base,
+          file: path.join(dir, f),
+          custom: true,
+        };
+      });
+      return { success: true, dir, fonts: list };
+    } catch (err) {
+      console.error(
+        "[Cookie Code] 读取 пользовательских шрифтов失败:",
+        err.message,
+      );
+      return {
+        success: false,
+        error: err.message,
+        dir: getCustomFontsDir(),
+        fonts: [],
+      };
+    }
+  });
+
+  // Открыть папку с пользовательскими шрифтами в системном проводнике.
+  ipcMain.handle("cuckoo-fonts-open-folder", async () => {
+    try {
+      const fs = require("fs");
+      const dir = getCustomFontsDir();
+      fs.mkdirSync(dir, { recursive: true });
+      const errMsg = await shell.openPath(dir);
+      if (errMsg) return { success: false, error: errMsg };
+      return { success: true, path: dir };
+    } catch (err) {
+      console.error("[Cookie Code] 打开 папку шрифтов失败:", err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
   // ========== Спрайты петов (userData/pets) ==========
   // Папка: <userData>/pets — пользователь кладёт туда PNG/GIF чубриков.
   const PET_EXT = [".webp", ".jpg", ".jpeg", ".png", ".gif"];

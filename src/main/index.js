@@ -36,6 +36,11 @@ const CUSTOM_BACKGROUNDS_DIR = path.join(
 );
 fs.mkdirSync(CUSTOM_BACKGROUNDS_DIR, { recursive: true });
 
+// Папка для пользовательских шрифтов: <userData>/fonts
+// Пользователь кладёт туда .ttf/.otf — они появляются в выборе шрифта в настройках.
+const CUSTOM_FONTS_DIR = path.join(app.getPath("userData"), "fonts");
+fs.mkdirSync(CUSTOM_FONTS_DIR, { recursive: true });
+
 // Папка для спрайтов петов: <userData>/pets
 // Пользователь кладёт туда PNG/GIF чубриков — они появляются в выборе пета.
 const CUSTOM_PETS_DIR = path.join(app.getPath("userData"), "pets");

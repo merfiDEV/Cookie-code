@@ -25,6 +25,11 @@ const DEFAULT_DANGEROUS_PATTERNS = [
 const DEFAULTS = {
   customizationEnabled: true,
   background: "miku",
+  // Шрифт интерфейса Cookie Code и страницы DeepSeek.
+  // "system" — системный по умолчанию; "<id>" — встроенный или "custom:<имя>".
+  font: "system",
+  // Жирность шрифта (100–900). Применяется и к системному, и к кастомному.
+  fontWeight: 400,
   backgroundBlur: 0, // px — размытие самой картинки фона
   headerBlur: 12, // px — стекло верхней панели
   sidebarBlur: 12, // px — стекло левого сайдбара

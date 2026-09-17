@@ -66,6 +66,18 @@
 - Выбор через сетку превью в **Настройки → Cookie Code**
 - Смена мгновенная, без перезагрузки
 
+### Шрифт
+
+Полный контроль над шрифтом интерфейса Cookie Code **и** страницы DeepSeek:
+
+- **Системный шрифт** по умолчанию — ничего не навязывается
+- **Встроенный Anthropic Mono** — на выбор одним кликом
+- **Свои шрифты** — положите файлы (`.ttf` / `.otf` / `.woff` / `.woff2`) в папку `<userData>/fonts` (кнопка **«Открыть папку шрифтов»**) и нажмите **«Обновить»** — шрифт появится в сетке превью
+- **Слайдер жирности** (100–900) — работает и для системного, и для любого кастомного шрифта
+- Выбор через сетку превью в **Настройки → Cookie Code**, применяется мгновенно и ко всему интерфейсу, и к странице DeepSeek
+
+Все настройки сохраняются в `cuckoo-settings.json` (`font`, `fontWeight`).
+
 ### Блюр и прозрачность
 
 Полный контроль над стеклянным эффектом интерфейса:
@@ -124,15 +136,15 @@
 
 Встроенные форматтеры:
 
-| Форматтер | Для чего | Что нужно |
-|-----------|----------|-----------|
-| `prettier` | `.js .jsx .ts .tsx .json .css .md .yaml` … | `prettier` в ближайшем `package.json` + бинарь в `node_modules/.bin` или `PATH` |
-| `biome` | то же, что prettier | `biome.json` / `biome.jsonc` в проекте |
-| `gofmt` | `.go` | `gofmt` в `PATH` |
-| `ruff` | `.py .pyi` | `ruff` в `PATH` + `[tool.ruff]` в `pyproject.toml` (или `ruff.toml`) |
-| `rustfmt` | `.rs` | `rustfmt` в `PATH` |
-| `shfmt` | `.sh .bash` | `shfmt` в `PATH` |
-| `clang-format` | `.c .cpp .h` … | конфиг `.clang-format` + `clang-format` в `PATH` |
+| Форматтер      | Для чего                                   | Что нужно                                                                       |
+| -------------- | ------------------------------------------ | ------------------------------------------------------------------------------- |
+| `prettier`     | `.js .jsx .ts .tsx .json .css .md .yaml` … | `prettier` в ближайшем `package.json` + бинарь в `node_modules/.bin` или `PATH` |
+| `biome`        | то же, что prettier                        | `biome.json` / `biome.jsonc` в проекте                                          |
+| `gofmt`        | `.go`                                      | `gofmt` в `PATH`                                                                |
+| `ruff`         | `.py .pyi`                                 | `ruff` в `PATH` + `[tool.ruff]` в `pyproject.toml` (или `ruff.toml`)            |
+| `rustfmt`      | `.rs`                                      | `rustfmt` в `PATH`                                                              |
+| `shfmt`        | `.sh .bash`                                | `shfmt` в `PATH`                                                                |
+| `clang-format` | `.c .cpp .h` …                             | конфиг `.clang-format` + `clang-format` в `PATH`                                |
 
 - Определение **учитывает конфиг проекта**: ruff не запустится без `[tool.ruff]`, prettier — без зависимости в `package.json`. Никакого неожиданного форматирования чужого кода.
 - Ошибки форматтера глушатся — падение форматтера никогда не блокирует `write`/`edit`.
@@ -211,19 +223,19 @@ Cookie Code перехватывает его, выполняет в песоч�
 
 ## Доступные инструменты
 
-| Инструмент | Описание |
-|-----------|----------|
-| `read`, `readLines` | Чтение файлов (с номерами строк, offset/limit) |
-| `write`, `edit` | Создание / изменение файлов (авто-форматирование при сохранении — см. ниже) |
-| `deleteFile` | Удаление файла |
-| `glob`, `grep` | Поиск по файлам (на базе ripgrep) |
-| `bash`, `pwsh` | Выполнение команд |
-| `todoWrite` | Структурированный список задач |
-| `webFetch` | Загрузка HTTP(S) как Markdown |
-| `mysql` | SQL-запросы |
-| `mcpCall`, `mcpListServers`, `mcpGetTools` | MCP-инструменты |
-| `skillList`, `skillLoad`, `skillExecute` | Пользовательские скиллы |
-| `openBrowserWindow`, `injectJS` | Окно браузера Electron + инъекция JS |
+| Инструмент                                 | Описание                                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------------- |
+| `read`, `readLines`                        | Чтение файлов (с номерами строк, offset/limit)                              |
+| `write`, `edit`                            | Создание / изменение файлов (авто-форматирование при сохранении — см. ниже) |
+| `deleteFile`                               | Удаление файла                                                              |
+| `glob`, `grep`                             | Поиск по файлам (на базе ripgrep)                                           |
+| `bash`, `pwsh`                             | Выполнение команд                                                           |
+| `todoWrite`                                | Структурированный список задач                                              |
+| `webFetch`                                 | Загрузка HTTP(S) как Markdown                                               |
+| `mysql`                                    | SQL-запросы                                                                 |
+| `mcpCall`, `mcpListServers`, `mcpGetTools` | MCP-инструменты                                                             |
+| `skillList`, `skillLoad`, `skillExecute`   | Пользовательские скиллы                                                     |
+| `openBrowserWindow`, `injectJS`            | Окно браузера Electron + инъекция JS                                        |
 
 Полные TypeScript-декларации — в `tools/cuckoo-tools.d.ts`.
 
@@ -247,6 +259,7 @@ Cookie Code создан для того, чтобы его перестраив
 
 - **Фоны** — 27 встроенных обоев, либо положите своё изображение в `src/ui/backgrounds/` и зарегистрируйте его в `registry.json`.
 - **Стеклянный эффект** — размытие фона / шапки / сайдбара, прозрачность и размытие стекла tool-блоков.
+- **Шрифт** — системный по умолчанию, встроенный Anthropic Mono или свои шрифты из папки; слайдер жирности (100–900). Применяется и к интерфейсу, и к странице DeepSeek.
 - **RGB-никнейм** — анимированный радужный градиент в сайдбаре, переключается в разделе **Effects**.
 
 ### Пользовательские скиллы
@@ -290,6 +303,8 @@ AI получает к нему доступ через `skillList`, `skillLoad`
 {
   "background": "miku",
   "backgroundBlur": 0,
+  "font": "system",
+  "fontWeight": 400,
   "headerBlur": 12,
   "sidebarBlur": 12,
   "headerOpacity": 45,
@@ -340,6 +355,7 @@ src/
 │   │   ├── response-meta.js  Бейдж ⏱ под ответом
 │   │   ├── settings-tab.js   Вкладка Cookie Code в настройках
 │   │   ├── background.js     Обои и блюр
+│   │   ├── fonts.js          Шрифт интерфейса и страницы
 │   │   └── ...
 │   └── overlay/         Оверлей-панель
 │       ├── template.js       buildOverlayHTML() + OVERLAY_CSS
@@ -349,6 +365,7 @@ src/
 │   └── deepseek.js      Адаптер платформы
 ├── ui/
 │   ├── backgrounds/     27 обоев + registry.json
+│   ├── fonts/           Встроенные шрифты (Anthropic Mono)
 │   └── logos/
 tools/                 Реализация инструментов (в главном процессе)
 └── cuckoo-tools.d.ts  TypeScript-декларации для AI
