@@ -791,6 +791,25 @@ function bindPetsSection() {
       lbl.className = "cuckoo-bg-label";
       lbl.textContent = p.label;
       item.appendChild(lbl);
+
+      // Кнопка «Вырезать фон» — только для GIF
+      const isGif = /\.gif$/i.test(p.file);
+      if (isGif) {
+        const chromaBtn = document.createElement("button");
+        chromaBtn.className = "ck-btn";
+        chromaBtn.style.cssText =
+          "position:absolute;top:4px;right:4px;padding:3px 6px;font-size:10px;" +
+          "border-radius:6px;background:rgba(139,147,255,0.85);color:#fff;" +
+          "border:none;cursor:pointer;z-index:2;opacity:0.9;";
+        chromaBtn.textContent = t("settings.pets.chromaBtn");
+        chromaBtn.title = t("settings.pets.chromaTitle");
+        chromaBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openChromaModal(p);
+        });
+        item.appendChild(chromaBtn);
+      }
+
       // Клик — выбрать
       item.addEventListener("click", async () => {
         try {
@@ -966,6 +985,281 @@ function bindPetsSection() {
     } catch (_) {}
     await loadPets();
   })();
+}
+
+// ===== Chroma-key редактор для GIF =====
+
+/**
+ * Открыть модалку редактора фона для GIF.
+ * Показывает первый кадр, даёт пипетку и слайдер tolerance, применяет
+ * через main-процесс (IPC cuckoo-pets-chroma).
+ *
+ * @param {{id: string, label: string, file: string}} pet
+ */
+function openChromaModal(pet) {
+  // Уже есть — закрываем старую
+  const old = document.getElementById("cuckoo-chroma-modal");
+  if (old) old.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "cuckoo-chroma-modal";
+  modal.style.cssText =
+    "position:fixed;inset:0;z-index:2147483650;background:rgba(6,8,18,0.78);" +
+    "display:flex;align-items:center;justify-content:center;padding:20px;";
+
+  const inner = document.createElement("div");
+  inner.style.cssText =
+    "background:#141726;border:1px solid rgba(139,147,255,0.35);border-radius:14px;" +
+    "width:min(640px,100%);max-height:90vh;display:flex;flex-direction:column;" +
+    "box-shadow:0 20px 60px rgba(0,0,0,0.6);overflow:hidden;";
+
+  // Header
+  const header = document.createElement("div");
+  header.style.cssText =
+    "padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.07);" +
+    "display:flex;justify-content:space-between;align-items:center;";
+  const title = document.createElement("div");
+  title.style.cssText = "font-size:15px;font-weight:700;color:#eef0ff;";
+  title.textContent = t("settings.pets.chromaModalTitle");
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "ck-btn";
+  closeBtn.style.cssText = "padding:6px 12px;font-size:12px;";
+  closeBtn.textContent = "✕";
+  closeBtn.addEventListener("click", () => modal.remove());
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  inner.appendChild(header);
+
+  // Body
+  const body = document.createElement("div");
+  body.style.cssText =
+    "padding:14px 18px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;";
+
+  const hint = document.createElement("div");
+  hint.className = "ck-row-hint";
+  hint.style.margin = "0";
+  hint.textContent = t("settings.pets.chromaHint");
+  body.appendChild(hint);
+
+  // Canvas
+  const canvasWrap = document.createElement("div");
+  canvasWrap.style.cssText =
+    "background:repeating-conic-gradient(#2a2d40 0% 25%, #1d2030 0% 50%) 50% / 16px 16px;" +
+    "border-radius:10px;padding:8px;display:flex;justify-content:center;";
+  const canvas = document.createElement("canvas");
+  canvas.style.cssText =
+    "max-width:100%;max-height:320px;image-rendering:pixelated;cursor:crosshair;" +
+    "border-radius:6px;";
+  canvasWrap.appendChild(canvas);
+  body.appendChild(canvasWrap);
+
+  const previewHint = document.createElement("div");
+  previewHint.className = "ck-row-hint";
+  previewHint.style.margin = "0";
+  previewHint.textContent = t("settings.pets.chromaPreviewHint");
+  body.appendChild(previewHint);
+
+  // Выбранный цвет
+  const colorRow = document.createElement("div");
+  colorRow.style.cssText =
+    "display:flex;align-items:center;gap:10px;font-size:12px;color:#cfd3ff;";
+  const colorSwatch = document.createElement("div");
+  colorSwatch.style.cssText =
+    "width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,0.25);" +
+    "background:#000;flex-shrink:0;";
+  const colorLabel = document.createElement("span");
+  colorLabel.textContent = t("settings.pets.chromaPicked").replace(
+    "{color}",
+    "—",
+  );
+  colorRow.appendChild(colorSwatch);
+  colorRow.appendChild(colorLabel);
+  body.appendChild(colorRow);
+
+  // Tolerance
+  const tolRow = document.createElement("div");
+  tolRow.className = "cuckoo-blur-row";
+  tolRow.style.cssText =
+    "display:flex;flex-direction:column;gap:6px;padding:10px 12px;" +
+    "background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.07);" +
+    "border-radius:10px;";
+  const tolLabel = document.createElement("div");
+  tolLabel.className = "cuckoo-blur-label";
+  tolLabel.innerHTML =
+    "<span>" +
+    t("settings.pets.chromaTolerance") +
+    "</span>" +
+    '<span class="cuckoo-blur-value" id="cuckoo-chroma-tol-val">16</span>';
+  const tolInput = document.createElement("input");
+  tolInput.type = "range";
+  tolInput.min = "0";
+  tolInput.max = "128";
+  tolInput.value = "16";
+  tolInput.className = "cuckoo-blur-slider";
+  tolInput.id = "cuckoo-chroma-tol";
+  tolInput.addEventListener("input", () => {
+    document.getElementById("cuckoo-chroma-tol-val").textContent =
+      tolInput.value;
+  });
+  tolRow.appendChild(tolLabel);
+  tolRow.appendChild(tolInput);
+  body.appendChild(tolRow);
+
+  // Footer
+  const footer = document.createElement("div");
+  footer.style.cssText =
+    "padding:12px 18px;border-top:1px solid rgba(255,255,255,0.07);" +
+    "display:flex;gap:8px;justify-content:flex-end;";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.className = "ck-btn";
+  cancelBtn.textContent = t("settings.pets.chromaCancel");
+  cancelBtn.addEventListener("click", () => modal.remove());
+  const applyBtn = document.createElement("button");
+  applyBtn.className = "ck-btn";
+  applyBtn.style.background = "rgba(139,147,255,0.35)";
+  applyBtn.textContent = t("settings.pets.chromaApply");
+  footer.appendChild(cancelBtn);
+  footer.appendChild(applyBtn);
+
+  inner.appendChild(body);
+  inner.appendChild(footer);
+  modal.appendChild(inner);
+  document.body.appendChild(modal);
+
+  // ===== Загрузка GIF в canvas =====
+  const img = new Image();
+  const dataUri = background.getPreviewUri(pet.file);
+  let pickedColor = null; // {r,g,b,hex}
+
+  const redraw = () => {
+    if (!img.naturalWidth) return;
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+  };
+
+  img.onload = () => {
+    redraw();
+  };
+  img.onerror = () => {
+    console.error("[Cookie Code] Не удалось загрузить GIF:", pet.file);
+  };
+  img.src = dataUri;
+
+  // ===== Пипетка =====
+  canvas.addEventListener("click", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor(((e.clientX - rect.left) / rect.width) * canvas.width);
+    const y = Math.floor(
+      ((e.clientY - rect.top) / rect.height) * canvas.height,
+    );
+    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
+    const ctx = canvas.getContext("2d");
+    const px = ctx.getImageData(x, y, 1, 1).data;
+    const r = px[0];
+    const g = px[1];
+    const b = px[2];
+    const hex =
+      "#" +
+      ((1 << 24) | (r << 16) | (g << 8) | b)
+        .toString(16)
+        .slice(1)
+        .toUpperCase();
+    pickedColor = { r, g, b, hex };
+    colorSwatch.style.background = hex;
+    colorLabel.textContent = t("settings.pets.chromaPicked").replace(
+      "{color}",
+      hex,
+    );
+  });
+
+  // ===== Применить =====
+  applyBtn.addEventListener("click", async () => {
+    if (!pickedColor) {
+      await window.electronAPI.showBannerNotification(
+        t("settings.pets.chromaNoColor"),
+        { duration: 4000 },
+      );
+      return;
+    }
+    applyBtn.disabled = true;
+    const oldText = applyBtn.textContent;
+    applyBtn.textContent = t("settings.pets.chromaProcessing");
+    try {
+      const tolerance = Number(tolInput.value) || 0;
+      const res = await window.electronAPI.chromaKeyPet(
+        pet.file,
+        pickedColor.hex,
+        tolerance,
+      );
+      if (res && res.success) {
+        await window.electronAPI.showBannerNotification(
+          t("settings.pets.chromaDone"),
+          { duration: 4000 },
+        );
+        modal.remove();
+        // Сброс кэша data-URI в background, перерисовка превью и пета.
+        try {
+          if (typeof background.invalidatePreviewCache === "function") {
+            background.invalidatePreviewCache(pet.file);
+          }
+        } catch (_) {}
+        try {
+          const itemEl = document.querySelector(
+            '#cuckoo-pets-grid .cuckoo-bg-item[data-pet-file="' +
+              String(pet.file).replace(/"/g, '\\"') +
+              '"]',
+          );
+          if (itemEl) {
+            const prev = itemEl.querySelector(".cuckoo-bg-preview");
+            if (prev) {
+              const newUri = background.getPreviewUri(pet.file);
+              prev.style.backgroundImage = 'url("' + newUri + '")';
+            }
+          }
+        } catch (err) {
+          console.error(
+            "[Cookie Code] Не удалось обновить превью:",
+            err.message,
+          );
+        }
+        try {
+          const petMod = require("./pet");
+          if (petMod && typeof petMod.reloadSettings === "function") {
+            await petMod.reloadSettings();
+          }
+        } catch (_) {}
+      } else {
+        await window.electronAPI.showBannerNotification(
+          t("settings.pets.chromaError").replace(
+            "{msg}",
+            (res && res.error) || "unknown",
+          ),
+          { duration: 6000 },
+        );
+        applyBtn.disabled = false;
+        applyBtn.textContent = oldText;
+      }
+    } catch (err) {
+      await window.electronAPI.showBannerNotification(
+        t("settings.pets.chromaError").replace("{msg}", err.message),
+        { duration: 6000 },
+      );
+      applyBtn.disabled = false;
+      applyBtn.textContent = oldText;
+    }
+  });
+
+  // Esc — закрыть
+  const onKey = (e) => {
+    if (e.key === "Escape") {
+      modal.remove();
+      window.removeEventListener("keydown", onKey, true);
+    }
+  };
+  window.addEventListener("keydown", onKey, true);
 }
 
 /**

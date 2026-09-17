@@ -1239,6 +1239,50 @@ function registerIpcHandlers() {
     }
   });
 
+  // Chroma-key для GIF: сделать выбранный цвет прозрачным во всех кадрах.
+  // payload: { file: <абсолютный путь>, color: "#rrggbb", tolerance: 0..255 }
+  ipcMain.handle(
+    "cuckoo-pets-chroma",
+    async (_event, { file, color, tolerance } = {}) => {
+      try {
+        if (!file || typeof file !== "string") {
+          return { success: false, error: "Не указан файл" };
+        }
+        const fs = require("fs");
+        if (!fs.existsSync(file)) {
+          return { success: false, error: "Файл не найден: " + file };
+        }
+        if (path.extname(file).toLowerCase() !== ".gif") {
+          return {
+            success: false,
+            error: "Chroma-key доступен только для GIF",
+          };
+        }
+        // Парсим #rrggbb
+        const m = /^#?([0-9a-fA-F]{6})$/.exec(String(color || "").trim());
+        if (!m) {
+          return {
+            success: false,
+            error: "Некорректный цвет (ожидается #rrggbb)",
+          };
+        }
+        const hex = m[1];
+        const target = {
+          r: parseInt(hex.slice(0, 2), 16),
+          g: parseInt(hex.slice(2, 4), 16),
+          b: parseInt(hex.slice(4, 6), 16),
+        };
+        const tol = Math.max(0, Math.min(255, Number(tolerance) || 0));
+        const { chromaKeyGif } = require("./gif-chroma");
+        const res = chromaKeyGif(file, target, tol);
+        return res;
+      } catch (err) {
+        console.error("[Cookie Code] Chroma-key GIF失败:", err.message);
+        return { success: false, error: err.message };
+      }
+    },
+  );
+
   // Импорт пета из произвольного файла: диалог выбора → копирование в pets
   // → нормализация (ресайз до 600×600) → возврат имени для авто-выбора.
   ipcMain.handle("cuckoo-pets-import", async (event) => {

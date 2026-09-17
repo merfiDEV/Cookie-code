@@ -323,6 +323,49 @@ const KEYS = {
   "settings.section.background": { ru: "Фон страницы", en: "Page background" },
   // ---- Чубрики (петы) ----
   "settings.section.pets": { ru: "Чубрики", en: "Pets" },
+  "settings.pets.chromaBtn": { ru: "🎨 Фон", en: "🎨 BG" },
+  "settings.pets.chromaTitle": {
+    ru: "Вырезать цвет фона (chroma-key)",
+    en: "Remove background color (chroma-key)",
+  },
+  "settings.pets.chromaModalTitle": {
+    ru: "Вырезать фон GIF",
+    en: "Remove GIF background",
+  },
+  "settings.pets.chromaHint": {
+    ru: "Кликните по картинке, чтобы выбрать цвет фона. Все пиксели этого цвета станут прозрачными во всех кадрах.",
+    en: "Click the image to pick the background color. All pixels of that color become transparent in every frame.",
+  },
+  "settings.pets.chromaPicked": {
+    ru: "Выбран цвет: {color}",
+    en: "Picked color: {color}",
+  },
+  "settings.pets.chromaTolerance": {
+    ru: "Допуск (похожесть оттенков)",
+    en: "Tolerance (color similarity)",
+  },
+  "settings.pets.chromaApply": { ru: "Применить", en: "Apply" },
+  "settings.pets.chromaCancel": { ru: "Отмена", en: "Cancel" },
+  "settings.pets.chromaNoColor": {
+    ru: "Сначала выберите цвет кликом по картинке",
+    en: "Pick a color by clicking the image first",
+  },
+  "settings.pets.chromaDone": {
+    ru: "Готово! Фон удалён во всех кадрах.",
+    en: "Done! Background removed in all frames.",
+  },
+  "settings.pets.chromaError": {
+    ru: "Ошибка: {msg}",
+    en: "Error: {msg}",
+  },
+  "settings.pets.chromaProcessing": {
+    ru: "Обработка…",
+    en: "Processing…",
+  },
+  "settings.pets.chromaPreviewHint": {
+    ru: "Превью — 1-й кадр. Цвет применяется ко всем кадрам.",
+    en: "Preview is frame 1. Color is applied to every frame.",
+  },
   "settings.pets.enabledTitle": { ru: "Пет включён", en: "Pet enabled" },
   "settings.pets.enabledHint": {
     ru: "Показывать чубрика на экране. По умолчанию — да.",

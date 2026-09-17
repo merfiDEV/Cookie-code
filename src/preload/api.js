@@ -159,6 +159,9 @@ let electronAPI = {
   importPet: () => {
     return ipcRenderer.invoke("cuckoo-pets-import");
   },
+  chromaKeyPet: (file, color, tolerance) => {
+    return ipcRenderer.invoke("cuckoo-pets-chroma", { file, color, tolerance });
+  },
   // ========== Todo-задачи ==========
   getTodos: () => {
     return ipcRenderer.invoke("todo-get");

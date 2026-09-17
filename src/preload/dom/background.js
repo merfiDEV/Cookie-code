@@ -485,6 +485,21 @@ function getPreviewUri(file) {
 }
 
 /**
+ * Сбросить кэш data-URI для конкретного файла (или всего).
+ * Нужно после изменения картинки на диске (например, chroma-key GIF).
+ * @param {string} [file]  путь файла; если не задан — сбрасывается всё.
+ */
+function invalidatePreviewCache(file) {
+  try {
+    if (file) {
+      dataUriCache.delete(file);
+    } else {
+      dataUriCache.clear();
+    }
+  } catch (_) {}
+}
+
+/**
  * Очистить localStorage-хранилища Cookie Code:
  * - cuckoo-response-meta (мета ответов: время + токены)
  * - cuckoo-errors (сохранённые ошибки tool-блоков)
@@ -564,6 +579,7 @@ module.exports = {
   applyCustomizationEnabled,
   loadAndApply,
   getPreviewUri,
+  invalidatePreviewCache,
   resetAll,
   clearLocalStorage,
   RESET_DEFAULTS,
