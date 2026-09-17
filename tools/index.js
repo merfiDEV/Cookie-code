@@ -2,34 +2,39 @@
  * 工具库统一入口
  * 导出所有可用工具（主进程注册工具的唯一入口，与 src/main/tool-registry.js 配套）
  */
-const { ToolRegistry } = require('./ToolRegistry');
-const { JsRunner } = require('./JsRunner');
-const { FileWriteTool } = require('./FileWriteTool');
-const { WriteTool } = require('./WriteTool');
-const { FileReadTool } = require('./FileReadTool');
-const { ReadTool } = require('./ReadTool');
-const { ReadLinesTool } = require('./ReadLinesTool');
-const { FileEditTool } = require('./FileEditTool');
-const { EditTool } = require('./EditTool');
-const { GlobTool } = require('./GlobTool');
-const { GlobToolNew } = require('./GlobToolNew');
-const { GrepTool } = require('./GrepTool');
-const { GrepToolNew } = require('./GrepToolNew');
-const { TodoWriteTool, TodoEditTool, TodoDeleteTool } = require('./TodoTools');
-const { BashTool } = require('./BashTool');
-const { PwshTool } = require('./PwshTool');
-const { FileDeleteTool } = require('./FileDeleteTool');
-const { WebFetchTool } = require('./WebFetchTool');
-const { CityTimeTool } = require('./CityTimeTool');
-const { MySQLTool } = require('./MySQLTool');
-const { OpenBrowserWindowTool } = require('./OpenBrowserWindowTool');
-const { InjectJSTool } = require('./InjectJSTool');
-const { McpCallTool } = require('./McpCallTool');
-const { McpListServersTool, McpGetToolsTool } = require('./McpQueryTools');
-const { SkillListTool, SkillLoadTool, SkillExecuteTool } = require('./SkillTools');
-const { AskUserQuestionTool } = require('./AskUserQuestionTool');
-const { ReadPhotoTool } = require('./ReadPhotoTool');
-const { ExitPlanModeTool } = require('./ExitPlanModeTool');
+const { ToolRegistry } = require("./ToolRegistry");
+const { JsRunner } = require("./JsRunner");
+const { FileWriteTool } = require("./FileWriteTool");
+const { WriteTool } = require("./WriteTool");
+const { FileReadTool } = require("./FileReadTool");
+const { ReadTool } = require("./ReadTool");
+const { ReadLinesTool } = require("./ReadLinesTool");
+const { FileEditTool } = require("./FileEditTool");
+const { EditTool } = require("./EditTool");
+const { GlobTool } = require("./GlobTool");
+const { GlobToolNew } = require("./GlobToolNew");
+const { GrepTool } = require("./GrepTool");
+const { GrepToolNew } = require("./GrepToolNew");
+const { TodoWriteTool, TodoEditTool, TodoDeleteTool } = require("./TodoTools");
+const { BashTool } = require("./BashTool");
+const { PwshTool } = require("./PwshTool");
+const { FileDeleteTool } = require("./FileDeleteTool");
+const { WebFetchTool } = require("./WebFetchTool");
+const { CityTimeTool } = require("./CityTimeTool");
+const { MySQLTool } = require("./MySQLTool");
+const { OpenBrowserWindowTool } = require("./OpenBrowserWindowTool");
+const { InjectJSTool } = require("./InjectJSTool");
+const { McpCallTool } = require("./McpCallTool");
+const { McpListServersTool, McpGetToolsTool } = require("./McpQueryTools");
+const {
+  SkillListTool,
+  SkillLoadTool,
+  SkillExecuteTool,
+} = require("./SkillTools");
+const { AskUserQuestionTool } = require("./AskUserQuestionTool");
+const { ReadPhotoTool } = require("./ReadPhotoTool");
+const { ExitPlanModeTool } = require("./ExitPlanModeTool");
+const { AttachFileTool } = require("./AttachFileTool");
 
 // 创建全局工具注册表
 const registry = new ToolRegistry();
@@ -66,6 +71,7 @@ registry.register(new SkillExecuteTool());
 registry.register(new AskUserQuestionTool());
 registry.register(new ReadPhotoTool());
 registry.register(new ExitPlanModeTool());
+registry.register(new AttachFileTool());
 
 // 导出
 module.exports = {
@@ -99,9 +105,10 @@ module.exports = {
   AskUserQuestionTool,
   ReadPhotoTool,
   ExitPlanModeTool,
+  AttachFileTool,
   // 便捷方法
   getAllTools: () => registry,
   getToolDescriptions: () => registry.getDescriptions(),
   getFormattedToolsForPrompt: () => registry.getFormattedToolsForPrompt(),
-  executeTool: (name, params) => registry.execute(name, params)
+  executeTool: (name, params) => registry.execute(name, params),
 };

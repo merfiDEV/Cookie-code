@@ -5,31 +5,32 @@
  * 注册表（tools/index.js）完成。列表与顺序保持与原内联注册表一致。
  */
 const TOOL_NAMES = [
-  'file_write',
-  'write',
-  'file_read',
-  'read',
-  'read_lines',
-  'file_edit',
-  'edit',
-  'file_glob',
-  'glob',
-  'file_grep',
-  'grep',
-  'todo_write',
-  'bash',
-  'pwsh',
-  'mysql',
-  'web_fetch',
-  'city_time',
-  'open_browser_window',
-  'inject_js',
-  'mcp_list_servers',
-  'mcp_get_tools',
-  'skill_list',
-  'skill_load',
-  'skill_execute',
-  'exit_plan_mode',
+  "file_write",
+  "write",
+  "file_read",
+  "read",
+  "read_lines",
+  "file_edit",
+  "edit",
+  "file_glob",
+  "glob",
+  "file_grep",
+  "grep",
+  "todo_write",
+  "bash",
+  "pwsh",
+  "mysql",
+  "web_fetch",
+  "city_time",
+  "open_browser_window",
+  "inject_js",
+  "attach_file",
+  "mcp_list_servers",
+  "mcp_get_tools",
+  "skill_list",
+  "skill_load",
+  "skill_execute",
+  "exit_plan_mode",
 ];
 
 /** 判断工具名是否存在（原 toolManager.tools.has(name)） */
@@ -39,7 +40,7 @@ function hasTool(name) {
 
 /** 工具名列表字符串（原 Array.from(toolManager.tools.keys()).join(', ')） */
 function toolNamesList() {
-  return TOOL_NAMES.join(', ');
+  return TOOL_NAMES.join(", ");
 }
 
 module.exports = { TOOL_NAMES, hasTool, toolNamesList };
