@@ -222,6 +222,38 @@ async function insertImageToChat(sender, filePath, caption, send) {
 }
 
 /**
+ * Загрузить файл как вложение в поле ввода чата активного окна.
+ * В отличие от картинок (clipboard + Ctrl+V), произвольные файлы вставляются
+ * через скрытый <input type=file> на странице чата: формируем File из base64
+ * и прокидываем его в input через DataTransfer + событие change.
+ * @param {Electron.WebContents} sender
+ * @param {{code:string, fileName:string, size:number}} payload
+ * @returns {Promise<{success: boolean, fileName?: string, error?: string}>}
+ */
+async function attachFileToChat(sender, payload) {
+  try {
+    if (!sender || sender.isDestroyed()) {
+      return { success: false, error: "Окно недоступно" };
+    }
+    const code = payload && payload.code;
+    if (!code || typeof code !== "string") {
+      return { success: false, error: "Не передано содержимое файла" };
+    }
+    const result = await sender.executeJavaScript(code, true);
+    if (!result || result.success !== true) {
+      return {
+        success: false,
+        error: (result && result.error) || "Не удалось загрузить вложение",
+      };
+    }
+    return { success: true, fileName: result.fileName };
+  } catch (err) {
+    console.error("[Cookie Code] attachFileToChat error:", err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Попытаться открыть файл в VS Code (команда code --goto <path>).
  * @param {string} filePath — абсолютный путь
  * @returns {Promise<{success: boolean, error?: string}>}
@@ -601,6 +633,7 @@ function registerIpcHandlers() {
             requestUserQuestion(event.sender, questions),
           pasteImage: (filePath, caption, send) =>
             insertImageToChat(event.sender, filePath, caption, send),
+          attachFile: (payload) => attachFileToChat(event.sender, payload),
           exitPlanMode: (plan) => requestExitPlanMode(event.sender, plan),
         });
         if (isTaskCanceled(event.sender.id, taskToken)) {
@@ -790,6 +823,7 @@ function registerIpcHandlers() {
           insertImageToChat(event.sender, filePath, caption, send),
         (plan) => requestExitPlanMode(event.sender, plan),
         sessionIdOf(event),
+        (payload) => attachFileToChat(event.sender, payload),
       );
       if (isTaskCanceled(event.sender.id, taskToken)) {
         return {
