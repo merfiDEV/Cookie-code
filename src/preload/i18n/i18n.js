@@ -57,6 +57,14 @@ const KEYS = {
     en: "Bot token (@BotFather)",
   },
   "tg.label.chatId": { ru: "Chat ID", en: "Chat ID" },
+  "tg.label.allowedUserId": {
+    ru: "Разрешённый User ID (пусто — любой)",
+    en: "Allowed User ID (empty — any)",
+  },
+  "tg.label.notifyIgnore": {
+    ru: "Исключить tool из уведомлений (по одному в строке)",
+    en: "Exclude tools from notifications (one per line)",
+  },
   "tg.label.enabled": { ru: "Включить бота", en: "Enable bot" },
   "tg.label.notifyTools": {
     ru: "Уведомления о tool",

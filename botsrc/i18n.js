@@ -38,6 +38,11 @@ const STRINGS = {
     "help.cmd.new": "/new         — новый чат",
     "help.cmd.diff": "/diff        — показать изменения (git diff)",
     "help.cmd.diagnostics": "/diagnostics — диагностика интеграции",
+    "help.cmd.sessions": "/sessions    — список сессий проекта",
+    "help.cmd.switch": "/switch &lt;id&gt; — переключиться на сессию",
+    "help.cmd.log": "/log         — история коммитов (git log)",
+    "help.cmd.show": "/show &lt;hash&gt; — diff коммита",
+    "help.cmd.files": "/files &lt;hash&gt; — файлы коммита",
     "help.cmd.todos": "/todos       — список задач активного окна",
     "help.cmd.cancel": "/cancel      — отменить ввод / подтверждение",
     "help.cmd.help": "/help        — эта справка",
@@ -98,6 +103,8 @@ const STRINGS = {
     "label.telegramChatFeed": "Принимать из TG",
     "label.telegramBotToken": "Токен бота",
     "label.telegramChatId": "Chat ID",
+    "label.telegramAllowedUserId": "Разрешённый User ID",
+    "label.telegramToolNotifyIgnore": "Исключить tool из уведомлений",
 
     // ===== Ввод значения настройки =====
     "input.prompt": "Отправьте новое значение",
@@ -153,6 +160,44 @@ const STRINGS = {
     // ===== /todos =====
     "todos.empty": "☑ Список задач пуст.",
     "todos.header": "☑ Задачи ({done}/{total}):",
+
+    // ===== /sessions и /switch =====
+    "sessions.empty": "📭 Сессий не найдено.",
+    "sessions.title": "🗂 <b>Сессии</b> (стр. {page}/{pages})",
+    "sessions.hint": "<i>Переключиться: /switch &lt;id&gt;</i>",
+    "sessions.switched": "✅ Переключено на сессию: <code>{id}</code>",
+    "sessions.switchFailed": "⚠️ Не удалось переключиться: {err}",
+    "sessions.needId": "⚠️ Укажите id сессии: /switch &lt;id&gt;",
+
+    // ===== /log, /show, /files =====
+    "log.empty": "📭 Коммитов не найдено.",
+    "log.title": "📜 <b>История коммитов</b> (стр. {page}/{pages})",
+    "log.line": "<code>{short}</code> · {date} · {subject}",
+    "log.hint": "<i>Diff: /show &lt;hash&gt; · Файлы: /files &lt;hash&gt;</i>",
+    "show.needHash": "⚠️ Укажите хеш коммита: /show &lt;hash&gt;",
+    "show.title": "📄 <b>Коммит {hash}</b>",
+    "show.unavailable": "(diff недоступен)",
+    "files.needHash": "⚠️ Укажите хеш коммита: /files &lt;hash&gt;",
+    "files.title": "📁 <b>Файлы коммита {hash}</b>",
+    "files.empty": "Файлов нет.",
+    "files.status.added": "➕",
+    "files.status.modified": "✏️",
+    "files.status.deleted": "➖",
+    "files.status.renamed": "➡️",
+    "files.status.changed": "•",
+
+    // ===== Вложения из Telegram =====
+    "attach.saved": "📎 Файл получен: <b>{name}</b>",
+    "attach.attaching": "⏳ Прикрепляю к чату…",
+    "attach.done": "✅ Прикреплено к чату: <b>{name}</b>",
+    "attach.failed": "⚠️ Не удалось прикрепить: {err}",
+    "attach.downloading": "⏳ Скачиваю вложение…",
+    "attach.tooBig": "⚠️ Файл слишком большой (макс. {max}MB).",
+    "attach.unsupported": "⚠️ Пока поддерживаются только фото и документы.",
+
+    // ===== Пагинация =====
+    "page.prev": "◀️ Назад",
+    "page.next": "Вперёд ▶️",
 
     // ===== Уведомления о tool =====
     "tool.editTitle": " ",
@@ -223,6 +268,11 @@ const STRINGS = {
     "help.cmd.new": "/new         — new chat",
     "help.cmd.diff": "/diff        — show changes (git diff)",
     "help.cmd.diagnostics": "/diagnostics — integration diagnostics",
+    "help.cmd.sessions": "/sessions    — project sessions list",
+    "help.cmd.switch": "/switch &lt;id&gt; — switch to a session",
+    "help.cmd.log": "/log         — commit history (git log)",
+    "help.cmd.show": "/show &lt;hash&gt; — commit diff",
+    "help.cmd.files": "/files &lt;hash&gt; — commit files",
     "help.cmd.todos": "/todos       — tasks of the active window",
     "help.cmd.cancel": "/cancel      — cancel input / approval",
     "help.cmd.help": "/help        — this help",
@@ -237,17 +287,17 @@ const STRINGS = {
     "settings.root.title": "⚙️ <b>Cookie Code settings</b>",
     "settings.root.text": "What to configure?",
     "settings.page.ui": "🎨 Interface",
-    "settings.page.glass": "🪟 Glass & panel",
-    "settings.page.agent": "🤖 Agent & privacy",
+    "settings.page.glass": "🪟 Glass &amp; panel",
+    "settings.page.agent": "🤖 Agent &amp; privacy",
     "settings.page.tg": "📡 Telegram bot",
     "settings.page.lang": "🌐 Language",
 
     "settings.ui.title": "🎨 <b>Interface</b>",
     "settings.ui.text": "General visual effects.",
-    "settings.glass.title": "🪟 <b>Glass & panel</b>",
+    "settings.glass.title": "🪟 <b>Glass &amp; panel</b>",
     "settings.glass.text":
       "Transparency, blur and colors of the Cookie Code panel.",
-    "settings.agent.title": "🤖 <b>Agent & privacy</b>",
+    "settings.agent.title": "🤖 <b>Agent &amp; privacy</b>",
     "settings.agent.text": "Approvals, system messages, formatters.",
     "settings.tg.title": "📡 <b>Telegram bot</b>",
     "settings.tg.text": "Bot control and notifications.",
@@ -284,6 +334,8 @@ const STRINGS = {
     "label.telegramChatFeed": "Receive from TG",
     "label.telegramBotToken": "Bot token",
     "label.telegramChatId": "Chat ID",
+    "label.telegramAllowedUserId": "Allowed User ID",
+    "label.telegramToolNotifyIgnore": "Tools excluded from notifications",
 
     // ===== Setting input =====
     "input.prompt": "Send a new value",
@@ -338,6 +390,44 @@ const STRINGS = {
     // ===== /todos =====
     "todos.empty": "☑ Task list is empty.",
     "todos.header": "☑ Tasks ({done}/{total}):",
+
+    // ===== /sessions and /switch =====
+    "sessions.empty": "📭 No sessions found.",
+    "sessions.title": "🗂 <b>Sessions</b> (page {page}/{pages})",
+    "sessions.hint": "<i>Switch: /switch &lt;id&gt;</i>",
+    "sessions.switched": "✅ Switched to session: <code>{id}</code>",
+    "sessions.switchFailed": "⚠️ Failed to switch: {err}",
+    "sessions.needId": "⚠️ Provide a session id: /switch &lt;id&gt;",
+
+    // ===== /log, /show, /files =====
+    "log.empty": "📭 No commits found.",
+    "log.title": "📜 <b>Commit history</b> (page {page}/{pages})",
+    "log.line": "<code>{short}</code> · {date} · {subject}",
+    "log.hint": "<i>Diff: /show &lt;hash&gt; · Files: /files &lt;hash&gt;</i>",
+    "show.needHash": "⚠️ Provide a commit hash: /show &lt;hash&gt;",
+    "show.title": "📄 <b>Commit {hash}</b>",
+    "show.unavailable": "(diff unavailable)",
+    "files.needHash": "⚠️ Provide a commit hash: /files &lt;hash&gt;",
+    "files.title": "📁 <b>Files in commit {hash}</b>",
+    "files.empty": "No files.",
+    "files.status.added": "➕",
+    "files.status.modified": "✏️",
+    "files.status.deleted": "➖",
+    "files.status.renamed": "➡️",
+    "files.status.changed": "•",
+
+    // ===== Attachments from Telegram =====
+    "attach.saved": "📎 File received: <b>{name}</b>",
+    "attach.attaching": "⏳ Attaching to chat…",
+    "attach.done": "✅ Attached to chat: <b>{name}</b>",
+    "attach.failed": "⚠️ Failed to attach: {err}",
+    "attach.downloading": "⏳ Downloading attachment…",
+    "attach.tooBig": "⚠️ File too large (max {max}MB).",
+    "attach.unsupported": "⚠️ Only photos and documents are supported yet.",
+
+    // ===== Pagination =====
+    "page.prev": "◀️ Back",
+    "page.next": "Next ▶️",
 
     // ===== Tool notifications =====
     "tool.editTitle": " ",

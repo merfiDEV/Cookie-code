@@ -20,6 +20,7 @@ class TelegramBot {
   constructor() {
     this.token = "";
     this.chatId = "";
+    this.allowedUserId = "";
     this.polling = false;
     this.offset = 0;
     this.pollTimer = null;
@@ -50,10 +51,13 @@ class TelegramBot {
     } catch (_) {}
   }
 
-  /** Настроить токен/chat_id. Возвращает true, если параметры валидны. */
-  configure(token, chatId) {
+  /** Настроить токен/chat_id/allowedUserId. Возвращает true, если параметры валидны. */
+  configure(token, chatId, allowedUserId) {
     this.token = String(token || "").trim();
     this.chatId = String(chatId || "").trim();
+    if (allowedUserId !== undefined) {
+      this.allowedUserId = String(allowedUserId || "").trim();
+    }
     return this.isConfigured();
   }
 
@@ -292,6 +296,51 @@ class TelegramBot {
   }
 
   /**
+   * Установить список команд бота (меню "/" в Telegram).
+   * @param {Array<{command:string, description:string}>} commands
+   */
+  async setMyCommands(commands) {
+    if (!this.token) return { success: false, error: "token не задан" };
+    const list = (Array.isArray(commands) ? commands : []).filter(
+      (c) => c && c.command && c.description,
+    );
+    if (list.length === 0) return { success: true, skipped: true };
+    const r = await this._callApi("setMyCommands", { commands: list });
+    return r.success ? { success: true } : { success: false, error: r.error };
+  }
+
+  /**
+   * Скачать файл по file_id в указанный путь.
+   * Использует getFile → https://api.telegram.org/file/bot<token>/<file_path>.
+   * @param {string} fileId
+   * @param {string} destPath — абсолютный путь для сохранения
+   * @returns {Promise<{success:boolean, path?:string, size?:number, error?:string}>}
+   */
+  async downloadFile(fileId, destPath) {
+    if (!this.token) return { success: false, error: "token не задан" };
+    if (!fileId) return { success: false, error: "file_id не задан" };
+    try {
+      const meta = await this._callApi("getFile", { file_id: fileId });
+      if (!meta.success) return { success: false, error: meta.error };
+      const filePath =
+        meta.data && meta.data.result && meta.data.result.file_path;
+      if (!filePath) return { success: false, error: "file_path не получен" };
+      const url = API_BASE + "/file/bot" + this.token + "/" + filePath;
+      const res = await fetch(url);
+      if (!res.ok) return { success: false, error: "HTTP " + res.status };
+      const buf = Buffer.from(await res.arrayBuffer());
+      const fs = require("fs");
+      const path = require("path");
+      const dir = path.dirname(destPath);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(destPath, buf);
+      return { success: true, path: destPath, size: buf.length };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * Запустить long-polling.
    * @param {(chatId: string, text: string, rawMsg: object) => void} onMessage
    * @param {(chatId: string, data: string, cbq: object) => void} [onCallback]
@@ -373,16 +422,26 @@ class TelegramBot {
           }
 
           const msg = upd.message;
-          if (!msg || !msg.text) continue;
+          if (!msg) continue;
           const fromChat = String(msg.chat && msg.chat.id);
           // Принимаем только сообщения от настроенного chat_id (если он задан).
           if (this.chatId && fromChat !== this.chatId) {
             this._log("warn", "Игнор сообщения из чужого чата:", fromChat);
             continue;
           }
+          // Ограничение по user id (если задан).
+          if (this.allowedUserId) {
+            const fromUser = String(msg.from && msg.from.id);
+            if (fromUser !== this.allowedUserId) {
+              this._log("warn", "Игнор сообщения от чужого user id:", fromUser);
+              continue;
+            }
+          }
+          const hasContent = !!(msg.text || msg.photo || msg.document);
+          if (!hasContent) continue;
           if (this.onMessage) {
             try {
-              this.onMessage(fromChat, msg.text, msg);
+              this.onMessage(fromChat, msg.text || "", msg);
             } catch (e) {
               this._log("error", "onMessage handler error:", e.message);
             }

@@ -48,7 +48,11 @@ const DEFAULTS = {
   telegramBotToken: "", // токен от @BotFather
   telegramLanguage: "ru", // язык бота: 'ru' | 'en' (дефолт — системный)
   telegramChatId: "", // id твоего чата с ботом
+  telegramAllowedUserId: "", // id пользователя TG (если задан — только он может писать)
   telegramNotifyTools: false, // присылать уведомления о результате tool
+  // Список имён tool, уведомления о которых НЕ отправлять (по одному в строке).
+  // Актуально только при включённом telegramNotifyTools.
+  telegramToolNotifyIgnore: ["read", "readLines", "glob", "grep", "todoWrite"],
   telegramChatFeed: false, // принимать сообщения из TG в чат DeepSeek
   // ===== Подтверждение tool-вызовов (approval gate) =====
   // 'off'    — выполнять всё автоматически (прежнее поведение)

@@ -51,6 +51,10 @@ function _read() {
     token: s.telegramBotToken || "",
     chatId: s.telegramChatId || "",
     notifyTools: !!s.telegramNotifyTools,
+    notifyIgnore: Array.isArray(s.telegramToolNotifyIgnore)
+      ? s.telegramToolNotifyIgnore.map((x) => String(x).trim().toLowerCase())
+      : [],
+    allowedUserId: String(s.telegramAllowedUserId || "").trim(),
     chatFeed: !!s.telegramChatFeed,
     approvalMode: s.toolApprovalMode || "off",
     lang: i18n.normalizeLang(s.telegramLanguage),
@@ -722,6 +726,16 @@ const SETTINGS_PAGES = {
         secret: true,
       },
       { key: "telegramChatId", labelKey: "label.telegramChatId", type: "text" },
+      {
+        key: "telegramAllowedUserId",
+        labelKey: "label.telegramAllowedUserId",
+        type: "text",
+      },
+      {
+        key: "telegramToolNotifyIgnore",
+        labelKey: "label.telegramToolNotifyIgnore",
+        type: "multiline",
+      },
     ],
     back: true,
   },
@@ -897,6 +911,28 @@ async function _handleSettingsCallback(data, cbq) {
   const chatId = String(cbq.message && cbq.message.chat && cbq.message.chat.id);
   const msgId = cbq.message && cbq.message.message_id;
   const state = _settingsState.get(chatId) || { page: "root" };
+
+  // ---- Пагинация списков (/sessions, /log) ----
+  if (data.startsWith("st_pg_")) {
+    const rest = data.slice("st_pg_".length);
+    const sep = rest.lastIndexOf("_");
+    const type = rest.slice(0, sep);
+    const page = parseInt(rest.slice(sep + 1), 10) || 1;
+    await telegramBot.answerCallbackQuery(cbq.id);
+    const pager = _pagers.get(chatId + ":" + type);
+    if (!pager) return;
+    pager.page = page;
+    if (type === "sessions") {
+      await _cmdSessions(chatId, page);
+    } else if (type === "log") {
+      await _cmdLog(chatId, page);
+    } else if (type === "todos") {
+      await _cmdTodos(chatId, page);
+    } else if (type === "diff") {
+      await _cmdDiff(chatId, page);
+    }
+    return;
+  }
 
   // ---- Выбор языка бота (/start) ----
   if (data.startsWith("st_lang_")) {
@@ -1142,11 +1178,9 @@ async function _cmdNew() {
   return telegramBot.sendMessage(_t("new.done"));
 }
 
-/** /diff — показать текущие изменения (git diff) в проекте. */
-async function _cmdDiff() {
-  const ctx = _activeContext();
-  const projectDir =
-    ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir;
+/** /diff [page] — показать текущие изменения (git diff) в проекте (с пагинацией). */
+async function _cmdDiff(chatId, page) {
+  const projectDir = _projectDir();
   if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
 
   const gitDiff = require("../src/main/git-diff");
@@ -1160,10 +1194,18 @@ async function _cmdDiff() {
   const files = status.files || [];
   if (files.length === 0) return telegramBot.sendMessage(_t("diff.none"));
 
+  const pager = { items: files, page: page || 1, pageSize: 10 };
+  if (chatId) _pagers.set(chatId + ":diff", pager);
+  const size = pager.pageSize;
+  const pages = Math.max(1, Math.ceil(files.length / size));
+  let cur = Math.min(Math.max(1, pager.page), pages);
+  pager.page = cur;
+  const slice = files.slice((cur - 1) * size, cur * size);
+
   const chunks = [];
   let total = 0;
   const MAX_TOTAL = 3000;
-  for (const f of files) {
+  for (const f of slice) {
     if (total >= MAX_TOTAL) break;
     const d = await gitDiff.getFileDiff(projectDir, f.path, f.status);
     if (!d.success || !d.diff) continue;
@@ -1172,8 +1214,9 @@ async function _cmdDiff() {
     total += text.length;
   }
 
-  const header = _t("diff.header", { n: files.length }) + "\n";
-  const fileList = files.map((f) => "• " + escapeHtml(f.path)).join("\n");
+  const header =
+    _t("diff.header", { n: files.length }) + " (" + cur + "/" + pages + ")\n";
+  const fileList = slice.map((f) => "• " + escapeHtml(f.path)).join("\n");
   const body = chunks.join("\n\n") || _t("diff.unavailable");
   const msg =
     header +
@@ -1182,7 +1225,23 @@ async function _cmdDiff() {
     "</blockquote>\n<pre>" +
     escapeHtml(body) +
     "</pre>";
-  return telegramBot.sendMessage(msg, { parseMode: "HTML" });
+  const keyboard = [];
+  const nav = [];
+  if (cur > 1)
+    nav.push({
+      text: _t("page.prev"),
+      callback_data: "st_pg_diff_" + (cur - 1),
+    });
+  if (cur < pages)
+    nav.push({
+      text: _t("page.next"),
+      callback_data: "st_pg_diff_" + (cur + 1),
+    });
+  if (nav.length) keyboard.push(nav);
+  return telegramBot.sendMessage(msg, {
+    parseMode: "HTML",
+    replyMarkup: { inline_keyboard: keyboard },
+  });
 }
 
 /** /diagnostics — отчёт диагностики интеграции. */
@@ -1199,6 +1258,232 @@ async function _cmdDiagnostics() {
   );
 }
 
+/** /todos — список задач активного окна (с пагинацией). */
+async function _cmdTodos(chatId, page) {
+  let todos = [];
+  try {
+    const senderId = _activeSenderId();
+    if (senderId != null) {
+      const todoStore = require("../src/main/todo-store");
+      todos = todoStore.getList(senderId);
+    }
+  } catch (err) {
+    _log("error", "/todos error:", err.message);
+  }
+  if (!Array.isArray(todos) || todos.length === 0) {
+    return telegramBot.sendMessage(_t("todos.empty"));
+  }
+  const icon = { pending: "☐", in_progress: "◔", completed: "☑" };
+  const pager = { items: todos, page: page || 1, pageSize: 10 };
+  _pagers.set(chatId + ":todos", pager);
+  const done = todos.filter((t) => t.status === "completed").length;
+  const rendered = _renderPager(
+    "todos",
+    pager,
+    (t) => (icon[t.status] || "☐") + " " + escapeHtml(t.content),
+    (p, pages) =>
+      _t("todos.header", { done: done, total: todos.length }) +
+      " (" +
+      p +
+      "/" +
+      pages +
+      ")",
+    "",
+  );
+  return telegramBot.sendMessage(rendered.text, {
+    parseMode: "HTML",
+    replyMarkup: rendered.keyboard,
+  });
+}
+
+/** Текущий projectDir активного окна. */
+function _projectDir() {
+  const ctx = _activeContext();
+  return (
+    (ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir) ||
+    null
+  );
+}
+
+// Пагинация: key = `${chatId}:${type}` → { items, page, pageSize }
+const _pagers = new Map();
+
+/** Отрисовать страницу списка с навигацией. */
+function _renderPager(type, pager, renderItem, titleFn, hint) {
+  const size = pager.pageSize || 10;
+  const total = pager.items.length;
+  const pages = Math.max(1, Math.ceil(total / size));
+  let page = Math.min(Math.max(1, pager.page), pages);
+  pager.page = page;
+  const slice = pager.items.slice((page - 1) * size, page * size);
+  const lines = [titleFn(page, pages)];
+  if (hint) lines.push(hint);
+  lines.push("");
+  for (const it of slice) lines.push(renderItem(it));
+  const keyboard = [];
+  const nav = [];
+  if (page > 1)
+    nav.push({
+      text: _t("page.prev"),
+      callback_data: "st_pg_" + type + "_" + (page - 1),
+    });
+  if (page < pages)
+    nav.push({
+      text: _t("page.next"),
+      callback_data: "st_pg_" + type + "_" + (page + 1),
+    });
+  if (nav.length) keyboard.push(nav);
+  return { text: lines.join("\n"), keyboard: { inline_keyboard: keyboard } };
+}
+
+/** /sessions — список сессий проекта. */
+async function _cmdSessions(chatId, page) {
+  const projectDir = _projectDir();
+  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
+  let sessions = [];
+  try {
+    const ctx = _activeContext();
+    const store = ctx && ctx.sessionStore;
+    const all = store.readSessionStore();
+    sessions = Object.keys(all).filter((id) => all[id] === projectDir);
+  } catch (err) {
+    return telegramBot.sendMessage("⚠ " + escapeHtml(err.message));
+  }
+  if (sessions.length === 0)
+    return telegramBot.sendMessage(_t("sessions.empty"));
+  const pager = { items: sessions, page: page || 1, pageSize: 10 };
+  _pagers.set(chatId + ":sessions", pager);
+  const rendered = _renderPager(
+    "sessions",
+    pager,
+    (id) => "• <code>" + escapeHtml(id) + "</code>",
+    (p, pages) => _t("sessions.title", { page: p, pages: pages }),
+    _t("sessions.hint"),
+  );
+  return telegramBot.sendMessage(rendered.text, {
+    parseMode: "HTML",
+    replyMarkup: rendered.keyboard,
+  });
+}
+
+/** /switch <id> — переключиться на сессию. */
+async function _cmdSwitch(chatId, id) {
+  if (!id)
+    return telegramBot.sendMessage(_t("sessions.needId"), {
+      parseMode: "HTML",
+    });
+  const res = await _evalInWindow(
+    "(async () => { try { return await window.electronAPI.navigateSession(" +
+      JSON.stringify(id) +
+      "); } catch (e) { return { success:false, error:e.message }; } })()",
+  );
+  const inner = (res && res.result) || {};
+  if (!res.success || inner.success === false)
+    return telegramBot.sendMessage(
+      _t("sessions.switchFailed", {
+        err: escapeHtml(
+          (inner && inner.error) || (res && res.error) || "unknown",
+        ),
+      }),
+    );
+  return telegramBot.sendMessage(
+    _t("sessions.switched", { id: escapeHtml(id) }),
+    { parseMode: "HTML" },
+  );
+}
+
+/** /log — история коммитов. */
+async function _cmdLog(chatId, page) {
+  const projectDir = _projectDir();
+  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
+  const gitDiff = require("../src/main/git-diff");
+  const r = await gitDiff.getLog(projectDir, 100);
+  if (!r.success)
+    return telegramBot.sendMessage(
+      _t("diff.gitUnavailable", {
+        reason: escapeHtml(r.reason || _t("diff.gitDefault")),
+      }),
+    );
+  const commits = r.commits || [];
+  if (commits.length === 0) return telegramBot.sendMessage(_t("log.empty"));
+  const pager = { items: commits, page: page || 1, pageSize: 10 };
+  _pagers.set(chatId + ":log", pager);
+  const rendered = _renderPager(
+    "log",
+    pager,
+    (c) =>
+      _t("log.line", {
+        short: escapeHtml(c.short),
+        date: escapeHtml(String(c.date || "").slice(0, 16)),
+        subject: escapeHtml(c.subject),
+      }),
+    (p, pages) => _t("log.title", { page: p, pages: pages }),
+    _t("log.hint"),
+  );
+  return telegramBot.sendMessage(rendered.text, {
+    parseMode: "HTML",
+    replyMarkup: rendered.keyboard,
+  });
+}
+
+/** /show <hash> — diff коммита. */
+async function _cmdShow(chatId, hash) {
+  if (!hash)
+    return telegramBot.sendMessage(_t("show.needHash"), {
+      parseMode: "HTML",
+    });
+  const projectDir = _projectDir();
+  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
+  const gitDiff = require("../src/main/git-diff");
+  const r = await gitDiff.getCommitDiff(projectDir, hash);
+  if (!r.success)
+    return telegramBot.sendMessage(
+      _t("diff.gitUnavailable", {
+        reason: escapeHtml(r.reason || _t("diff.gitDefault")),
+      }),
+    );
+  const body = String(r.diff || "").slice(0, 3500) || _t("show.unavailable");
+  const msg =
+    _t("show.title", { hash: escapeHtml(hash) }) +
+    "\n<pre>" +
+    escapeHtml(body) +
+    "</pre>";
+  return telegramBot.sendMessage(msg, { parseMode: "HTML" });
+}
+
+/** /files <hash> — файлы коммита. */
+async function _cmdFiles(chatId, hash) {
+  if (!hash)
+    return telegramBot.sendMessage(_t("files.needHash"), {
+      parseMode: "HTML",
+    });
+  const projectDir = _projectDir();
+  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
+  const gitDiff = require("../src/main/git-diff");
+  const r = await gitDiff.getCommitFiles(projectDir, hash);
+  if (!r.success)
+    return telegramBot.sendMessage(
+      _t("diff.gitUnavailable", {
+        reason: escapeHtml(r.reason || _t("diff.gitDefault")),
+      }),
+    );
+  const files = r.files || [];
+  if (files.length === 0) return telegramBot.sendMessage(_t("files.empty"));
+  const icon = {
+    added: _t("files.status.added"),
+    modified: _t("files.status.modified"),
+    deleted: _t("files.status.deleted"),
+    renamed: _t("files.status.renamed"),
+    changed: _t("files.status.changed"),
+  };
+  const lines = files.map(
+    (f) => (icon[f.status] || "•") + " " + escapeHtml(f.path),
+  );
+  const msg =
+    _t("files.title", { hash: escapeHtml(hash) }) + "\n" + lines.join("\n");
+  return telegramBot.sendMessage(msg, { parseMode: "HTML" });
+}
+
 async function _cmdHelp() {
   const text = [
     _t("help.title"),
@@ -1210,6 +1495,11 @@ async function _cmdHelp() {
     _t("help.cmd.new"),
     _t("help.cmd.diff"),
     _t("help.cmd.diagnostics"),
+    _t("help.cmd.sessions"),
+    _t("help.cmd.switch"),
+    _t("help.cmd.log"),
+    _t("help.cmd.show"),
+    _t("help.cmd.files"),
     _t("help.cmd.todos"),
     _t("help.cmd.cancel"),
     _t("help.cmd.help"),
@@ -1279,7 +1569,8 @@ async function _handleSettingsInput(chatId, text) {
     ok &&
     (key === "telegramBotToken" ||
       key === "telegramChatId" ||
-      key === "telegramEnabled")
+      key === "telegramEnabled" ||
+      key === "telegramAllowedUserId")
   ) {
     try {
       await applySettings();
@@ -1297,11 +1588,225 @@ async function _handleSettingsInput(chatId, text) {
   return true;
 }
 
+/** Папка для временных вложений из Telegram (userData/tgtemp). */
+function _tgTempDir() {
+  try {
+    const { app } = require("electron");
+    return require("path").join(app.getPath("userData"), "tgtemp");
+  } catch (_) {
+    return require("path").join(__dirname, "tgtemp");
+  }
+}
+
+/**
+ * Отправить сообщение из поля ввода активного окна.
+ * Приоритет: клик по кнопке отправки → нативный Enter (как chat-send-enter).
+ */
+async function _sendInWindow(win) {
+  try {
+    const wc = win.webContents;
+    const clickScript = `(function(){
+      const sels = ['button[type="submit"]','button[aria-label*="send"]','button[aria-label*="发送"]','button[data-testid="send-button"]','button[data-testid="send"]','.send-btn','.submit-btn'];
+      for (const s of sels) {
+        try { const b = document.querySelector(s); if (b && !b.disabled && b.offsetParent !== null) { b.click(); return true; } } catch (_) {}
+      }
+      return false;
+    })()`;
+    // 1) Пытаемся кликнуть кнопку отправки (до ~3 c, она может стать
+    //    активной не сразу после вставки вложения).
+    for (let i = 0; i < 10; i++) {
+      let clicked = false;
+      try {
+        clicked = await wc.executeJavaScript(clickScript, true);
+      } catch (_) {}
+      if (clicked) return { success: true, via: "button" };
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    // 2) Нативный Enter (keyCode Enter — как в chat-send-enter).
+    wc.sendInputEvent({ type: "keyDown", keyCode: "Enter" });
+    wc.sendInputEvent({ type: "char", keyCode: "Enter", key: "\r" });
+    wc.sendInputEvent({ type: "keyUp", keyCode: "Enter" });
+    return { success: true, via: "enter" };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Вставить изображение в поле чата (clipboard + Ctrl+V) — надёжный путь как у read_photo.
+ */
+async function _insertImageToWindow(absPath, caption, send) {
+  try {
+    const { clipboard, nativeImage } = require("electron");
+    const win = windowState.getMainWindow();
+    if (!win || win.isDestroyed())
+      return { success: false, error: _t("common.noWindow") };
+    const img = nativeImage.createFromPath(absPath);
+    if (img.isEmpty()) return { success: false, error: "empty image" };
+    clipboard.writeImage(img);
+    const safe = JSON.stringify(String(caption || ""));
+    const script = `(function(){
+      const ta = document.querySelector('textarea[placeholder], textarea[name="search"], textarea.ds-scroll-area');
+      if (!ta) return { ok: false, error: 'textarea not found' };
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+      setter.call(ta, ${safe});
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      ta.focus();
+      return { ok: true };
+    })()`;
+    await win.webContents.executeJavaScript(script, true);
+    await new Promise((r) => setTimeout(r, 150));
+    win.webContents.sendInputEvent({
+      type: "keyDown",
+      keyCode: "V",
+      modifiers: ["control"],
+    });
+    win.webContents.sendInputEvent({
+      type: "keyUp",
+      keyCode: "V",
+      modifiers: ["control"],
+    });
+    await new Promise((r) => setTimeout(r, 500));
+    if (send) {
+      await new Promise((r) => setTimeout(r, 300));
+      await _sendInWindow(win);
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Прикрепить произвольный файл к чату через скрытый <input type=file>.
+ */
+async function _attachFileToWindow(absPath, caption, send) {
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const {
+      guessMimeType,
+      buildInjectCode,
+      UPLOAD_TIMEOUT_MS,
+      MAX_FILE_SIZE,
+    } = require("../tools/AttachFileTool");
+    const win = windowState.getMainWindow();
+    if (!win || win.isDestroyed())
+      return { success: false, error: _t("common.noWindow") };
+    const stat = fs.statSync(absPath);
+    if (stat.size > MAX_FILE_SIZE) return { success: false, error: "too big" };
+    const buf = fs.readFileSync(absPath);
+    const fileName = path.basename(absPath);
+    const mimeType = guessMimeType(fileName);
+    const code = buildInjectCode(
+      buf.toString("base64"),
+      fileName,
+      mimeType,
+      UPLOAD_TIMEOUT_MS,
+    );
+    const result = await win.webContents.executeJavaScript(code, true);
+    if (!result || result.success !== true)
+      return {
+        success: false,
+        error: (result && result.error) || "attach failed",
+      };
+    if (caption || send) {
+      const safe = JSON.stringify(String(caption || ""));
+      const script = `(function(){
+        const ta = document.querySelector('textarea[placeholder], textarea[name="search"], textarea.ds-scroll-area');
+        if (!ta) return { ok: false };
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+        setter.call(ta, ${safe});
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        ta.focus();
+        return { ok: true };
+      })()`;
+      await win.webContents.executeJavaScript(script, true);
+      await new Promise((r) => setTimeout(r, 300));
+      if (send) await _sendInWindow(win);
+    }
+    return { success: true, fileName: result.fileName || fileName };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/** Обработать вложение из Telegram: скачать → /tgtemp → прикрепить → удалить. */
+async function _handleAttachment(chatId, msg) {
+  const { telegramBot } = require("./telegram");
+  const fs = require("fs");
+  const path = require("path");
+  const caption = String((msg && msg.caption) || "").trim();
+  let fileId = null;
+  let name = "";
+  let isImage = false;
+  if (msg.photo && msg.photo.length) {
+    const p = msg.photo[msg.photo.length - 1];
+    fileId = p.file_id;
+    name = "photo_" + Date.now() + ".jpg";
+    isImage = true;
+  } else if (msg.document) {
+    fileId = msg.document.file_id;
+    name = msg.document.file_name || "document_" + Date.now();
+    const mime = String(msg.document.mime_type || "");
+    isImage = mime.startsWith("image/");
+  }
+  if (!fileId) {
+    await telegramBot.sendMessage(_t("attach.unsupported"));
+    return;
+  }
+  await telegramBot.sendMessage(_t("attach.downloading"));
+  const dest = path.join(_tgTempDir(), name);
+  const dl = await telegramBot.downloadFile(fileId, dest);
+  if (!dl.success) {
+    await telegramBot.sendMessage(
+      _t("attach.failed", { err: escapeHtml(dl.error) }),
+    );
+    return;
+  }
+  await telegramBot.sendMessage(
+    _t("attach.saved", { name: escapeHtml(name) }),
+    { parseMode: "HTML" },
+  );
+  const at = isImage
+    ? await _insertImageToWindow(dest, caption, true)
+    : await _attachFileToWindow(dest, caption, true);
+  if (at.success) {
+    await telegramBot.sendMessage(
+      _t("attach.done", { name: escapeHtml(name) }),
+      { parseMode: "HTML" },
+    );
+  } else {
+    await telegramBot.sendMessage(
+      _t("attach.failed", { err: escapeHtml(at.error || "unknown") }),
+      { parseMode: "HTML" },
+    );
+  }
+  try {
+    fs.unlinkSync(dest);
+  } catch (_) {}
+}
+
 /** Входящее из TG → в чат DeepSeek (или команда). */
-async function _handleIncoming(chatId, text) {
+async function _handleIncoming(chatId, text, msg) {
   const cfg = _read();
   const raw = String(text || "");
-  const cmd = raw.trim().toLowerCase();
+  const trimmed = raw.trim();
+  // Команда = первое слово; убираем суффикс @BotName (Telegram добавляет его
+  // в группах) и приводим к нижнему регистру.
+  const cmd = (trimmed.split(/\s+/)[0] || "")
+    .toLowerCase()
+    .replace(/@[a-z0-9_]+$/, "");
+  // Аргументы команды (всё после первого слова).
+  const cmdArgs = trimmed.split(/\s+/).slice(1).join(" ").trim();
+
+  // ---- Вложения (фото/документы) ----
+  // Подпись (caption) обрабатывается внутри _handleAttachment, поэтому
+  // после вложения дальше не идём (иначе caption уйдёт вторым сообщением).
+  if (msg && (msg.photo || msg.document)) {
+    await _handleAttachment(chatId, msg);
+    return;
+  }
 
   // ---- Служебные команды ----
   if (cmd === "/start") {
@@ -1334,11 +1839,31 @@ async function _handleIncoming(chatId, text) {
     return;
   }
   if (cmd === "/diff") {
-    await _cmdDiff();
+    await _cmdDiff(chatId, 1);
     return;
   }
   if (cmd === "/diagnostics" || cmd === "/diag") {
     await _cmdDiagnostics();
+    return;
+  }
+  if (cmd === "/sessions") {
+    await _cmdSessions(chatId, 1);
+    return;
+  }
+  if (cmd === "/switch") {
+    await _cmdSwitch(chatId, cmdArgs);
+    return;
+  }
+  if (cmd === "/log") {
+    await _cmdLog(chatId, 1);
+    return;
+  }
+  if (cmd === "/show") {
+    await _cmdShow(chatId, cmdArgs);
+    return;
+  }
+  if (cmd === "/files") {
+    await _cmdFiles(chatId, cmdArgs);
     return;
   }
   if (cmd === "/cancel") {
@@ -1359,17 +1884,7 @@ async function _handleIncoming(chatId, text) {
   }
   // Команда /todos — показать список задач активного окна.
   if (cmd === "/todos" || cmd === "/todo") {
-    let todos = [];
-    try {
-      const senderId = _activeSenderId();
-      if (senderId != null) {
-        const todoStore = require("../src/main/todo-store");
-        todos = todoStore.getList(senderId);
-      }
-    } catch (err) {
-      _log("error", "/todos error:", err.message);
-    }
-    await telegramBot.sendMessage(formatTodos(todos));
+    await _cmdTodos(chatId, 1);
     return;
   }
 
@@ -1491,6 +2006,13 @@ async function notifyToolResult(toolName, ok, detail) {
   const cfg = _read();
   if (!cfg.enabled || !cfg.notifyTools)
     return { success: false, skipped: true };
+  // Умные уведомления: пропускаем инструменты из списка исключений.
+  if (
+    cfg.notifyIgnore.length > 0 &&
+    cfg.notifyIgnore.includes(String(toolName || "").toLowerCase())
+  ) {
+    return { success: false, skipped: true };
+  }
   const emoji = ok ? "✅" : "❌";
   const header = emoji + " " + escapeHtml(toolName);
 
@@ -1554,11 +2076,13 @@ async function notifyToolResult(toolName, ok, detail) {
 /** Применить настройки: пересоздать конфиг бота и (при необходимости) запустить polling. */
 async function applySettings() {
   const cfg = _read();
-  telegramBot.configure(cfg.token, cfg.chatId);
+  telegramBot.configure(cfg.token, cfg.chatId, cfg.allowedUserId);
 
   if (cfg.enabled && cfg.token) {
     telegramBot.startPolling(_handleIncoming, _handleCallback);
     started = true;
+    // Меню команд в Telegram ("/").
+    _registerCommands().catch(() => {});
   } else {
     telegramBot.stopPolling();
     started = false;
@@ -1568,6 +2092,54 @@ async function applySettings() {
 
 function getStatus() {
   return Object.assign({ started }, telegramBot.getStatus());
+}
+
+/** Зарегистрировать список команд бота (меню "/" в Telegram) на текущем языке. */
+async function _registerCommands() {
+  const lang = _lang();
+  const t = (k) => i18n.t(lang, k);
+  // Описания команд (короткие, без префикса пути).
+  const desc = {
+    ru: {
+      start: "начать / справка",
+      help: "справка",
+      settings: "настройки",
+      status: "статус",
+      stop: "остановить задачу",
+      new: "новый чат",
+      diff: "изменения (git diff)",
+      log: "история коммитов",
+      show: "diff коммита",
+      files: "файлы коммита",
+      sessions: "список сессий",
+      switch: "переключить сессию",
+      diagnostics: "диагностика",
+      todos: "список задач",
+      cancel: "отменить ввод",
+    },
+    en: {
+      start: "start / help",
+      help: "help",
+      settings: "settings",
+      status: "status",
+      stop: "stop task",
+      new: "new chat",
+      diff: "changes (git diff)",
+      log: "commit history",
+      show: "commit diff",
+      files: "commit files",
+      sessions: "sessions list",
+      switch: "switch session",
+      diagnostics: "diagnostics",
+      todos: "todo list",
+      cancel: "cancel",
+    },
+  }[lang];
+  const cmds = Object.keys(desc).map((c) => ({
+    command: c,
+    description: desc[c],
+  }));
+  return telegramBot.setMyCommands(cmds);
 }
 
 // ==================== «ИИ печатает…» ====================
@@ -1582,7 +2154,7 @@ function startTyping() {
   const cfg = _read();
   if (!cfg.enabled || !cfg.token || !cfg.chatId)
     return { success: false, skipped: true };
-  telegramBot.configure(cfg.token, cfg.chatId);
+  telegramBot.configure(cfg.token, cfg.chatId, cfg.allowedUserId);
   if (_typingTimer) return { success: true, already: true };
   const tick = () => {
     telegramBot.sendChatAction("typing").catch(() => {});
@@ -1622,14 +2194,14 @@ async function notifyAIResponse(text) {
 /** Пингануть бота (getMe) для проверки токена. */
 async function ping() {
   const cfg = _read();
-  telegramBot.configure(cfg.token, cfg.chatId);
+  telegramBot.configure(cfg.token, cfg.chatId, cfg.allowedUserId);
   return telegramBot.getMe();
 }
 
 /** Отправить тестовое сообщение. */
 async function testSend() {
   const cfg = _read();
-  telegramBot.configure(cfg.token, cfg.chatId);
+  telegramBot.configure(cfg.token, cfg.chatId, cfg.allowedUserId);
   return telegramBot.sendMessage(_t("test.send"));
 }
 
