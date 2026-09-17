@@ -24,7 +24,7 @@ It embeds the DeepSeek web chat into a native Electron window, injects a side ov
 
 ## Why it exists
 
-Web chats are great at *thinking*, but they cannot *act* on your machine. Cookie Code closes that loop:
+Web chats are great at _thinking_, but they cannot _act_ on your machine. Cookie Code closes that loop:
 
 - **Zero token cost** — everything goes through the DeepSeek web UI, no API calls.
 - **Real agent loop** — Think → Act → Observe → Repeat. File I/O, code search, shell commands, database queries, MCP tools.
@@ -159,15 +159,15 @@ Every `write` and `edit` runs the file through a language-specific formatter so 
 
 Built-in formatters:
 
-| Formatter | Trigger | What it needs |
-|-----------|---------|---------------|
-| `prettier` | `.js .jsx .ts .tsx .json .css .md .yaml` … | `prettier` in the nearest `package.json` + binary in `node_modules/.bin` or `PATH` |
-| `biome` | same as prettier | `biome.json` / `biome.jsonc` in the project |
-| `gofmt` | `.go` | `gofmt` in `PATH` |
-| `ruff` | `.py .pyi` | `ruff` in `PATH` + `[tool.ruff]` in `pyproject.toml` (or `ruff.toml`) |
-| `rustfmt` | `.rs` | `rustfmt` in `PATH` |
-| `shfmt` | `.sh .bash` | `shfmt` in `PATH` |
-| `clang-format` | `.c .cpp .h` … | `.clang-format` config + `clang-format` in `PATH` |
+| Formatter      | Trigger                                    | What it needs                                                                      |
+| -------------- | ------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `prettier`     | `.js .jsx .ts .tsx .json .css .md .yaml` … | `prettier` in the nearest `package.json` + binary in `node_modules/.bin` or `PATH` |
+| `biome`        | same as prettier                           | `biome.json` / `biome.jsonc` in the project                                        |
+| `gofmt`        | `.go`                                      | `gofmt` in `PATH`                                                                  |
+| `ruff`         | `.py .pyi`                                 | `ruff` in `PATH` + `[tool.ruff]` in `pyproject.toml` (or `ruff.toml`)              |
+| `rustfmt`      | `.rs`                                      | `rustfmt` in `PATH`                                                                |
+| `shfmt`        | `.sh .bash`                                | `shfmt` in `PATH`                                                                  |
+| `clang-format` | `.c .cpp .h` …                             | `.clang-format` config + `clang-format` in `PATH`                                  |
 
 - Detection is **config-aware**: ruff won't run in a project without a `[tool.ruff]` section; prettier won't run without a `package.json` dependency. No unexpected reformatting of foreign code.
 - Formatter errors are swallowed — a failed formatter never blocks `write`/`edit`.
@@ -246,19 +246,19 @@ Cookie Code intercepts it, executes it in a sandbox, and returns the result to t
 
 ## Available tools
 
-| Tool | Description |
-|------|-------------|
-| `read`, `readLines` | Read files (with line numbers, offset/limit) |
-| `write`, `edit` | Create / modify files (auto-formatted on save — see below) |
-| `deleteFile` | Delete a file |
-| `glob`, `grep` | File search (ripgrep-backed) |
-| `bash`, `pwsh` | Execute shell commands |
-| `todoWrite` | Structured task list |
-| `webFetch` | Fetch HTTP(S) content as Markdown |
-| `mysql` | Run SQL queries |
-| `mcpCall`, `mcpListServers`, `mcpGetTools` | MCP tools |
-| `skillList`, `skillLoad`, `skillExecute` | Custom skills |
-| `openBrowserWindow`, `injectJS` | Electron browser window + JS injection |
+| Tool                                       | Description                                                |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| `read`, `readLines`                        | Read files (with line numbers, offset/limit)               |
+| `write`, `edit`                            | Create / modify files (auto-formatted on save — see below) |
+| `deleteFile`                               | Delete a file                                              |
+| `glob`, `grep`                             | File search (ripgrep-backed)                               |
+| `bash`, `pwsh`                             | Execute shell commands                                     |
+| `todoWrite`                                | Structured task list                                       |
+| `webFetch`                                 | Fetch HTTP(S) content as Markdown                          |
+| `mysql`                                    | Run SQL queries                                            |
+| `mcpCall`, `mcpListServers`, `mcpGetTools` | MCP tools                                                  |
+| `skillList`, `skillLoad`, `skillExecute`   | Custom skills                                              |
+| `openBrowserWindow`, `injectJS`            | Electron browser window + JS injection                     |
 
 Full TypeScript declarations are shipped at `tools/cuckoo-tools.d.ts`.
 
@@ -283,6 +283,15 @@ Everything visual lives in **Settings → Cookie Code** and persists in `cuckoo-
 - **Backgrounds** — 27 built-in wallpapers, or drop your own image into `src/ui/backgrounds/` and register it in `registry.json`.
 - **Glass effect** — background / header / sidebar blur, opacity, and tool-block glass blur.
 - **RGB username** — animated rainbow gradient in the sidebar, toggled under **Effects**.
+- **Desktop pets (chubriks)** — perch a sprite right on the message input field: it sits on the top edge, rides along as the field moves, can be dragged with the mouse and resized by the corner handle. The anchor point is stored in field-relative fractions, so the pet stays in place across any resolution or zoom level.
+
+<p align="center">
+  <img src="assets/петы.jpg" alt="Cookie Code — pets on the input field" width="800">
+</p>
+
+- **Custom sprites** — drop PNG/GIF files into `<userData>/pets/` and they instantly appear in the picker grid inside Settings. The **Upload…** button accepts any image and auto-resizes it down to 600×600.
+- **GIF background removal** — if a GIF has a white (or any other) background, open the editor (the **🎨 BG** button on its preview) and click the eyedropper on the unwanted color. The background disappears in **every frame**, the animation stays intact.
+- **Debug mode (F8–F11)** — fine-tune the pet placement: **F8** — aim (click a point), **F9** — input field debug frame, **F10** — switch docked / free mode, **F11** — reset size. Toggled in Settings.
 
 ---
 

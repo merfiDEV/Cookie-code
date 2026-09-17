@@ -92,6 +92,11 @@ try {
 // Имя приложения в системных уведомлениях Windows (иначе показывается electron.app.Electron)
 app.setAppUserModelId("Cookie Code");
 
+// Имя приложения для всех системных мест (таскбар, диспетчер задач, dev-режим).
+// В собранной версии берётся из productName, но в dev-режиме Electron
+// использует name из package.json ("cuckoo-code") — принудительно ставим "Cookie Code".
+app.setName("Cookie Code");
+
 // 渲染进程日志输出目录（仅开发环境持久化；打包版不写日志文件）
 const RENDERER_LOG_DIR = app.isPackaged
   ? null

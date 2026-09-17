@@ -58,7 +58,7 @@
   ],
   "build": {
     "appId": "com.cuckoo.cuckoo-code",
-    "productName": "Cuckoo-Code",
+    "productName": "Cookie Code",
     "publish": [
       {
         "provider": "github",
@@ -76,6 +76,7 @@
         "zip"
       ],
       "icon": "build/icon.ico",
+      "executableName": "Cookie Code",
       "artifactName": "cuckoo-code-win-v${version}-${arch}.${ext}"
     },
     "mac": {
@@ -96,6 +97,7 @@
         }
       ],
       "icon": "build/icon.png",
+      "executableName": "Cookie Code",
       "artifactName": "cuckoo-code-mac-v${version}-${arch}.${ext}"
     },
     "nsis": {
