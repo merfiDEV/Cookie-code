@@ -65,6 +65,22 @@ let electronAPI = {
   newChat: () => {
     return ipcRenderer.invoke("new-chat");
   },
+  // ========== Статистика использования ==========
+  statsGetSummary: (days) => {
+    return ipcRenderer.invoke("stats-get-summary", { days });
+  },
+  statsRecordMessage: (ev) => {
+    return ipcRenderer.invoke("stats-record-message", ev);
+  },
+  statsRecordTokens: (ev) => {
+    return ipcRenderer.invoke("stats-record-tokens", ev);
+  },
+  statsRecordSession: (ev) => {
+    return ipcRenderer.invoke("stats-record-session", ev);
+  },
+  statsReset: () => {
+    return ipcRenderer.invoke("stats-reset");
+  },
   // ========== Перенос контекста (Context Port) ==========
   contextPortGetInitPrompt: () => {
     return ipcRenderer.invoke("context-port:get-init-prompt");

@@ -14,6 +14,7 @@ const { isDangerous } = require("./dangerous-commands");
 const settingsStore = require("./settings-store");
 const chatExport = require("./chat-export");
 const contextPort = require("./context-port");
+const statsStore = require("./stats-store");
 const { decodeOutput, normalizeCommand } = require("../../tools/decodeOutput");
 const gitDiff = require("./git-diff");
 const todoStore = require("./todo-store");
@@ -567,6 +568,47 @@ function registerIpcHandlers() {
         err.message,
       );
       return { success: false, error: err.message, prompt: "" };
+    }
+  });
+
+  // ========== Статистика использования ==========
+  ipcMain.handle("stats-get-summary", async (_event, { days } = {}) => {
+    try {
+      return { success: true, summary: statsStore.getSummary(days) };
+    } catch (err) {
+      return { success: false, error: err.message, summary: null };
+    }
+  });
+
+  ipcMain.handle("stats-record-message", async (_event, ev = {}) => {
+    try {
+      return { success: true, stats: statsStore.recordMessage(ev) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("stats-record-tokens", async (_event, ev = {}) => {
+    try {
+      return { success: true, stats: statsStore.recordTokens(ev) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("stats-record-session", async (_event, ev = {}) => {
+    try {
+      return { success: true, stats: statsStore.recordSession(ev) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("stats-reset", async () => {
+    try {
+      return { success: true, stats: statsStore.reset() };
+    } catch (err) {
+      return { success: false, error: err.message };
     }
   });
 

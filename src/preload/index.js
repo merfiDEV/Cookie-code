@@ -31,6 +31,8 @@ const qrOverride = require("./dom/qr-override");
 const fileChip = require("./dom/file-chip");
 const contextPort = require("./dom/context-port");
 const fonts = require("./dom/fonts");
+const statsDashboard = require("./dom/stats-dashboard");
+const statsRecorder = require("./dom/stats-recorder");
 const whatsNew = require("./dom/whats-new");
 const i18n = require("./i18n/i18n");
 const state = require("./dom/state");
@@ -69,6 +71,11 @@ async function init() {
       state.showConvTokens = Boolean(
         settings && settings.showConvTokens === true,
       );
+      // Дашборд статистики: включён ли сбор и debug-режим.
+      state.statsEnabled = !settings || settings.statsEnabled !== false;
+      state.statsDebugMode = Boolean(
+        settings && settings.statsDebugMode === true,
+      );
     } catch (_) {}
 
     // Прокидываем флаг в shared state: парсинг работает всегда,
@@ -97,6 +104,15 @@ async function init() {
     safe("init.injectOverlay", () => ui.injectOverlay());
     // Перенос контекста: если мы в середине операции (после reload) — продолжаем.
     safe("init.contextPortResume", () => contextPort.resume());
+
+    // Сбор статистики использования (токены + сообщения).
+    safe("init.statsRecorderStart", () => statsRecorder.start());
+
+    // Дашборд статистики на домашней странице.
+    safe("init.statsDashboardStart", () => statsDashboard.start());
+    safe("init.statsDashboardDebug", () => {
+      statsDashboard.setDebugMode(state.statsDebugMode === true);
+    });
 
     // Кастомный шрифт интерфейса и страницы — до остальной отрисовки.
     safe("init.fontsLoadAndApply", () => fonts.loadAndApply());
