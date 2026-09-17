@@ -3,7 +3,7 @@
  * 由原 preload.js 中的模块级变量拆分而来，各模块通过同一对象共享。
  */
 module.exports = {
-  initialPromptContent: '',
+  initialPromptContent: "",
   // 是否有待发送的初始提示
   pendingInitialPrompt: false,
   // 待执行的工具调用
@@ -18,7 +18,7 @@ module.exports = {
   customizationEnabled: true,
   // Режим подтверждения tool-вызовов: 'off' | 'risky' | 'all'.
   // Загружается из настроек при init() и обновляется на лету из settings-tab.
-  toolApprovalMode: 'off',
+  toolApprovalMode: "off",
   // Скрывать ли служебные сообщения (результаты инструментов, системный промпт)
   // в чате. Загружается из настроек при init() и переключается на лету.
   hideSystemMessages: false,
@@ -26,6 +26,11 @@ module.exports = {
   showProducedFiles: true,
   // Показывать блок «Токены диалога» в оверлее (по умолчанию выключено).
   showConvTokens: false,
+  // Дашборд статистики: собирать ли статистику и включён ли debug-режим.
+  statsEnabled: true,
+  statsDebugMode: false,
+  // Показывать сам дашборд на домашней странице.
+  statsDashboardEnabled: true,
   // Режим плана: пока включён — изменяющие инструменты заблокированы,
   // модель пишет plan.md и завершает режим через exit_plan_mode().
   planMode: false,

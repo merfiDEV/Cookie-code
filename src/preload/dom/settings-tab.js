@@ -103,6 +103,8 @@ function activateCuckooTab() {
     // Шрифт
     bindFontsSection();
     refreshFontWeight();
+    // Статистика
+    bindStatsSection();
     // Подвкладки (категории)
     bindSettingsTabs();
   }
@@ -664,6 +666,55 @@ function buildContentHTML() {
     t("tg.btn.test") +
     "</button>" +
     "  </div>" +
+    "</div>" +
+    // ===== Статистика использования =====
+    '<div data-cat="system">' +
+    '  <div class="cuckoo-section-title">' +
+    t("settings.section.stats") +
+    "</div>" +
+    '  <div class="ck-card ck-stack">' +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    "    <div>" +
+    '      <div class="ck-row-title">' +
+    t("settings.stats.enabled") +
+    "</div>" +
+    '      <div class="ck-row-hint">' +
+    t("settings.stats.enabledHint") +
+    "</div>" +
+    "    </div>" +
+    '    <input type="checkbox" id="cuckoo-stats-enabled">' +
+    "  </label>" +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    "    <div>" +
+    '      <div class="ck-row-title">' +
+    t("settings.stats.debugTitle") +
+    "</div>" +
+    '      <div class="ck-row-hint">' +
+    t("settings.stats.debugHint") +
+    "</div>" +
+    "    </div>" +
+    '    <input type="checkbox" id="cuckoo-stats-debug">' +
+    "  </label>" +
+    '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    "    <div>" +
+    '      <div class="ck-row-title">' +
+    t("settings.stats.showTitle") +
+    "</div>" +
+    '      <div class="ck-row-hint">' +
+    t("settings.stats.showHint") +
+    "</div>" +
+    "    </div>" +
+    '    <input type="checkbox" id="cuckoo-stats-show">' +
+    "  </label>" +
+    "  </div>" +
+    '  <div class="ck-btn-row" style="margin-top:8px;">' +
+    '    <button id="cuckoo-stats-reset" class="ck-btn ck-btn-danger">' +
+    t("settings.stats.reset") +
+    "</button>" +
+    "  </div>" +
+    '  <div class="ck-row-hint" style="margin-top:8px;">' +
+    t("settings.stats.hint") +
+    "</div>" +
     "</div>" +
     '<div data-cat="system">' +
     '  <div class="cuckoo-section-title">' +
@@ -1544,6 +1595,92 @@ async function refreshFontSelection() {
         el.classList.remove("cuckoo-bg-selected");
       }
     });
+}
+
+/**
+ * Секция «Статистика»: тумблеры сбора/debug и кнопка сброса.
+ */
+function bindStatsSection() {
+  const enabledChk = document.getElementById("cuckoo-stats-enabled");
+  const debugChk = document.getElementById("cuckoo-stats-debug");
+  const showChk = document.getElementById("cuckoo-stats-show");
+  const resetBtn = document.getElementById("cuckoo-stats-reset");
+
+  if (enabledChk) {
+    enabledChk.addEventListener("change", async () => {
+      const on = enabledChk.checked;
+      state.statsEnabled = on;
+      try {
+        await window.electronAPI.setCuckooSetting("statsEnabled", on);
+      } catch (err) {
+        console.error("[Cookie Code] statsEnabled save error:", err.message);
+      }
+    });
+  }
+
+  if (debugChk) {
+    debugChk.addEventListener("change", async () => {
+      const on = debugChk.checked;
+      state.statsDebugMode = on;
+      try {
+        await window.electronAPI.setCuckooSetting("statsDebugMode", on);
+        const dash = require("./stats-dashboard");
+        if (dash && typeof dash.setDebugMode === "function")
+          dash.setDebugMode(on);
+      } catch (err) {
+        console.error("[Cookie Code] statsDebugMode save error:", err.message);
+      }
+    });
+  }
+
+  if (showChk) {
+    showChk.addEventListener("change", async () => {
+      const on = showChk.checked;
+      state.statsDashboardEnabled = on;
+      try {
+        await window.electronAPI.setCuckooSetting("statsDashboardEnabled", on);
+        const dash = require("./stats-dashboard");
+        if (dash && typeof dash.setEnabled === "function") dash.setEnabled(on);
+      } catch (err) {
+        console.error(
+          "[Cookie Code] statsDashboardEnabled save error:",
+          err.message,
+        );
+      }
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", async () => {
+      const ui = require("../overlay/ui");
+      const ok =
+        typeof ui.showConfirmDialog === "function"
+          ? await ui.showConfirmDialog(t("settings.stats.resetConfirm"), {
+              okText: t("settings.stats.reset"),
+              showCancel: true,
+              cancelText: t("contextPort.cancel"),
+            })
+          : true;
+      if (!ok) return;
+      try {
+        await window.electronAPI.statsReset();
+        if (typeof ui.showToast === "function")
+          ui.showToast(t("settings.stats.resetDone"), 2500);
+      } catch (err) {
+        console.error("[Cookie Code] stats reset error:", err.message);
+      }
+    });
+  }
+
+  // Начальные состояния.
+  window.electronAPI
+    .getCuckooSettings()
+    .then((s) => {
+      if (enabledChk) enabledChk.checked = !s || s.statsEnabled !== false;
+      if (debugChk) debugChk.checked = !!(s && s.statsDebugMode === true);
+      if (showChk) showChk.checked = !s || s.statsDashboardEnabled !== false;
+    })
+    .catch(() => {});
 }
 
 /**

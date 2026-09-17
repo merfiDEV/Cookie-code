@@ -483,6 +483,48 @@ const KEYS = {
     en: "Maintenance & Reset",
   },
   "settings.section.service": { ru: "Сервис", en: "Service" },
+  // ---- Статистика ----
+  "settings.section.stats": { ru: "Статистика", en: "Statistics" },
+  "settings.stats.enabled": {
+    ru: "Собирать статистику",
+    en: "Collect statistics",
+  },
+  "settings.stats.enabledHint": {
+    ru: "Локальный учёт сессий, сообщений, токенов и активных дней (дашборд на домашней странице).",
+    en: "Local tracking of sessions, messages, tokens and active days (dashboard on the home page).",
+  },
+  "settings.stats.debugTitle": {
+    ru: "Debug-режим статистики",
+    en: "Statistics debug mode",
+  },
+  "settings.stats.debugHint": {
+    ru: "Горячие клавиши: F6 — рамка дашборда, F7 — обновить данные.",
+    en: "Hotkeys: F6 — dashboard frame, F7 — refresh data.",
+  },
+  "settings.stats.showTitle": {
+    ru: "Показывать дашборд",
+    en: "Show dashboard",
+  },
+  "settings.stats.showHint": {
+    ru: "Отображение дашборда на домашней странице. Сбор статистики продолжается независимо от этого.",
+    en: "Whether the dashboard is shown on the home page. Statistics collection continues regardless.",
+  },
+  "settings.stats.reset": {
+    ru: "Сбросить статистику",
+    en: "Reset statistics",
+  },
+  "settings.stats.resetConfirm": {
+    ru: "Сбросить всю накопленную статистику? Это необратимо.",
+    en: "Reset all collected statistics? This cannot be undone.",
+  },
+  "settings.stats.resetDone": {
+    ru: "Статистика сброшена",
+    en: "Statistics reset",
+  },
+  "settings.stats.hint": {
+    ru: "Дашборд виден только на домашней странице и сам скрывается при входе в чат.",
+    en: "The dashboard is visible only on the home page and hides itself when you enter a chat.",
+  },
   // ---- Настройки: диагностика интеграции ----
   "settings.section.diagnostics": {
     ru: "Диагностика интеграции",
