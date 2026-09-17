@@ -29,3 +29,18 @@ test("context-port: clear удаляет запись", () => {
   contextPort.clear(3);
   assert.strictEqual(contextPort.get(3), null);
 });
+
+test("context-port: initPrompt сохраняется и переживает смену stage", () => {
+  contextPort.set(4, { history: "h4", initPrompt: "INIT4", stage: "history" });
+  assert.strictEqual(contextPort.get(4).initPrompt, "INIT4");
+  contextPort.set(4, {
+    history: "h4",
+    summary: "s4",
+    initPrompt: "INIT4",
+    stage: "summary",
+  });
+  const d = contextPort.get(4);
+  assert.strictEqual(d.stage, "summary");
+  assert.strictEqual(d.summary, "s4");
+  assert.strictEqual(d.initPrompt, "INIT4");
+});

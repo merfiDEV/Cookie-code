@@ -23,6 +23,9 @@ function set(webContentsId, data) {
     stage: data.stage || "history",
     history: data.history || "",
     summary: data.summary || "",
+    // Промпт инициализации проекта (дерево каталога + системный промпт),
+    // переносится вместе с контекстом, чтобы новый чат «знал» проект.
+    initPrompt: data.initPrompt || "",
     createdAt: Date.now(),
   });
 }

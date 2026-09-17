@@ -549,20 +549,45 @@ function registerIpcHandlers() {
     }
   });
 
-  // ========== Перенос контекста (Context Port) ==========
-  // Хранилище живёт в main и переживает reload страницы при смене чата.
-  ipcMain.handle("context-port:start", async (event, { history, stage }) => {
+  // Отдать текущий промпт инициализации проекта (для переноса контекста).
+  // Пересобирается из сохранённого projectDir, а не из памяти renderer.
+  ipcMain.handle("context-port:get-init-prompt", async (event) => {
     try {
-      const wcId = event.sender.id;
-      contextPort.set(wcId, {
-        history: history || "",
-        stage: stage || "history",
-      });
-      return { success: true };
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const store = ctx ? ctx.sessionStore : null;
+      const projectDir = store ? store.state.selectedProjectDir : null;
+      if (!projectDir) return { success: true, prompt: "" };
+      const { buildInitPrompt } = require("./project-context");
+      const providerId = (ctx && ctx.providerId) || "";
+      const prompt = await buildInitPrompt(projectDir, providerId);
+      return { success: true, prompt: prompt || "" };
     } catch (err) {
-      return { success: false, error: err.message };
+      console.error(
+        "[Cookie Code] context-port:get-init-prompt error:",
+        err.message,
+      );
+      return { success: false, error: err.message, prompt: "" };
     }
   });
+
+  // ========== Перенос контекста (Context Port) ==========
+  // Хранилище живёт в main и переживает reload страницы при смене чата.
+  ipcMain.handle(
+    "context-port:start",
+    async (event, { history, stage, initPrompt }) => {
+      try {
+        const wcId = event.sender.id;
+        contextPort.set(wcId, {
+          history: history || "",
+          stage: stage || "history",
+          initPrompt: initPrompt || "",
+        });
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+  );
 
   ipcMain.handle("context-port:summary", async (event, { summary }) => {
     try {
@@ -572,6 +597,7 @@ function registerIpcHandlers() {
         stage: "summary",
         history: cur.history || "",
         summary: summary || "",
+        initPrompt: cur.initPrompt || "",
       });
       return { success: true };
     } catch (err) {
