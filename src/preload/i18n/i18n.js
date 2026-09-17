@@ -330,6 +330,25 @@ const KEYS = {
   },
   "settings.pets.import": { ru: "Загрузить…", en: "Upload…" },
   "settings.pets.reset": { ru: "Сбросить", en: "Reset" },
+  // ---- Таймаут JS-скриптов ----
+  "settings.jsTimeout.title": {
+    ru: "Таймаут выполнения JS-скриптов",
+    en: "JS script execution timeout",
+  },
+  "settings.jsTimeout.hint": {
+    ru: "Максимальное время выполнения одного блока кода от AI. От 10 до 1000 секунд. По умолчанию 60 сек.",
+    en: "Maximum execution time for a single AI code block. From 10 to 1000 seconds. Default is 60 sec.",
+  },
+  "settings.jsTimeout.unit": { ru: "сек", en: "sec" },
+  "settings.jsTimeout.save": { ru: "Сохранить", en: "Save" },
+  "settings.jsTimeout.saved": {
+    ru: "Таймаут сохранён: {sec} сек",
+    en: "Timeout saved: {sec} sec",
+  },
+  "settings.jsTimeout.invalid": {
+    ru: "Введите число от 10 до 1000",
+    en: "Enter a number between 10 and 1000",
+  },
   "settings.pets.resetDone": {
     ru: "Настройки пета сброшены к дефолтам",
     en: "Pet settings reset to defaults",

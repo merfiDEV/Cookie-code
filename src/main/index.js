@@ -49,35 +49,44 @@ try {
   console.error("[Cookie Code] Не удалось нормализовать петов:", err.message);
 }
 
-// Если папка пуста — пробуем подкинуть дефолтный спрайт чубрика из
-// известных мест (Downloads / проект). Пользователь может заменить вручную.
-(function seedDefaultPet() {
+// Встроенные петы из src/ui/pets/ — копируем в userData при первом запуске,
+// чтобы у новых юзеров "из коробки" было 2 чубрика. Существующие файлы не
+// трогаем (пользователь мог заменить/сжать их вручную).
+(function seedBuiltinPets() {
   try {
-    const target = path.join(CUSTOM_PETS_DIR, "chubrik.png");
-    if (fs.existsSync(target)) return;
-    const candidates = [
-      path.join(
-        process.env.USERPROFILE || process.env.HOME || "",
-        "Downloads",
-        "20693345_proof.png",
-      ),
-      path.join(__dirname, "..", "ui", "pets", "chubrik.png"),
-    ];
-    for (const src of candidates) {
+    const builtinDir = path.join(__dirname, "..", "ui", "pets");
+    if (!fs.existsSync(builtinDir)) return;
+    const EXTS = [".png", ".gif", ".webp", ".jpg", ".jpeg"];
+    const files = fs
+      .readdirSync(builtinDir)
+      .filter((f) => EXTS.includes(path.extname(f).toLowerCase()));
+    let copied = 0;
+    for (const f of files) {
+      const src = path.join(builtinDir, f);
+      const dst = path.join(CUSTOM_PETS_DIR, f);
       try {
-        if (src && fs.existsSync(src)) {
-          fs.copyFileSync(src, target);
-          console.log(
-            "[Cookie Code] Дефолтный спрайт пета скопирован:",
-            src,
-            "->",
-            target,
-          );
-          return;
+        if (!fs.existsSync(dst)) {
+          fs.copyFileSync(src, dst);
+          copied++;
         }
-      } catch (_) {}
+      } catch (err) {
+        console.error(
+          "[Cookie Code] Не удалось скопировать встроенного пета:",
+          f,
+          err.message,
+        );
+      }
     }
-  } catch (_) {}
+    if (copied > 0) {
+      console.log(
+        "[Cookie Code] Встроенные петы скопированы в",
+        CUSTOM_PETS_DIR,
+        "(" + copied + " шт.)",
+      );
+    }
+  } catch (err) {
+    console.error("[Cookie Code] seedBuiltinPets error:", err.message);
+  }
 })();
 
 // Имя приложения в системных уведомлениях Windows (иначе показывается electron.app.Electron)

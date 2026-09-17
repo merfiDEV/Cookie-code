@@ -82,6 +82,10 @@ const DEFAULTS = {
   petId: "",
   // Debug-режим пета: разблокирует горячие клавиши F8/F9/F10/F11.
   petDebugMode: false,
+  // ===== Таймаут выполнения JS-скриптов (секунды) =====
+  // Общий дедлайн для одного cuckoo-блока (RUN_DEADLINE в tools/JsRunner.js).
+  // Минимум 10 сек, максимум 1000 сек. Синхронный vm-таймаут остаётся 30 сек.
+  jsTimeoutSec: 60,
 };
 
 let cachedPath = null;

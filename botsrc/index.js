@@ -516,6 +516,7 @@ const SETTINGS_PAGES = {
       { goto: "ui", labelKey: "settings.page.ui" },
       { goto: "glass", labelKey: "settings.page.glass" },
       { goto: "agent", labelKey: "settings.page.agent" },
+      { goto: "pets", labelKey: "settings.page.pets" },
       { goto: "tg", labelKey: "settings.page.tg" },
       { goto: "lang", labelKey: "settings.page.lang" },
     ],
@@ -697,6 +698,39 @@ const SETTINGS_PAGES = {
         labelKey: "label.dangerousPatterns",
         type: "multiline",
       },
+      {
+        key: "jsTimeoutSec",
+        labelKey: "label.jsTimeoutSec",
+        type: "number",
+        step: 10,
+        min: 10,
+        max: 1000,
+        unit: "s",
+      },
+    ],
+    back: true,
+  },
+  pets: {
+    titleKey: "settings.pets.title",
+    textKey: "settings.pets.text",
+    items: [
+      {
+        key: "petId",
+        labelKey: "label.petId",
+        type: "enum",
+        dynamicValues: () => {
+          const pets = _listPets();
+          if (!pets.length) {
+            return [["", _t("common.empty")]];
+          }
+          return pets.map((p) => [p.id, p.id]);
+        },
+      },
+      {
+        key: "petDebugMode",
+        labelKey: "label.petDebugMode",
+        type: "bool",
+      },
     ],
     back: true,
   },
@@ -770,6 +804,32 @@ function _findSetting(key) {
   return null;
 }
 
+/**
+ * Список спрайтов петов из <userData>/pets (или [] при ошибке).
+ * Возвращает [{id, label, file}].
+ */
+function _listPets() {
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const { app } = require("electron");
+    const dir = path.join(app.getPath("userData"), "pets");
+    if (!fs.existsSync(dir)) return [];
+    const EXTS = [".png", ".gif", ".webp", ".jpg", ".jpeg"];
+    return fs
+      .readdirSync(dir)
+      .filter((f) => EXTS.includes(path.extname(f).toLowerCase()))
+      .sort()
+      .map((f) => {
+        const ext = path.extname(f);
+        const base = f.slice(0, -ext.length);
+        return { id: base, label: base, file: path.join(dir, f) };
+      });
+  } catch (_) {
+    return [];
+  }
+}
+
 function _getVal(key) {
   try {
     return settingsStore.readSettings()[key];
@@ -798,10 +858,27 @@ function _label(item) {
   return item.label || item.key || "";
 }
 
+/**
+ * Получить актуальный список значений для enum.
+ * Если у item задан dynamicValues (функция), — вызываем её и получаем свежий
+ * массив [value, label]. Иначе — статический item.values.
+ */
+function _enumValues(item) {
+  if (typeof item.dynamicValues === "function") {
+    try {
+      const v = item.dynamicValues();
+      if (Array.isArray(v) && v.length) return v;
+    } catch (err) {
+      _log("error", "dynamicValues error:", err.message);
+    }
+  }
+  return item.values || [];
+}
+
 function _formatValue(item, value) {
   if (item.type === "bool") return value ? _t("common.on") : _t("common.off");
   if (item.type === "enum") {
-    const found = (item.values || []).find(([v]) => v === value);
+    const found = _enumValues(item).find(([v]) => v === value);
     return found ? found[1] : String(value);
   }
   if (item.type === "number") return String(value) + (item.unit || "");
@@ -846,7 +923,7 @@ function _renderPage(pageName) {
       } else if (item.type === "enum") {
         const cur = _formatValue(item, v);
         keyboard.push([{ text: lbl + ": " + cur, callback_data: "st_noop" }]);
-        const opts = (item.values || []).map(([val, lblVal]) => ({
+        const opts = _enumValues(item).map(([val, lblVal]) => ({
           text: lblVal,
           callback_data: "st_s_" + item.key + "__" + val,
         }));

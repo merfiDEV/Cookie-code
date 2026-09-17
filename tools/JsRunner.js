@@ -17,10 +17,33 @@ const { decodeOutput, normalizeCommand } = require("./decodeOutput");
 
 // 同步执行超时（vm timeout，覆盖无 await 的死循环）
 const SYNC_TIMEOUT = 30 * 1000;
-// 整体运行截止时间（配合宿主桥接检查，覆盖 async 死循环）
-const RUN_DEADLINE = 60 * 1000;
+// 整体运行截止时间的默认值（мс）；реальное значение читается из настроек.
+const RUN_DEADLINE_DEFAULT = 60 * 1000;
+const RUN_DEADLINE_MIN = 10 * 1000;
+const RUN_DEADLINE_MAX = 1000 * 1000;
 // 输出长度上限
 const OUTPUT_LIMIT = 20000;
+
+/**
+ * Текущий дедлайн выполнения одного JS-блока (мс).
+ * Читается из settings.json (ключ jsTimeoutSec, в секундах).
+ * При ошибке чтения — дефолт 60 сек.
+ * Клампится в [RUN_DEADLINE_MIN, RUN_DEADLINE_MAX].
+ */
+function getRunDeadlineMs() {
+  try {
+    const settingsStore = require("../src/main/settings-store");
+    const s = settingsStore.readSettings();
+    const sec = Number(s && s.jsTimeoutSec);
+    if (!Number.isFinite(sec) || sec <= 0) return RUN_DEADLINE_DEFAULT;
+    const ms = sec * 1000;
+    if (ms < RUN_DEADLINE_MIN) return RUN_DEADLINE_MIN;
+    if (ms > RUN_DEADLINE_MAX) return RUN_DEADLINE_MAX;
+    return ms;
+  } catch (_) {
+    return RUN_DEADLINE_DEFAULT;
+  }
+}
 
 /**
  * 沙箱初始化脚本：在沙箱上下文内定义所有工具函数
@@ -327,7 +350,7 @@ class JsRunner {
     }
 
     const startTime = Date.now();
-    const deadlineMs = RUN_DEADLINE;
+    const deadlineMs = getRunDeadlineMs();
     const collectedStats = [];
 
     // 唯一跨域桥接函数：AI 代码中的每个工具调用都通过它回到主进程执行。
@@ -544,4 +567,4 @@ class JsRunner {
   }
 }
 
-module.exports = { JsRunner };
+module.exports = { JsRunner, getRunDeadlineMs, RUN_DEADLINE_DEFAULT };

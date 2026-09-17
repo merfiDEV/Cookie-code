@@ -423,6 +423,24 @@ function buildContentHTML() {
     "</button>" +
     "    </div>" +
     "  </div>" +
+    // ===== Таймаут выполнения JS-скриптов =====
+    '  <div class="ck-card" style="padding:14px 16px;margin-bottom:8px;">' +
+    '    <div class="ck-row-title" style="margin-bottom:6px;">' +
+    t("settings.jsTimeout.title") +
+    "</div>" +
+    '    <div class="ck-row-hint" style="margin-bottom:10px;">' +
+    t("settings.jsTimeout.hint") +
+    "</div>" +
+    '    <div style="display:flex;gap:10px;align-items:center;">' +
+    '      <input type="number" id="cuckoo-js-timeout" class="ck-input" min="10" max="1000" step="5" style="flex:1;" />' +
+    '      <span style="font-size:12px;color:#8a90b8;flex-shrink:0;">' +
+    t("settings.jsTimeout.unit") +
+    "</span>" +
+    '      <button id="cuckoo-js-timeout-save" class="ck-btn" style="padding:8px 16px;font-size:12px;flex-shrink:0;">' +
+    t("settings.jsTimeout.save") +
+    "</button>" +
+    "    </div>" +
+    "  </div>" +
     '  <div class="ck-card ck-stack">' +
     '  <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
     "    <div>" +
@@ -1674,6 +1692,43 @@ function bindAgentSettings() {
     });
   });
 
+  // ===== Таймаут JS-скриптов =====
+  const timeoutInput = document.getElementById("cuckoo-js-timeout");
+  const timeoutSave = document.getElementById("cuckoo-js-timeout-save");
+  if (timeoutInput && timeoutSave) {
+    const trySave = async () => {
+      const raw = Number(timeoutInput.value);
+      if (!Number.isFinite(raw) || raw < 10 || raw > 1000) {
+        window.electronAPI.showBannerNotification(
+          t("settings.jsTimeout.invalid"),
+          { duration: 4000 },
+        );
+        return;
+      }
+      const sec = Math.round(raw);
+      timeoutInput.value = sec;
+      try {
+        await window.electronAPI.setCuckooSetting("jsTimeoutSec", sec);
+        window.electronAPI.showBannerNotification(
+          t("settings.jsTimeout.saved").replace("{sec}", String(sec)),
+          { duration: 3500 },
+        );
+      } catch (err) {
+        console.error(
+          "[Cookie Code] Не удалось сохранить jsTimeoutSec:",
+          err.message,
+        );
+      }
+    };
+    timeoutSave.addEventListener("click", trySave);
+    timeoutInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        trySave();
+      }
+    });
+  }
+
   const cb = document.getElementById("cuckoo-hide-system-messages");
   if (cb) {
     cb.addEventListener("change", async () => {
@@ -1848,6 +1903,14 @@ async function refreshAgentSettings() {
       try {
         applyConvTokensVisibility(convTokensCb.checked);
       } catch (_) {}
+    }
+    // Таймаут JS-скриптов
+    const timeoutInput = document.getElementById("cuckoo-js-timeout");
+    if (timeoutInput) {
+      const sec = Number(s && s.jsTimeoutSec);
+      timeoutInput.value = String(
+        Number.isFinite(sec) && sec >= 10 && sec <= 1000 ? Math.round(sec) : 60,
+      );
     }
   } catch (_) {}
 }
