@@ -11,6 +11,7 @@
 const { telegramBot, TelegramBot } = require("./telegram");
 const settingsStore = require("../src/main/settings-store");
 const windowState = require("../src/main/window");
+const i18n = require("./i18n");
 
 let started = false;
 
@@ -52,7 +53,34 @@ function _read() {
     notifyTools: !!s.telegramNotifyTools,
     chatFeed: !!s.telegramChatFeed,
     approvalMode: s.toolApprovalMode || "off",
+    lang: i18n.normalizeLang(s.telegramLanguage),
   };
+}
+
+/** Текущий язык бота. */
+function _lang() {
+  return i18n.getBotLang();
+}
+
+/** Строка i18n по текущему языку бота. */
+function _t(key, vars) {
+  return i18n.t(_lang(), key, vars);
+}
+
+/**
+ * Выбирал ли пользователь язык бота явно.
+ * Читаем сырой файл настроек: если ключа telegramLanguage нет — язык не выбран.
+ */
+function _langChosen() {
+  try {
+    const fs = require("fs");
+    const file = settingsStore.getSettingsPath();
+    if (!fs.existsSync(file)) return false;
+    const parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
+    return !!(parsed && parsed.telegramLanguage != null);
+  } catch (_) {
+    return false;
+  }
 }
 
 function _log(level, ...args) {
@@ -164,11 +192,15 @@ function _activeSenderId() {
 /** Текст со списком задач (для /todos и уведомления о завершении). */
 function formatTodos(todos) {
   const items = Array.isArray(todos) ? todos : [];
-  if (items.length === 0) return "☑ Список задач пуст.";
+  if (items.length === 0) return _t("todos.empty");
   const icon = { pending: "☐", in_progress: "◔", completed: "☑" };
   const done = items.filter((t) => t.status === "completed").length;
   const lines = items.map((t) => (icon[t.status] || "☐") + " " + t.content);
-  return "☑ Задачи (" + done + "/" + items.length + "):\n" + lines.join("\n");
+  return (
+    _t("todos.header", { done: done, total: items.length }) +
+    "\n" +
+    lines.join("\n")
+  );
 }
 
 /**
@@ -215,13 +247,13 @@ async function askQuestion(requestId, questions) {
   const items = Array.isArray(questions) ? questions : [];
   if (items.length === 0) return { success: false, skipped: true };
 
-  const lines = ["❓ <b>Вопрос от ИИ</b>"];
+  const lines = [_t("question.title")];
   items.forEach((q, qi) => {
     lines.push("");
     lines.push(qi + 1 + ". " + _qEsc(q.question));
   });
   lines.push("");
-  lines.push("<i>Выберите вариант кнопкой ниже.</i>");
+  lines.push(_t("question.hint"));
   const text = lines.join("\n");
 
   const entry = {
@@ -288,7 +320,7 @@ async function _handleCallback(chatId, data, cbq) {
   if (!entry || entry.answers[qi] != null) {
     _callbackTokens.delete(token);
     await telegramBot.answerCallbackQuery(cbq.id, {
-      text: "Вопрос уже закрыт",
+      text: _t("question.closed"),
     });
     return;
   }
@@ -297,14 +329,16 @@ async function _handleCallback(chatId, data, cbq) {
   const opt = (q.options || [])[oi];
   if (!opt) {
     await telegramBot.answerCallbackQuery(cbq.id, {
-      text: "Вариант не найден",
+      text: _t("question.notFound"),
     });
     return;
   }
 
   entry.answers[qi] = { question: q.question, answer: String(opt.label || "") };
   await telegramBot.answerCallbackQuery(cbq.id, {
-    text: "Принято: " + String(opt.label || "").slice(0, 40),
+    text: _t("question.accepted", {
+      answer: String(opt.label || "").slice(0, 40),
+    }),
   });
 
   // Обновляем сообщение: показываем выбранные ответы, убираем использованные кнопки.
@@ -337,8 +371,8 @@ async function requestApproval(requestId, info) {
 
   const isJs = info && info.kind === "js";
   const name = isJs
-    ? "JS-скрипт"
-    : String((info && info.toolName) || "инструмент");
+    ? _t("approval.jsScript")
+    : String((info && info.toolName) || _t("approval.tool"));
   let details = "";
   try {
     details = isJs
@@ -357,18 +391,20 @@ async function requestApproval(requestId, info) {
   _approvalCallbackTokens.set(token, { requestId: id, approved: true });
 
   const msg =
-    "🔐 <b>Подтверждение команды</b>\n<b>" +
+    _t("approval.title") +
+    "\n<b>" +
     escapeHtml(name) +
     "</b>" +
     (body ? "\n<pre>" + body + "</pre>" : "") +
-    "\n<i>Разрешить выполнение?</i>";
+    "\n" +
+    _t("approval.ask");
   const res = await telegramBot.sendMessage(msg, {
     parseMode: "HTML",
     replyMarkup: {
       inline_keyboard: [
         [
-          { text: "✅ Разрешить", callback_data: token },
-          { text: "❌ Отклонить", callback_data: token + "d" },
+          { text: _t("approval.allow"), callback_data: token },
+          { text: _t("approval.deny"), callback_data: token + "d" },
         ],
       ],
     },
@@ -387,7 +423,7 @@ async function _handleApprovalCallback(ref, cbq) {
   const entry = _pendingApprovals.get(ref.requestId);
   if (!entry) {
     await telegramBot.answerCallbackQuery(cbq.id, {
-      text: "Запрос уже закрыт",
+      text: _t("approval.closed"),
     });
     return;
   }
@@ -395,13 +431,15 @@ async function _handleApprovalCallback(ref, cbq) {
   _approvalCallbackTokens.delete(entry.token);
   _approvalCallbackTokens.delete(entry.token + "d");
   await telegramBot.answerCallbackQuery(cbq.id, {
-    text: ref.approved ? "Команда разрешена" : "Команда отклонена",
+    text: ref.approved ? _t("approval.allowed") : _t("approval.denied"),
   });
   if (entry.messageId) {
-    const status = ref.approved ? "✅ Разрешено" : "❌ Отклонено";
+    const status = ref.approved
+      ? _t("approval.allowedShort")
+      : _t("approval.deniedShort");
     await telegramBot.editMessageText(
       entry.messageId,
-      "🔐 <b>Подтверждение команды</b>\n" + status,
+      _t("approval.title") + "\n" + status,
       {
         parseMode: "HTML",
         replyMarkup: { inline_keyboard: [] },
@@ -429,7 +467,7 @@ function cancelApproval(requestId) {
 /** Перерисовать сообщение с вопросами: отметить выбранное, убрать лишние кнопки. */
 async function _refreshQuestionMessage(requestId, entry) {
   if (!entry.messageId) return;
-  const lines = ["❓ <b>Вопрос от ИИ</b>"];
+  const lines = [_t("question.title")];
   entry.questions.forEach((q, qi) => {
     lines.push("");
     const chosen = entry.answers[qi];
@@ -468,24 +506,29 @@ async function _refreshQuestionMessage(requestId, entry) {
 
 const SETTINGS_PAGES = {
   root: {
-    title: "⚙️ <b>Настройки Cookie Code</b>",
-    text: "Что настраиваем?",
+    titleKey: "settings.root.title",
+    textKey: "settings.root.text",
     items: [
-      { goto: "ui", label: "🎨 Интерфейс" },
-      { goto: "glass", label: "🪟 Стекло и панель" },
-      { goto: "agent", label: "🤖 Агент и приватность" },
-      { goto: "tg", label: "📡 Telegram-бот" },
+      { goto: "ui", labelKey: "settings.page.ui" },
+      { goto: "glass", labelKey: "settings.page.glass" },
+      { goto: "agent", labelKey: "settings.page.agent" },
+      { goto: "tg", labelKey: "settings.page.tg" },
+      { goto: "lang", labelKey: "settings.page.lang" },
     ],
   },
   ui: {
-    title: "🎨 <b>Интерфейс</b>",
-    text: "Общие визуальные эффекты.",
+    titleKey: "settings.ui.title",
+    textKey: "settings.ui.text",
     items: [
-      { key: "customizationEnabled", label: "Кастомизация вкл", type: "bool" },
-      { key: "rgbUsername", label: "RGB-переливание ника", type: "bool" },
+      {
+        key: "customizationEnabled",
+        labelKey: "label.customizationEnabled",
+        type: "bool",
+      },
+      { key: "rgbUsername", labelKey: "label.rgbUsername", type: "bool" },
       {
         key: "language",
-        label: "Язык UI",
+        labelKey: "label.language",
         type: "enum",
         values: [
           ["ru", "🇷🇺 RU"],
@@ -496,12 +539,12 @@ const SETTINGS_PAGES = {
     back: true,
   },
   glass: {
-    title: "🪟 <b>Стекло и панель</b>",
-    text: "Прозрачность, размытие и цвета панели Cookie Code.",
+    titleKey: "settings.glass.title",
+    textKey: "settings.glass.text",
     items: [
       {
         key: "backgroundBlur",
-        label: "Размытие фона",
+        labelKey: "label.backgroundBlur",
         type: "number",
         step: 2,
         min: 0,
@@ -510,7 +553,7 @@ const SETTINGS_PAGES = {
       },
       {
         key: "headerBlur",
-        label: "Размытие шапки",
+        labelKey: "label.headerBlur",
         type: "number",
         step: 2,
         min: 0,
@@ -519,7 +562,7 @@ const SETTINGS_PAGES = {
       },
       {
         key: "sidebarBlur",
-        label: "Размытие сайдбара",
+        labelKey: "label.sidebarBlur",
         type: "number",
         step: 2,
         min: 0,
@@ -528,7 +571,7 @@ const SETTINGS_PAGES = {
       },
       {
         key: "headerOpacity",
-        label: "Прозрачность шапки",
+        labelKey: "label.headerOpacity",
         type: "number",
         step: 5,
         min: 0,
@@ -537,7 +580,7 @@ const SETTINGS_PAGES = {
       },
       {
         key: "sidebarOpacity",
-        label: "Прозрачность сайдбара",
+        labelKey: "label.sidebarOpacity",
         type: "number",
         step: 5,
         min: 0,
@@ -546,7 +589,7 @@ const SETTINGS_PAGES = {
       },
       {
         key: "toolBlockOpacity",
-        label: "Прозрачность tool-блоков",
+        labelKey: "label.toolBlockOpacity",
         type: "number",
         step: 5,
         min: 0,
@@ -555,7 +598,7 @@ const SETTINGS_PAGES = {
       },
       {
         key: "toolBlockBlur",
-        label: "Размытие tool-блоков",
+        labelKey: "label.toolBlockBlur",
         type: "number",
         step: 2,
         min: 0,
@@ -564,7 +607,7 @@ const SETTINGS_PAGES = {
       },
       {
         key: "overlayOpacity",
-        label: "Прозрачность панели",
+        labelKey: "label.overlayOpacity",
         type: "number",
         step: 5,
         min: 0,
@@ -573,7 +616,7 @@ const SETTINGS_PAGES = {
       },
       {
         key: "overlayBlur",
-        label: "Размытие панели",
+        labelKey: "label.overlayBlur",
         type: "number",
         step: 2,
         min: 0,
@@ -582,7 +625,7 @@ const SETTINGS_PAGES = {
       },
       {
         key: "overlayWidth",
-        label: "Ширина панели",
+        labelKey: "label.overlayWidth",
         type: "number",
         step: 20,
         min: 200,
@@ -591,25 +634,33 @@ const SETTINGS_PAGES = {
       },
       {
         key: "overlayBtnRadius",
-        label: "Скругление кнопок",
+        labelKey: "label.overlayBtnRadius",
         type: "number",
         step: 2,
         min: 0,
         max: 24,
         unit: "px",
       },
-      { key: "overlayBgColor", label: "Цвет подложки", type: "color" },
-      { key: "overlayPrimaryColor", label: "Акцентный цвет", type: "color" },
+      {
+        key: "overlayBgColor",
+        labelKey: "label.overlayBgColor",
+        type: "color",
+      },
+      {
+        key: "overlayPrimaryColor",
+        labelKey: "label.overlayPrimaryColor",
+        type: "color",
+      },
     ],
     back: true,
   },
   agent: {
-    title: "🤖 <b>Агент и приватность</b>",
-    text: "Подтверждения, служебные сообщения, форматтеры.",
+    titleKey: "settings.agent.title",
+    textKey: "settings.agent.text",
     items: [
       {
         key: "toolApprovalMode",
-        label: "Подтверждение tools",
+        labelKey: "label.toolApprovalMode",
         type: "enum",
         values: [
           ["off", "⚪ Off"],
@@ -619,34 +670,74 @@ const SETTINGS_PAGES = {
       },
       {
         key: "hideSystemMessages",
-        label: "Скрывать служебные сообщения",
+        labelKey: "label.hideSystemMessages",
         type: "bool",
       },
-      { key: "formattersEnabled", label: "Авто-форматтеры", type: "bool" },
-      { key: "fileChipEnabled", label: "Пути как чипы", type: "bool" },
-      { key: "showProducedFiles", label: "Затронутые файлы", type: "bool" },
+      {
+        key: "formattersEnabled",
+        labelKey: "label.formattersEnabled",
+        type: "bool",
+      },
+      {
+        key: "fileChipEnabled",
+        labelKey: "label.fileChipEnabled",
+        type: "bool",
+      },
+      {
+        key: "showProducedFiles",
+        labelKey: "label.showProducedFiles",
+        type: "bool",
+      },
       {
         key: "dangerousPatterns",
-        label: "Опасные паттерны",
+        labelKey: "label.dangerousPatterns",
         type: "multiline",
       },
     ],
     back: true,
   },
   tg: {
-    title: "📡 <b>Telegram-бот</b>",
-    text: "Управление ботом и уведомлениями.",
+    titleKey: "settings.tg.title",
+    textKey: "settings.tg.text",
     items: [
-      { key: "telegramEnabled", label: "Бот включён", type: "bool" },
-      { key: "telegramNotifyTools", label: "Уведомления о tool", type: "bool" },
-      { key: "telegramChatFeed", label: "Принимать из TG", type: "bool" },
+      {
+        key: "telegramEnabled",
+        labelKey: "label.telegramEnabled",
+        type: "bool",
+      },
+      {
+        key: "telegramNotifyTools",
+        labelKey: "label.telegramNotifyTools",
+        type: "bool",
+      },
+      {
+        key: "telegramChatFeed",
+        labelKey: "label.telegramChatFeed",
+        type: "bool",
+      },
       {
         key: "telegramBotToken",
-        label: "Токен бота",
+        labelKey: "label.telegramBotToken",
         type: "text",
         secret: true,
       },
-      { key: "telegramChatId", label: "Chat ID", type: "text" },
+      { key: "telegramChatId", labelKey: "label.telegramChatId", type: "text" },
+    ],
+    back: true,
+  },
+  lang: {
+    titleKey: "settings.lang.title",
+    textKey: "settings.lang.text",
+    items: [
+      {
+        key: "telegramLanguage",
+        labelKey: "label.telegramLanguage",
+        type: "enum",
+        values: [
+          ["ru", "🇷🇺 Русский"],
+          ["en", "🇬🇧 English"],
+        ],
+      },
     ],
     back: true,
   },
@@ -686,8 +777,15 @@ function _esc(s) {
   return escapeHtml(s);
 }
 
+/** Локализованный лейбл настройки (или её ключ как fallback). */
+function _label(item) {
+  if (!item) return "";
+  if (item.labelKey) return _t(item.labelKey);
+  return item.label || item.key || "";
+}
+
 function _formatValue(item, value) {
-  if (item.type === "bool") return value ? "✅ ВКЛ" : "⚪ ВЫКЛ";
+  if (item.type === "bool") return value ? _t("common.on") : _t("common.off");
   if (item.type === "enum") {
     const found = (item.values || []).find(([v]) => v === value);
     return found ? found[1] : String(value);
@@ -696,9 +794,9 @@ function _formatValue(item, value) {
   if (item.type === "color") return String(value || "");
   if (item.type === "text" || item.type === "multiline") {
     if (item.secret)
-      return value ? "••••" + String(value).slice(-4) : "(пусто)";
+      return value ? "••••" + String(value).slice(-4) : _t("common.empty");
     const s = String(value == null ? "" : value);
-    return s.length > 20 ? s.slice(0, 20) + "…" : s || "(пусто)";
+    return s.length > 20 ? s.slice(0, 20) + "…" : s || _t("common.empty");
   }
   return String(value);
 }
@@ -706,23 +804,36 @@ function _formatValue(item, value) {
 function _renderPage(pageName) {
   const page = SETTINGS_PAGES[pageName];
   if (!page) return _renderPage("root");
-  const lines = [page.title, "", page.text];
+  const lines = [
+    page.titleKey ? _t(page.titleKey) : page.title,
+    "",
+    page.textKey ? _t(page.textKey) : page.text,
+  ];
   const keyboard = [];
   if (page.items) {
     for (const item of page.items) {
+      // Пункт-переход на другую страницу.
+      if (item.goto) {
+        keyboard.push([
+          {
+            text: _label(item),
+            callback_data: "st_page_" + item.goto,
+          },
+        ]);
+        continue;
+      }
       const v = _getVal(item.key);
+      const lbl = _label(item);
       if (item.type === "bool") {
         const icon = v ? "✅" : "⚪";
         keyboard.push([
-          { text: icon + " " + item.label, callback_data: "st_t_" + item.key },
+          { text: icon + " " + lbl, callback_data: "st_t_" + item.key },
         ]);
       } else if (item.type === "enum") {
         const cur = _formatValue(item, v);
-        keyboard.push([
-          { text: item.label + ": " + cur, callback_data: "st_noop" },
-        ]);
-        const opts = (item.values || []).map(([val, lbl]) => ({
-          text: lbl,
+        keyboard.push([{ text: lbl + ": " + cur, callback_data: "st_noop" }]);
+        const opts = (item.values || []).map(([val, lblVal]) => ({
+          text: lblVal,
           callback_data: "st_s_" + item.key + "__" + val,
         }));
         if (opts.length) keyboard.push(opts);
@@ -730,18 +841,18 @@ function _renderPage(pageName) {
         const cur = _formatValue(item, v);
         keyboard.push([
           { text: "➖", callback_data: "st_n_" + item.key + "_-" },
-          { text: item.label + ": " + cur, callback_data: "st_noop" },
+          { text: lbl + ": " + cur, callback_data: "st_noop" },
           { text: "➕", callback_data: "st_n_" + item.key + "_+" },
         ]);
       } else if (item.type === "color") {
         keyboard.push([
-          { text: "✏️ " + item.label, callback_data: "st_e_" + item.key },
+          { text: "✏️ " + lbl, callback_data: "st_e_" + item.key },
           { text: String(v || ""), callback_data: "st_noop" },
         ]);
       } else if (item.type === "text" || item.type === "multiline") {
         keyboard.push([
           {
-            text: "✏️ " + item.label + ": " + _formatValue(item, v),
+            text: "✏️ " + lbl + ": " + _formatValue(item, v),
             callback_data: "st_e_" + item.key,
           },
         ]);
@@ -749,17 +860,12 @@ function _renderPage(pageName) {
     }
   }
   if (page.back) {
-    keyboard.push([{ text: "⬅️ Назад", callback_data: "st_page_root" }]);
+    keyboard.push([{ text: _t("common.back"), callback_data: "st_page_root" }]);
   } else {
+    // Корневая страница — переходы уже добавлены из items (goto).
     keyboard.push([
-      { text: "🔧 Агент", callback_data: "st_page_agent" },
-      { text: "🎨 UI", callback_data: "st_page_ui" },
+      { text: _t("common.refresh"), callback_data: "st_page_root" },
     ]);
-    keyboard.push([
-      { text: "🪟 Стекло", callback_data: "st_page_glass" },
-      { text: "📡 Telegram", callback_data: "st_page_tg" },
-    ]);
-    keyboard.push([{ text: "🔄 Обновить", callback_data: "st_page_root" }]);
   }
   return { text: lines.join("\n"), keyboard: { inline_keyboard: keyboard } };
 }
@@ -792,6 +898,30 @@ async function _handleSettingsCallback(data, cbq) {
   const msgId = cbq.message && cbq.message.message_id;
   const state = _settingsState.get(chatId) || { page: "root" };
 
+  // ---- Выбор языка бота (/start) ----
+  if (data.startsWith("st_lang_")) {
+    const lang = i18n.normalizeLang(data.slice("st_lang_".length));
+    const ok = _setVal("telegramLanguage", lang);
+    await telegramBot.answerCallbackQuery(cbq.id, {
+      text: ok
+        ? i18n.t(lang, "lang.saved", { lang: i18n.t(lang, "lang." + lang) })
+        : i18n.t(lang, "common.error"),
+    });
+    // Убираем клавиатуру выбора и показываем помощь на выбранном языке.
+    if (msgId) {
+      try {
+        await telegramBot.editMessageText(
+          msgId,
+          i18n.t(lang, "lang.saved", {
+            lang: i18n.t(lang, "lang." + lang),
+          }),
+          { parseMode: "HTML", replyMarkup: { inline_keyboard: [] } },
+        );
+      } catch (_) {}
+    }
+    await _cmdHelp();
+    return;
+  }
   if (data.startsWith("st_page_")) {
     await telegramBot.answerCallbackQuery(cbq.id);
     await _showSettingsMenu(chatId, data.slice("st_page_".length), msgId);
@@ -802,7 +932,11 @@ async function _handleSettingsCallback(data, cbq) {
     const next = !_getVal(key);
     const ok = _setVal(key, next);
     await telegramBot.answerCallbackQuery(cbq.id, {
-      text: ok ? (next ? "Включено" : "Выключено") : "Ошибка",
+      text: ok
+        ? next
+          ? _t("cb.enabled")
+          : _t("cb.disabled")
+        : _t("common.error"),
     });
     if (ok) {
       try {
@@ -819,7 +953,7 @@ async function _handleSettingsCallback(data, cbq) {
     const val = rest.slice(sep + 2);
     const ok = _setVal(key, val);
     await telegramBot.answerCallbackQuery(cbq.id, {
-      text: ok ? "Сохранено" : "Ошибка",
+      text: ok ? _t("cb.saved") : _t("common.error"),
     });
     if (ok && key === "language") {
       try {
@@ -848,7 +982,7 @@ async function _handleSettingsCallback(data, cbq) {
     if (typeof item.max === "number") val = Math.min(item.max, val);
     const ok = _setVal(key, val);
     await telegramBot.answerCallbackQuery(cbq.id, {
-      text: ok ? String(val) + (item.unit || "") : "Ошибка",
+      text: ok ? String(val) + (item.unit || "") : _t("common.error"),
     });
     await _showSettingsMenu(chatId, state.page, msgId);
     return;
@@ -862,13 +996,13 @@ async function _handleSettingsCallback(data, cbq) {
     }
     _settingsWaiting.set(chatId, { key });
     await telegramBot.answerCallbackQuery(cbq.id, {
-      text: "Отправьте новое значение",
+      text: _t("input.prompt"),
     });
     const cur = _getVal(key);
     const hint =
       found.item.type === "multiline"
-        ? "Отправьте новый список — по одному паттерну в строке. /cancel — отмена."
-        : "Отправьте новое значение одним сообщением. /cancel — отмена.";
+        ? _t("input.hintList")
+        : _t("input.hintOne");
     const curText =
       found.item.type === "multiline"
         ? Array.isArray(cur)
@@ -877,10 +1011,12 @@ async function _handleSettingsCallback(data, cbq) {
         : String(cur == null ? "" : cur);
     await telegramBot.sendMessage(
       "✏️ <b>" +
-        _esc(found.item.label) +
+        _esc(_label(found.item)) +
         "</b>\n" +
         hint +
-        "\n\n<i>Текущее:</i>\n<pre>" +
+        "\n\n" +
+        _t("input.current") +
+        "\n<pre>" +
         _esc(curText.slice(0, 1500)) +
         "</pre>",
       { parseMode: "HTML" },
@@ -915,41 +1051,43 @@ async function _cmdStop() {
   } catch (err) {
     _log("error", "/stop error:", err.message);
     return telegramBot.sendMessage(
-      "❌ Не удалось остановить: " + escapeHtml(err.message),
+      _t("stop.failed", { err: escapeHtml(err.message) }),
     );
   }
-  return telegramBot.sendMessage(
-    "🛑 Остановлено. Убито процессов: <b>" + count + "</b>.",
-    { parseMode: "HTML" },
-  );
+  return telegramBot.sendMessage(_t("stop.done", { n: count }), {
+    parseMode: "HTML",
+  });
 }
 
 /** /status — окно, проект, процессы, версия, polling. */
 async function _cmdStatus() {
   const cfg = _read();
-  const lines = ["📊 <b>Статус Cookie Code</b>", ""];
+  const lines = [_t("status.title"), ""];
 
   let version = "?";
   try {
     version = require("electron").app.getVersion();
   } catch (_) {}
-  lines.push("📦 Версия: <b>" + escapeHtml(version) + "</b>");
+  lines.push(_t("status.version", { v: escapeHtml(version) }));
 
   const win = windowState.getMainWindow();
   const winOk = !!(win && !win.isDestroyed());
-  lines.push("🪟 Окно: " + (winOk ? "активно" : "❌ нет"));
+  lines.push(
+    _t("status.window") +
+      (winOk ? _t("status.window.ok") : _t("status.window.none")),
+  );
 
   const ctx = _activeContext();
   const projectDir =
     ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir;
   lines.push(
-    "📁 Проект: " +
+    _t("status.project") +
       (projectDir
         ? "<code>" + escapeHtml(projectDir) + "</code>"
-        : "не выбран"),
+        : _t("status.project.none")),
   );
   if (ctx && ctx.providerId)
-    lines.push("🌐 Провайдер: " + escapeHtml(ctx.providerId));
+    lines.push(_t("status.provider") + escapeHtml(ctx.providerId));
 
   let procCount = 0;
   try {
@@ -958,7 +1096,7 @@ async function _cmdStatus() {
       (processManager.activeProcesses && processManager.activeProcesses.size) ||
       0;
   } catch (_) {}
-  lines.push("⚙️ Активных процессов: <b>" + procCount + "</b>");
+  lines.push(_t("status.processes", { n: procCount }));
 
   let todos = 0,
     done = 0;
@@ -970,20 +1108,20 @@ async function _cmdStatus() {
       done = list.filter((t) => t.status === "completed").length;
     }
   } catch (_) {}
-  lines.push("☑️ Задачи: " + done + "/" + todos);
+  lines.push(_t("status.todos", { done: done, total: todos }));
 
   const st = telegramBot.getStatus();
   lines.push(
-    "📡 Бот: " +
+    _t("status.bot") +
       (cfg.enabled
         ? st.polling
-          ? "✅ работает"
-          : "⚠️ включён, но не опрашивает"
-        : "⚪ выключен"),
+          ? _t("status.bot.on")
+          : _t("status.bot.warn")
+        : _t("status.bot.off")),
   );
   if (st.lastError)
     lines.push(
-      "⚠️ Последняя ошибка: " + escapeHtml(String(st.lastError).slice(0, 200)),
+      _t("status.lastError") + escapeHtml(String(st.lastError).slice(0, 200)),
     );
 
   return telegramBot.sendMessage(lines.join("\n"), { parseMode: "HTML" });
@@ -999,9 +1137,9 @@ async function _cmdNew() {
   const inner = res.result || {};
   if (inner.success === false)
     return telegramBot.sendMessage(
-      "⚠️ " + escapeHtml(inner.error || "не удалось"),
+      "⚠️ " + escapeHtml(inner.error || _t("common.error")),
     );
-  return telegramBot.sendMessage("🆕 Новый чат открыт.");
+  return telegramBot.sendMessage(_t("new.done"));
 }
 
 /** /diff — показать текущие изменения (git diff) в проекте. */
@@ -1009,16 +1147,18 @@ async function _cmdDiff() {
   const ctx = _activeContext();
   const projectDir =
     ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir;
-  if (!projectDir) return telegramBot.sendMessage("⚠️ Проект не выбран.");
+  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
 
   const gitDiff = require("../src/main/git-diff");
   const status = await gitDiff.getStatus(projectDir);
   if (!status.success)
     return telegramBot.sendMessage(
-      "⚠️ " + escapeHtml(status.reason || "git недоступен"),
+      _t("diff.gitUnavailable", {
+        reason: escapeHtml(status.reason || _t("diff.gitDefault")),
+      }),
     );
   const files = status.files || [];
-  if (files.length === 0) return telegramBot.sendMessage("✅ Изменений нет.");
+  if (files.length === 0) return telegramBot.sendMessage(_t("diff.none"));
 
   const chunks = [];
   let total = 0;
@@ -1032,9 +1172,9 @@ async function _cmdDiff() {
     total += text.length;
   }
 
-  const header = "📝 <b>Изменения (" + files.length + ")</b>\n";
+  const header = _t("diff.header", { n: files.length }) + "\n";
   const fileList = files.map((f) => "• " + escapeHtml(f.path)).join("\n");
-  const body = chunks.join("\n\n") || "(diff недоступен)";
+  const body = chunks.join("\n\n") || _t("diff.unavailable");
   const msg =
     header +
     "<blockquote>" +
@@ -1052,37 +1192,53 @@ async function _cmdDiagnostics() {
   );
   if (!res.success)
     return telegramBot.sendMessage("⚠️ " + escapeHtml(res.error));
-  const text = String(res.result || "(пусто)").slice(0, 3500);
+  const text = String(res.result || _t("common.empty")).slice(0, 3500);
   return telegramBot.sendMessage(
-    "🩺 <b>Диагностика</b>\n<pre>" + escapeHtml(text) + "</pre>",
+    _t("diag.title") + "\n<pre>" + escapeHtml(text) + "</pre>",
     { parseMode: "HTML" },
   );
 }
 
 async function _cmdHelp() {
   const text = [
-    "🦆 <b>Cookie Code — помощь</b>",
+    _t("help.title"),
     "",
-    "<b>Команды</b>",
-    "/settings    — открыть меню настроек",
-    "/status      — статус: окно, проект, процессы",
-    "/stop        — прервать задачу и убить процессы",
-    "/new         — новый чат",
-    "/diff        — показать изменения (git diff)",
-    "/diagnostics — диагностика интеграции",
-    "/todos       — список задач активного окна",
-    "/cancel      — отменить ввод / подтверждение",
-    "/help        — эта справка",
+    _t("help.commands"),
+    _t("help.cmd.settings"),
+    _t("help.cmd.status"),
+    _t("help.cmd.stop"),
+    _t("help.cmd.new"),
+    _t("help.cmd.diff"),
+    _t("help.cmd.diagnostics"),
+    _t("help.cmd.todos"),
+    _t("help.cmd.cancel"),
+    _t("help.cmd.help"),
     "",
-    "<b>Возможности</b>",
-    "• Уведомления о вызовах инструментов",
-    "• Приём входящих сообщений в чат DeepSeek",
-    "• Подтверждение команд — кнопки «Разрешить / Отклонить»",
-    "• Вопросы от AI с вариантами ответа",
+    _t("help.features"),
+    _t("help.feat.notify"),
+    _t("help.feat.feed"),
+    _t("help.feat.approval"),
+    _t("help.feat.questions"),
     "",
-    "Настройки синхронизированы с десктопным приложением.",
+    _t("help.sync"),
   ].join("\n");
   return telegramBot.sendMessage(text, { parseMode: "HTML" });
+}
+
+/** Показать выбор языка бота (/start при первом запуске). */
+async function _cmdChooseLang() {
+  const text = _t("lang.choose");
+  return telegramBot.sendMessage(text, {
+    parseMode: "HTML",
+    replyMarkup: {
+      inline_keyboard: [
+        [
+          { text: i18n.t("ru", "lang.ru"), callback_data: "st_lang_ru" },
+          { text: i18n.t("ru", "lang.en"), callback_data: "st_lang_en" },
+        ],
+      ],
+    },
+  });
 }
 
 async function _cmdSettings(chatId) {
@@ -1110,10 +1266,9 @@ async function _handleSettingsInput(chatId, text) {
   } else if (item.type === "color") {
     value = text.trim();
     if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)) {
-      await telegramBot.sendMessage(
-        "⚠ Некорректный цвет. Ожидается hex вида <code>#8b93ff</code>.",
-        { parseMode: "HTML" },
-      );
+      await telegramBot.sendMessage(_t("common.invalidColor"), {
+        parseMode: "HTML",
+      });
       return true;
     }
   } else if (item.type === "text") {
@@ -1132,8 +1287,8 @@ async function _handleSettingsInput(chatId, text) {
   }
   await telegramBot.sendMessage(
     ok
-      ? "✅ Сохранено: <b>" + _esc(item.label) + "</b>"
-      : "❌ Не удалось сохранить",
+      ? _t("common.saved", { label: _esc(_label(item)) })
+      : _t("common.saveFailed"),
     { parseMode: "HTML" },
   );
   const state = _settingsState.get(chatId);
@@ -1149,7 +1304,16 @@ async function _handleIncoming(chatId, text) {
   const cmd = raw.trim().toLowerCase();
 
   // ---- Служебные команды ----
-  if (cmd === "/help" || cmd === "/start") {
+  if (cmd === "/start") {
+    // При первом запуске предлагаем выбрать язык бота.
+    if (!_langChosen()) {
+      await _cmdChooseLang();
+      return;
+    }
+    await _cmdHelp();
+    return;
+  }
+  if (cmd === "/help") {
     await _cmdHelp();
     return;
   }
@@ -1185,12 +1349,12 @@ async function _handleIncoming(chatId, text) {
       const r = cancelApproval(id);
       if (r && r.success && !r.skipped) cancelledApprovals++;
     }
-    if (hadSettings) await telegramBot.sendMessage("✖️ Ввод отменён.");
+    if (hadSettings) await telegramBot.sendMessage(_t("input.cancelled"));
     else if (cancelledApprovals > 0)
       await telegramBot.sendMessage(
-        "✖️ Отменено подтверждений: " + cancelledApprovals,
+        _t("input.approvalsCancelled", { n: cancelledApprovals }),
       );
-    else await telegramBot.sendMessage("Нечего отменять.");
+    else await telegramBot.sendMessage(_t("input.nothingToCancel"));
     return;
   }
   // Команда /todos — показать список задач активного окна.
@@ -1223,9 +1387,7 @@ async function _handleIncoming(chatId, text) {
   _log("info", "incoming → chat:", text);
   const res = await _sendToChat(text);
   if (!res.success) {
-    await telegramBot.sendMessage(
-      "⚠ Не удалось отправить в чат: " + (res.error || "unknown"),
-    );
+    await telegramBot.sendMessage("⚠ " + (res.error || "unknown"));
   }
 }
 
@@ -1238,11 +1400,8 @@ async function notifyAllDone(todos) {
   if (items.length === 0) return { success: false, skipped: true };
   const lines = items.map((t) => "☑ " + escapeHtml(t.content)).join("\n");
   const msg =
-    "🎉 <b>Все задачи выполнены</b> (" +
-    items.length +
-    "/" +
-    items.length +
-    ")\n<blockquote>" +
+    _t("tool.allDone", { n: items.length }) +
+    "\n<blockquote>" +
     lines +
     "</blockquote>";
   return telegramBot.sendMessage(msg, { parseMode: "HTML" });
@@ -1265,16 +1424,18 @@ function formatToolArgs(toolName, args) {
       if (file) s += "📄 " + file + "\n";
       if (old)
         s +=
-          "➖ было:\n" +
+          _t("tool.old") +
+          "\n" +
           old.slice(0, 500) +
-          (old.length > 500 ? "\n…(обрезано)" : "") +
+          (old.length > 500 ? "\n" + _t("tool.truncated") : "") +
           "\n";
       if (neu)
         s +=
-          "➕ стало:\n" +
+          _t("tool.new") +
+          "\n" +
           neu.slice(0, 2000) +
           (neu.length > 2000
-            ? "\n…(обрезано, всего " + neu.length + " симв.)"
+            ? "\n" + _t("tool.truncatedTotal", { n: neu.length })
             : "");
       return s;
     }
@@ -1286,17 +1447,17 @@ function formatToolArgs(toolName, args) {
       return (
         "🔎 " +
         (a.pattern || "") +
-        (a.path ? " в " + a.path : "") +
+        (a.path ? _t("tool.in") + a.path : "") +
         (a.include ? " (" + a.include + ")" : "")
       );
     case "glob":
-      return "🔎 " + (a.pattern || "") + (a.path ? " в " + a.path : "");
+      return "🔎 " + (a.pattern || "") + (a.path ? _t("tool.in") + a.path : "");
     case "bash":
     case "pwsh":
       return "💻 " + (a.command || "");
     case "todoWrite":
       return (
-        "☑ " + (Array.isArray(a.todos) ? a.todos.length + " пункт(ов)" : "")
+        "☑ " + (Array.isArray(a.todos) ? a.todos.length + _t("tool.items") : "")
       );
     default: {
       // Общий случай — компактный JSON, кроме длинных полей.
@@ -1352,7 +1513,7 @@ async function notifyToolResult(toolName, ok, detail) {
       };
       if (oldS) addLines("➖ ", oldS.slice(0, 1000));
       if (newS) addLines("➕ ", newS.slice(0, 2000));
-      const body = lines.join("\n") || "(пустое изменение)";
+      const body = lines.join("\n") || _t("tool.editEmpty");
       const title = file ? " " + escapeHtml(file) : "";
       const msg =
         emoji +
@@ -1369,7 +1530,7 @@ async function notifyToolResult(toolName, ok, detail) {
     if (argsText) bodyParts.push(argsText);
     if (preview)
       bodyParts.push(
-        "📤 " +
+        _t("tool.result") +
           String(preview)
             .replace(/\n{3,}/g, "\n\n")
             .slice(0, 600),
@@ -1453,7 +1614,7 @@ async function notifyAIResponse(text) {
   const MAX = 3500;
   const body =
     s.length > MAX
-      ? s.slice(0, MAX) + "\n…(обрезано, всего " + s.length + " симв.)"
+      ? s.slice(0, MAX) + "\n" + _t("ai.truncated", { n: s.length })
       : s;
   return telegramBot.sendMessage("🤖 " + body);
 }
@@ -1469,9 +1630,7 @@ async function ping() {
 async function testSend() {
   const cfg = _read();
   telegramBot.configure(cfg.token, cfg.chatId);
-  return telegramBot.sendMessage(
-    "👋 Cookie Code: тестовое уведомление. Всё работает.",
-  );
+  return telegramBot.sendMessage(_t("test.send"));
 }
 
 module.exports = {
