@@ -108,13 +108,15 @@ function buildOverlayHTML() {
       t("overlay.label.sendDelay") +
       "</label>",
     '      <div class="cuckoo-blur-row">',
-    '        <div class="cuckoo-blur-label">',
-    '          <input id="cuckoo-delay-min" class="cuckoo-input" type="number" min="0" max="10000" step="100" value="2000" />',
+    '        <div class="cuckoo-delay-label">',
+    '          <input id="cuckoo-delay-min" class="cuckoo-input" type="number" min="0" step="0.1" value="2" />',
     '          <span class="cuckoo-blur-value">' +
       t("overlay.label.delayRange") +
       "</span>",
-    '          <input id="cuckoo-delay-max" class="cuckoo-input" type="number" min="0" max="10000" step="100" value="4000" />',
-    '          <span class="cuckoo-blur-value">ms</span>',
+    '          <input id="cuckoo-delay-max" class="cuckoo-input" type="number" min="0" step="0.1" value="4" />',
+    '          <span class="cuckoo-blur-value">' +
+      t("overlay.label.delaySeconds") +
+      "</span>",
     "        </div>",
     "      </div>",
     '      <button id="cuckoo-btn-save-delay" class="cuckoo-btn-text" style="align-self:flex-end;">' +
@@ -360,6 +362,8 @@ const OVERLAY_CSS = [
   ".cuckoo-section { display: flex; flex-direction: column; gap: 8px; }",
   ".cuckoo-blur-row { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; }",
   ".cuckoo-blur-label { font-size: 13px; color: #cfd3ff; display: flex; justify-content: space-between; align-items: center; gap: 6px; }",
+  ".cuckoo-delay-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #cfd3ff; }",
+  ".cuckoo-delay-label .cuckoo-blur-value { white-space: nowrap; flex-shrink: 0; }",
   '.cuckoo-blur-value { font-size: 12px; color: #8b93ff; font-family: "Consolas", monospace; font-weight: 600; }',
   '.cuckoo-input { width: 70px; background: rgba(15,18,32,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 5px 8px; color: #dde1ff; font-size: 12px; font-family: "Consolas", monospace; outline: none; transition: border-color 0.18s; }',
   ".cuckoo-input:focus { border-color: rgba(139,147,255,0.6); }",

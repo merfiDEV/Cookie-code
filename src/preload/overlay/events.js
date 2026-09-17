@@ -2,21 +2,39 @@
  * 覆盖层按钮事件绑定
  * 由原 preload.js 拆分而来，逻辑保持不变。
  */
-const state = require('../dom/state');
-const { hideOverlay, showOverlay, renderHistory, commandHistory, showToast, showConfirmDialog, hideFirstTimeDialog, handleKillProcess } = require('./ui');
-const { toggleDiffPanel, closeDiffPanel, renderDiffList, closeDiffViewer, setActiveTab, backToLog, openCommitFullDiff } = require('./diff-panel');
-const todoPanel = require('./todo-panel');
-const { handleInitProject, renderSessions } = require('../dom/session-list');
-const { handleManualParse } = require('../dom/observer');
-const { sendToChat } = require('../dom/chat-input');
-const { getProviderByUrl } = require('../../../src/providers');
-const { estimateTokens } = require('../dom/token-estimator');
+const state = require("../dom/state");
+const { t } = require("../i18n/i18n");
+const {
+  hideOverlay,
+  showOverlay,
+  renderHistory,
+  commandHistory,
+  showToast,
+  showConfirmDialog,
+  hideFirstTimeDialog,
+  handleKillProcess,
+} = require("./ui");
+const {
+  toggleDiffPanel,
+  closeDiffPanel,
+  renderDiffList,
+  closeDiffViewer,
+  setActiveTab,
+  backToLog,
+  openCommitFullDiff,
+} = require("./diff-panel");
+const todoPanel = require("./todo-panel");
+const { handleInitProject, renderSessions } = require("../dom/session-list");
+const { handleManualParse } = require("../dom/observer");
+const { sendToChat } = require("../dom/chat-input");
+const { getProviderByUrl } = require("../../../src/providers");
+const { estimateTokens } = require("../dom/token-estimator");
 
 /**
  * 渲染窗口列表（浮动管理面板内）
  */
 async function renderWindowList() {
-  const list = document.getElementById('cuckoo-window-list');
+  const list = document.getElementById("cuckoo-window-list");
   if (!list) return;
   try {
     const res = await window.electronAPI.listProfiles();
@@ -30,54 +48,68 @@ async function renderWindowList() {
     try {
       const pvRes = await window.electronAPI.listProviders();
       if (pvRes && pvRes.success) {
-        (pvRes.providers || []).forEach(pv => { providerMap[pv.id] = pv.name; });
+        (pvRes.providers || []).forEach((pv) => {
+          providerMap[pv.id] = pv.name;
+        });
       }
     } catch (_) {}
 
-    list.innerHTML = profiles.map(p => {
-      const pname = providerMap[p.providerId] || '平台';
-      return '<div class="cuckoo-window-item" data-profile-id="' + p.id + '">' +
-        '<span class="cuckoo-window-left">' +
-          '<span class="cuckoo-window-name">' + p.name + '</span>' +
+    list.innerHTML = profiles
+      .map((p) => {
+        const pname = providerMap[p.providerId] || "平台";
+        return (
+          '<div class="cuckoo-window-item" data-profile-id="' +
+          p.id +
+          '">' +
+          '<span class="cuckoo-window-left">' +
+          '<span class="cuckoo-window-name">' +
+          p.name +
+          "</span>" +
           '<span class="cuckoo-window-sep">|</span>' +
-          '<span class="cuckoo-window-status">' + pname + '</span>' +
-        '</span>' +
-        '<span class="cuckoo-window-del" data-profile-id="' + p.id + '" title="删除窗口">删除</span>' +
-      '</div>';
-    }).join('');
-    list.querySelectorAll('.cuckoo-window-item').forEach(el => {
-      el.addEventListener('click', async (e) => {
+          '<span class="cuckoo-window-status">' +
+          pname +
+          "</span>" +
+          "</span>" +
+          '<span class="cuckoo-window-del" data-profile-id="' +
+          p.id +
+          '" title="删除窗口">删除</span>' +
+          "</div>"
+        );
+      })
+      .join("");
+    list.querySelectorAll(".cuckoo-window-item").forEach((el) => {
+      el.addEventListener("click", async (e) => {
         // 点击删除按钮不触发切换
-        if (e.target.classList.contains('cuckoo-window-del')) return;
+        if (e.target.classList.contains("cuckoo-window-del")) return;
         const profileId = el.dataset.profileId;
         try {
           const r = await window.electronAPI.openProfileWindow(profileId);
           if (r && r.success) {
-            showToast(r.focused ? '已切换到该窗口' : '已打开窗口', 2000);
+            showToast(r.focused ? "已切换到该窗口" : "已打开窗口", 2000);
             closeWindowManager();
           } else {
-            showToast((r && r.error) || '打开失败', 3000);
+            showToast((r && r.error) || "打开失败", 3000);
           }
         } catch (err) {
-          showToast('打开窗口失败: ' + (err.message || err), 3000);
+          showToast("打开窗口失败: " + (err.message || err), 3000);
         }
       });
     });
     // 绑定删除按钮
-    list.querySelectorAll('.cuckoo-window-del').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
+    list.querySelectorAll(".cuckoo-window-del").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const profileId = btn.dataset.profileId;
         try {
           const r = await window.electronAPI.deleteProfileWindow(profileId);
           if (r && r.success) {
-            showToast('已删除窗口', 2000);
+            showToast("已删除窗口", 2000);
             await renderWindowList();
           } else {
-            showToast((r && r.error) || '删除失败', 3000);
+            showToast((r && r.error) || "删除失败", 3000);
           }
         } catch (err) {
-          showToast('删除失败: ' + (err.message || err), 3000);
+          showToast("删除失败: " + (err.message || err), 3000);
         }
       });
     });
@@ -90,9 +122,9 @@ async function renderWindowList() {
  * 打开窗口管理浮动面板
  */
 function openWindowManager() {
-  const panel = document.getElementById('cuckoo-window-manager');
+  const panel = document.getElementById("cuckoo-window-manager");
   if (panel) {
-    panel.classList.remove('cuckoo-hidden');
+    panel.classList.remove("cuckoo-hidden");
     renderWindowList();
   }
 }
@@ -101,17 +133,18 @@ function openWindowManager() {
  * 关闭窗口管理浮动面板
  */
 function closeWindowManager() {
-  const panel = document.getElementById('cuckoo-window-manager');
-  if (panel) panel.classList.add('cuckoo-hidden');
+  const panel = document.getElementById("cuckoo-window-manager");
+  if (panel) panel.classList.add("cuckoo-hidden");
 }
 
 /**
  * 生成项目说明文档按钮点击处理
  */
 function handleGenerateDoc() {
-  const message = '根据当前项目生成一个项目说明文件，并将文件放到当前项目 .cuckooCode/CUCKOO.md';
-  if (!sendToChat(message, '生成文档', 300)) {
-    showToast('未找到输入框，请确保已打开聊天界面', 3000);
+  const message =
+    "根据当前项目生成一个项目说明文件，并将文件放到当前项目 .cuckooCode/CUCKOO.md";
+  if (!sendToChat(message, "生成文档", 300)) {
+    showToast("未找到输入框，请确保已打开聊天界面", 3000);
   }
 }
 
@@ -125,7 +158,7 @@ async function loadMcpConfigToJson() {
   const mcpServers = {};
   for (const s of servers) {
     const def = {};
-    if (s.type === 'http') {
+    if (s.type === "http") {
       if (s.url) def.url = s.url;
       if (s.headers) def.headers = s.headers;
     } else {
@@ -135,7 +168,7 @@ async function loadMcpConfigToJson() {
     }
     mcpServers[s.name] = def;
   }
-  const jsonInput = document.getElementById('cuckoo-mcp-json');
+  const jsonInput = document.getElementById("cuckoo-mcp-json");
   if (jsonInput) jsonInput.value = JSON.stringify({ mcpServers }, null, 2);
 }
 
@@ -143,49 +176,66 @@ async function loadMcpConfigToJson() {
  * 渲染 MCP server 列表
  */
 async function renderMcpList() {
-  const list = document.getElementById('cuckoo-mcp-list');
+  const list = document.getElementById("cuckoo-mcp-list");
   if (!list) return;
   try {
     const res = await window.electronAPI.listMcpServers();
     const servers = res && res.success ? res.servers : [];
     if (!servers || servers.length === 0) {
-      list.innerHTML = '<div class="cuckoo-session-empty">暂无 MCP Server</div>';
+      list.innerHTML =
+        '<div class="cuckoo-session-empty">暂无 MCP Server</div>';
       return;
     }
-    list.innerHTML = servers.map(s => {
-      const status = s.connected ? '已连接' : (s.enabled ? '未连接' : '已禁用');
-      const statusColor = s.connected ? '#4ade80' : (s.enabled ? '#ffc107' : '#5d6280');
-      return '<div class="cuckoo-window-item cuckoo-mcp-item" data-mcp-name="' + s.name + '">' +
-        '<span class="cuckoo-window-name">' + s.name + '</span>' +
-        '<span class="cuckoo-mcp-dot" style="width:8px;height:8px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;" title="' + status + '"></span>' +
-      '</div>';
-    }).join('');
+    list.innerHTML = servers
+      .map((s) => {
+        const status = s.connected ? "已连接" : s.enabled ? "未连接" : "已禁用";
+        const statusColor = s.connected
+          ? "#4ade80"
+          : s.enabled
+            ? "#ffc107"
+            : "#5d6280";
+        return (
+          '<div class="cuckoo-window-item cuckoo-mcp-item" data-mcp-name="' +
+          s.name +
+          '">' +
+          '<span class="cuckoo-window-name">' +
+          s.name +
+          "</span>" +
+          '<span class="cuckoo-mcp-dot" style="width:8px;height:8px;border-radius:50%;background:' +
+          statusColor +
+          ';flex-shrink:0;" title="' +
+          status +
+          '"></span>' +
+          "</div>"
+        );
+      })
+      .join("");
 
-    list.querySelectorAll('.cuckoo-mcp-item').forEach(el => {
-      el.addEventListener('click', async () => {
+    list.querySelectorAll(".cuckoo-mcp-item").forEach((el) => {
+      el.addEventListener("click", async () => {
         const name = el.dataset.mcpName;
-        const server = servers.find(s => s.name === name);
+        const server = servers.find((s) => s.name === name);
         if (!server) return;
 
         // 点击后立即显示 loading
-        const dot = el.querySelector('.cuckoo-mcp-dot');
-        if (dot) dot.style.background = '#ffc107';
-        el.style.pointerEvents = 'none';
+        const dot = el.querySelector(".cuckoo-mcp-dot");
+        if (dot) dot.style.background = "#ffc107";
+        el.style.pointerEvents = "none";
 
         try {
           if (server.connected || server.enabled) {
             // 已连接或已启用 → 断开/禁用
             await window.electronAPI.disableMcpServer(name);
-            showToast('已断开 ' + name, 2000);
+            showToast("已断开 " + name, 2000);
           } else {
             // 未启用 → 连接
             await window.electronAPI.enableMcpServer(name);
-            showToast('已连接 ' + name, 2000);
+            showToast("已连接 " + name, 2000);
           }
           await renderMcpList();
           await loadMcpConfigToJson();
         } catch (err) {
-          showToast('操作失败: ' + (err.message || err), 3000);
+          showToast("操作失败: " + (err.message || err), 3000);
           await renderMcpList();
         }
       });
@@ -199,9 +249,9 @@ async function renderMcpList() {
  * 打开 MCP 管理面板
  */
 function openMcpManager() {
-  const panel = document.getElementById('cuckoo-mcp-manager');
+  const panel = document.getElementById("cuckoo-mcp-manager");
   if (panel) {
-    panel.classList.remove('cuckoo-hidden');
+    panel.classList.remove("cuckoo-hidden");
     renderMcpList();
     loadMcpConfigToJson();
   }
@@ -211,8 +261,8 @@ function openMcpManager() {
  * 关闭 MCP 管理面板
  */
 function closeMcpManager() {
-  const panel = document.getElementById('cuckoo-mcp-manager');
-  if (panel) panel.classList.add('cuckoo-hidden');
+  const panel = document.getElementById("cuckoo-mcp-manager");
+  if (panel) panel.classList.add("cuckoo-hidden");
 }
 
 /**
@@ -221,9 +271,9 @@ function closeMcpManager() {
  * @returns {string}
  */
 function formatTokenCount(n) {
-  if (!Number.isFinite(n) || n < 0) return '0';
-  if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  if (!Number.isFinite(n) || n < 0) return "0";
+  if (n >= 1000000) return (n / 1000000).toFixed(2) + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
   return String(Math.round(n));
 }
 
@@ -239,7 +289,7 @@ function formatTokenCount(n) {
  * @returns {string}
  */
 function convTokenStorageKey(sessionId) {
-  return 'cuckoo-conv-tokens-' + (sessionId || 'default');
+  return "cuckoo-conv-tokens-" + (sessionId || "default");
 }
 
 /**
@@ -249,10 +299,12 @@ function convTokenStorageKey(sessionId) {
 function getCurrentSessionId() {
   try {
     const provider = getProviderByUrl(window.location.href);
-    if (provider && typeof provider.extractSessionId === 'function') {
+    if (provider && typeof provider.extractSessionId === "function") {
       return provider.extractSessionId(window.location.href);
     }
-  } catch (_) { /* ignore */ }
+  } catch (_) {
+    /* ignore */
+  }
   return null;
 }
 
@@ -262,28 +314,45 @@ function getCurrentSessionId() {
  * @returns {number}
  */
 function computeAndSaveConversationTokens() {
-  let text = '';
+  let text = "";
   try {
     const provider = getProviderByUrl(window.location.href);
-    if (provider && typeof provider.getConversationText === 'function') {
-      text = provider.getConversationText() || '';
+    if (provider && typeof provider.getConversationText === "function") {
+      text = provider.getConversationText() || "";
     }
-  } catch (_) { /* provider 未就绪 */ }
+  } catch (_) {
+    /* provider 未就绪 */
+  }
   // Отладка (один раз в 5 сек, чтобы не спамить)
   try {
     const now = Date.now();
-    if (!computeAndSaveConversationTokens._lastLog || now - computeAndSaveConversationTokens._lastLog > 5000) {
+    if (
+      !computeAndSaveConversationTokens._lastLog ||
+      now - computeAndSaveConversationTokens._lastLog > 5000
+    ) {
       computeAndSaveConversationTokens._lastLog = now;
-      const cnt = document.querySelectorAll('.ds-message').length;
-      console.log('[Cookie Code][tokens] .ds-message=' + cnt + ' textLen=' + text.length + ' estTokens=' + estimateTokens(text));
+      const cnt = document.querySelectorAll(".ds-message").length;
+      console.log(
+        "[Cookie Code][tokens] .ds-message=" +
+          cnt +
+          " textLen=" +
+          text.length +
+          " estTokens=" +
+          estimateTokens(text),
+      );
     }
   } catch (_) {}
   const tokens = estimateTokens(text);
   // Запоминаем только если есть что запоминать (> 0)
   if (tokens > 0) {
     try {
-      localStorage.setItem(convTokenStorageKey(getCurrentSessionId()), String(tokens));
-    } catch (_) { /* ignore */ }
+      localStorage.setItem(
+        convTokenStorageKey(getCurrentSessionId()),
+        String(tokens),
+      );
+    } catch (_) {
+      /* ignore */
+    }
   }
   return tokens;
 }
@@ -294,10 +363,14 @@ function computeAndSaveConversationTokens() {
  */
 function readSavedConversationTokens() {
   try {
-    const raw = localStorage.getItem(convTokenStorageKey(getCurrentSessionId()));
+    const raw = localStorage.getItem(
+      convTokenStorageKey(getCurrentSessionId()),
+    );
     const n = raw != null ? parseInt(raw, 10) : 0;
     return Number.isFinite(n) && n > 0 ? n : 0;
-  } catch (_) { return 0; }
+  } catch (_) {
+    return 0;
+  }
 }
 
 /**
@@ -305,7 +378,7 @@ function readSavedConversationTokens() {
  * @returns {string}
  */
 function sessionKey() {
-  return getCurrentSessionId() || 'default';
+  return getCurrentSessionId() || "default";
 }
 
 /**
@@ -317,7 +390,10 @@ function sessionKey() {
 function setServerTokensForCurrentSession(total) {
   if (!Number.isFinite(total) || total <= 0) return;
   const sid = sessionKey();
-  if (!state.serverTokensBySession || typeof state.serverTokensBySession !== 'object') {
+  if (
+    !state.serverTokensBySession ||
+    typeof state.serverTokensBySession !== "object"
+  ) {
     state.serverTokensBySession = {};
   }
   const prev = Number(state.serverTokensBySession[sid]) || 0;
@@ -332,7 +408,7 @@ function setServerTokensForCurrentSession(total) {
 function getServerTokensForCurrentSession() {
   const sid = sessionKey();
   const map = state.serverTokensBySession;
-  const n = map && typeof map === 'object' ? Number(map[sid]) : 0;
+  const n = map && typeof map === "object" ? Number(map[sid]) : 0;
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
@@ -343,7 +419,7 @@ function getServerTokensForCurrentSession() {
  */
 function getLocalEstimateForSession(sid) {
   const m = state.localEstimateBySession;
-  const n = m && typeof m === 'object' ? Number(m[sid]) : 0;
+  const n = m && typeof m === "object" ? Number(m[sid]) : 0;
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
@@ -354,7 +430,10 @@ function getLocalEstimateForSession(sid) {
  */
 function bumpLocalEstimateForSession(sid, value) {
   if (!Number.isFinite(value) || value <= 0) return;
-  if (!state.localEstimateBySession || typeof state.localEstimateBySession !== 'object') {
+  if (
+    !state.localEstimateBySession ||
+    typeof state.localEstimateBySession !== "object"
+  ) {
     state.localEstimateBySession = {};
   }
   const prev = Number(state.localEstimateBySession[sid]) || 0;
@@ -372,7 +451,7 @@ function bumpLocalEstimateForSession(sid, value) {
  *      это давало прыжки 900 → 4K → 1.9K.
  */
 function updateConversationTokenDisplay() {
-  const countEl = document.getElementById('cuckoo-conv-token-count');
+  const countEl = document.getElementById("cuckoo-conv-token-count");
   if (!countEl) return;
 
   const sid = sessionKey();
@@ -393,11 +472,13 @@ function updateConversationTokenDisplay() {
  * Слушаем серверные токены из token-interceptor и обновляем state + панель.
  */
 function registerTokenInterceptorListener() {
-  window.addEventListener('cuckoo:token-update', (e) => {
+  window.addEventListener("cuckoo:token-update", (e) => {
     try {
       const d = e && e.detail ? e.detail : {};
-      if (typeof d.total === 'number' && d.total > 0) setServerTokensForCurrentSession(d.total);
-      if (typeof d.delta === 'number' && d.delta > 0) state.serverTokenDelta = d.delta;
+      if (typeof d.total === "number" && d.total > 0)
+        setServerTokensForCurrentSession(d.total);
+      if (typeof d.delta === "number" && d.delta > 0)
+        state.serverTokenDelta = d.delta;
     } catch (_) {}
     safeUpdateConversationTokenDisplay();
   });
@@ -407,7 +488,9 @@ function registerTokenInterceptorListener() {
  * Безопасный вызов updateConversationTokenDisplay (не роняет слушателя).
  */
 function safeUpdateConversationTokenDisplay() {
-  try { updateConversationTokenDisplay(); } catch (_) {}
+  try {
+    updateConversationTokenDisplay();
+  } catch (_) {}
 }
 
 /**
@@ -433,88 +516,98 @@ function bindEvents() {
 
   // 从 localStorage 恢复延迟配置
   try {
-    const savedMin = localStorage.getItem('cuckoo-send-delay-min');
-    const savedMax = localStorage.getItem('cuckoo-send-delay-max');
+    const savedMin = localStorage.getItem("cuckoo-send-delay-min");
+    const savedMax = localStorage.getItem("cuckoo-send-delay-max");
     if (savedMin) state.sendDelayMin = parseInt(savedMin, 10) || 2000;
     if (savedMax) state.sendDelayMax = parseInt(savedMax, 10) || 4000;
-    // 同步到输入框
-    const minInput = document.getElementById('cuckoo-delay-min');
-    const maxInput = document.getElementById('cuckoo-delay-max');
-    if (minInput) minInput.value = state.sendDelayMin;
-    if (maxInput) maxInput.value = state.sendDelayMax;
+    // 同步到输入框：存储为毫秒，界面显示秒
+    const minInput = document.getElementById("cuckoo-delay-min");
+    const maxInput = document.getElementById("cuckoo-delay-max");
+    if (minInput) minInput.value = state.sendDelayMin / 1000;
+    if (maxInput) maxInput.value = state.sendDelayMax / 1000;
   } catch (e) {}
 
-  const minimizeBtn = document.getElementById('cuckoo-btn-minimize');
-  const initBtn = document.getElementById('cuckoo-btn-init');
-  const clearBtn = document.getElementById('cuckoo-btn-clear');
+  const minimizeBtn = document.getElementById("cuckoo-btn-minimize");
+  const initBtn = document.getElementById("cuckoo-btn-init");
+  const clearBtn = document.getElementById("cuckoo-btn-clear");
 
-  minimizeBtn?.addEventListener('click', hideOverlay);
-  initBtn?.addEventListener('click', handleInitProject);
+  minimizeBtn?.addEventListener("click", hideOverlay);
+  initBtn?.addEventListener("click", handleInitProject);
 
   // 首次使用提示浮窗：初始化按钮（与右侧初始化项目逻辑一致）
-  const firstInitBtn = document.getElementById('cuckoo-btn-first-init');
-  firstInitBtn?.addEventListener('click', handleInitProject);
+  const firstInitBtn = document.getElementById("cuckoo-btn-first-init");
+  firstInitBtn?.addEventListener("click", handleInitProject);
 
   // 首次使用提示浮窗：关闭按钮
-  const firstCloseBtn = document.getElementById('cuckoo-btn-first-close');
-  firstCloseBtn?.addEventListener('click', hideFirstTimeDialog);
-  clearBtn?.addEventListener('click', () => {
+  const firstCloseBtn = document.getElementById("cuckoo-btn-first-close");
+  firstCloseBtn?.addEventListener("click", hideFirstTimeDialog);
+  clearBtn?.addEventListener("click", () => {
     commandHistory.length = 0;
     renderHistory();
   });
 
   // 手动解析按钮
-  const manualParseBtn = document.getElementById('cuckoo-btn-manual-parse');
-  manualParseBtn?.addEventListener('click', handleManualParse);
+  const manualParseBtn = document.getElementById("cuckoo-btn-manual-parse");
+  manualParseBtn?.addEventListener("click", handleManualParse);
 
   // Экстренная остановка активных дочерних процессов (кнопка Kill в плашке статуса)
-  const killBtn = document.getElementById('cuckoo-btn-kill');
-  killBtn?.addEventListener('click', handleKillProcess);
+  const killBtn = document.getElementById("cuckoo-btn-kill");
+  killBtn?.addEventListener("click", handleKillProcess);
 
   // 窗口管理按钮：打开浮动管理面板
-  const windowManagerBtn = document.getElementById('cuckoo-btn-window-manager');
-  windowManagerBtn?.addEventListener('click', () => {
+  const windowManagerBtn = document.getElementById("cuckoo-btn-window-manager");
+  windowManagerBtn?.addEventListener("click", () => {
     openWindowManager();
   });
 
   // MCP 按钮：打开 MCP 管理面板
-  const mcpBtn = document.getElementById('cuckoo-btn-mcp');
-  mcpBtn?.addEventListener('click', openMcpManager);
+  const mcpBtn = document.getElementById("cuckoo-btn-mcp");
+  mcpBtn?.addEventListener("click", openMcpManager);
 
   // MCP 面板：关闭
-  const mcpCloseBtn = document.getElementById('cuckoo-mcp-close');
-  mcpCloseBtn?.addEventListener('click', closeMcpManager);
+  const mcpCloseBtn = document.getElementById("cuckoo-mcp-close");
+  mcpCloseBtn?.addEventListener("click", closeMcpManager);
 
   // Diff-панель: кнопка в overlay (toggle)
-  const diffBtn = document.getElementById('cuckoo-btn-diff');
-  diffBtn?.addEventListener('click', toggleDiffPanel);
+  const diffBtn = document.getElementById("cuckoo-btn-diff");
+  diffBtn?.addEventListener("click", toggleDiffPanel);
 
   // Diff-панель: закрыть
-  const diffCloseBtn = document.getElementById('cuckoo-diff-close');
-  diffCloseBtn?.addEventListener('click', closeDiffPanel);
+  const diffCloseBtn = document.getElementById("cuckoo-diff-close");
+  diffCloseBtn?.addEventListener("click", closeDiffPanel);
 
   // Diff-панель: обновить (в зависимости от активной вкладки)
-  const diffRefreshBtn = document.getElementById('cuckoo-diff-refresh');
-  diffRefreshBtn?.addEventListener('click', () => {
-    const historyTab = document.getElementById('cuckoo-diff-tab-history');
-    if (historyTab && historyTab.classList.contains('active')) {
-      require('./diff-panel').renderGitLog();
+  const diffRefreshBtn = document.getElementById("cuckoo-diff-refresh");
+  diffRefreshBtn?.addEventListener("click", () => {
+    const historyTab = document.getElementById("cuckoo-diff-tab-history");
+    if (historyTab && historyTab.classList.contains("active")) {
+      require("./diff-panel").renderGitLog();
     } else {
       renderDiffList();
     }
   });
 
   // Diff-панель: вкладки
-  document.getElementById('cuckoo-diff-tab-changes')?.addEventListener('click', () => setActiveTab('changes'));
-  document.getElementById('cuckoo-diff-tab-history')?.addEventListener('click', () => setActiveTab('history'));
+  document
+    .getElementById("cuckoo-diff-tab-changes")
+    ?.addEventListener("click", () => setActiveTab("changes"));
+  document
+    .getElementById("cuckoo-diff-tab-history")
+    ?.addEventListener("click", () => setActiveTab("history"));
 
   // Diff-панель: назад к истории / весь коммит
-  document.getElementById('cuckoo-commit-back')?.addEventListener('click', backToLog);
-  document.getElementById('cuckoo-commit-full')?.addEventListener('click', openCommitFullDiff);
+  document
+    .getElementById("cuckoo-commit-back")
+    ?.addEventListener("click", backToLog);
+  document
+    .getElementById("cuckoo-commit-full")
+    ?.addEventListener("click", openCommitFullDiff);
 
   // Diff-viewer: закрыть
-  const diffViewerCloseBtn = document.getElementById('cuckoo-diff-viewer-close');
-  diffViewerCloseBtn?.addEventListener('click', closeDiffViewer);
+  const diffViewerCloseBtn = document.getElementById(
+    "cuckoo-diff-viewer-close",
+  );
+  diffViewerCloseBtn?.addEventListener("click", closeDiffViewer);
 
   // Плавающее окошко «Задачи»
   todoPanel.start();
@@ -523,60 +616,85 @@ function bindEvents() {
   startTokenCounter();
 
   // MCP 面板：刷新
-  const mcpRefreshBtn = document.getElementById('cuckoo-mcp-refresh');
-  mcpRefreshBtn?.addEventListener('click', renderMcpList);
+  const mcpRefreshBtn = document.getElementById("cuckoo-mcp-refresh");
+  mcpRefreshBtn?.addEventListener("click", renderMcpList);
 
   // MCP 面板：保存配置
-  const mcpSaveBtn = document.getElementById('cuckoo-mcp-save');
-  mcpSaveBtn?.addEventListener('click', async () => {
-    const jsonInput = document.getElementById('cuckoo-mcp-json');
+  const mcpSaveBtn = document.getElementById("cuckoo-mcp-save");
+  mcpSaveBtn?.addEventListener("click", async () => {
+    const jsonInput = document.getElementById("cuckoo-mcp-json");
     if (!jsonInput || !jsonInput.value.trim()) {
-      showToast('请输入配置', 3000);
+      showToast("请输入配置", 3000);
       return;
     }
     try {
       const parsed = JSON.parse(jsonInput.value);
-      if (!parsed.mcpServers || typeof parsed.mcpServers !== 'object') {
-        showToast('配置格式错误，需要 mcpServers 对象', 3000);
+      if (!parsed.mcpServers || typeof parsed.mcpServers !== "object") {
+        showToast("配置格式错误，需要 mcpServers 对象", 3000);
         return;
       }
 
       // 校验每个 server 定义是否完整合法（发现错误立即中止，不删旧配置、不覆盖编辑框）
       for (const [name, def] of Object.entries(parsed.mcpServers)) {
-        if (!def || typeof def !== 'object' || Array.isArray(def)) {
+        if (!def || typeof def !== "object" || Array.isArray(def)) {
           showToast('配置错误：server "' + name + '" 的定义必须是对象', 4000);
           return;
         }
         const hasUrl = def.url !== undefined;
         const hasCommand = def.command !== undefined;
         if (hasUrl) {
-          if (typeof def.url !== 'string' || !def.url.trim()) {
-            showToast('配置错误：server "' + name + '" 的 url 必须是非空字符串', 4000);
+          if (typeof def.url !== "string" || !def.url.trim()) {
+            showToast(
+              '配置错误：server "' + name + '" 的 url 必须是非空字符串',
+              4000,
+            );
             return;
           }
           if (hasCommand) {
-            showToast('配置错误：server "' + name + '" 不能同时指定 url 和 command', 4000);
+            showToast(
+              '配置错误：server "' + name + '" 不能同时指定 url 和 command',
+              4000,
+            );
             return;
           }
         } else if (hasCommand) {
-          if (typeof def.command !== 'string' || !def.command.trim()) {
-            showToast('配置错误：server "' + name + '" 的 command 必须是非空字符串', 4000);
+          if (typeof def.command !== "string" || !def.command.trim()) {
+            showToast(
+              '配置错误：server "' + name + '" 的 command 必须是非空字符串',
+              4000,
+            );
             return;
           }
         } else {
-          showToast('配置错误：server "' + name + '" 缺少 command 或 url', 4000);
+          showToast(
+            '配置错误：server "' + name + '" 缺少 command 或 url',
+            4000,
+          );
           return;
         }
         if (def.args !== undefined && !Array.isArray(def.args)) {
           showToast('配置错误：server "' + name + '" 的 args 必须是数组', 4000);
           return;
         }
-        if (def.env !== undefined && (typeof def.env !== 'object' || def.env === null || Array.isArray(def.env))) {
+        if (
+          def.env !== undefined &&
+          (typeof def.env !== "object" ||
+            def.env === null ||
+            Array.isArray(def.env))
+        ) {
           showToast('配置错误：server "' + name + '" 的 env 必须是对象', 4000);
           return;
         }
-        if (def.headers !== undefined && (typeof def.headers !== 'object' || def.headers === null || Array.isArray(def.headers))) {
-          showToast('配置错误：server "' + name + '" 的 headers 必须是对象', 4000);
+        if (
+          def.headers !== undefined &&
+          (typeof def.headers !== "object" ||
+            def.headers === null ||
+            Array.isArray(def.headers))
+        ) {
+          showToast(
+            '配置错误：server "' + name + '" 的 headers 必须是对象',
+            4000,
+          );
           return;
         }
       }
@@ -595,112 +713,128 @@ function bindEvents() {
       for (const [name, def] of Object.entries(parsed.mcpServers)) {
         const server = {
           name,
-          type: def && def.url ? 'http' : 'stdio',
+          type: def && def.url ? "http" : "stdio",
           command: def && def.command,
-          args: def && def.args || [],
+          args: (def && def.args) || [],
           url: def && def.url,
           headers: def && def.headers,
           env: def && def.env,
         };
         await window.electronAPI.upsertMcpServer(server);
       }
-      showToast('配置已保存', 2200);
+      showToast("配置已保存", 2200);
       await renderMcpList();
       await loadMcpConfigToJson();
       // 询问用户是否将 MCP 更新通知发给 AI（不自动发送）
       try {
         const confirmed = await showConfirmDialog(
-          'MCP 配置已保存。\n\n是否告诉 AI 配置已更新？\n（请确保 AI 当前没有正在进行其他操作）',
-          { okText: '发送', showCancel: true, cancelText: '取消' }
+          "MCP 配置已保存。\n\n是否告诉 AI 配置已更新？\n（请确保 AI 当前没有正在进行其他操作）",
+          { okText: "发送", showCancel: true, cancelText: "取消" },
         );
         if (!confirmed) return;
 
         const res = await window.electronAPI.getMcpTools();
         const tools = res && res.success ? res.tools : [];
-        const serverNames = Array.from(new Set(tools.map(t => t.server)));
-        let msg = '【MCP 配置已更新】\n\n';
+        const serverNames = Array.from(new Set(tools.map((t) => t.server)));
+        let msg = "【MCP 配置已更新】\n\n";
         if (serverNames.length === 0) {
-          msg += '当前没有已连接的 MCP server。';
+          msg += "当前没有已连接的 MCP server。";
         } else {
-          msg += '可用的 MCP server：' + serverNames.join('、') + '。\n';
-          msg += '需要时用 mcpListServers() 查看概览，或用 mcpGetTools(serverName) 查看具体工具。';
+          msg += "可用的 MCP server：" + serverNames.join("、") + "。\n";
+          msg +=
+            "需要时用 mcpListServers() 查看概览，或用 mcpGetTools(serverName) 查看具体工具。";
         }
-        sendToChat(msg, 'MCP信息', 300);
+        sendToChat(msg, "MCP信息", 300);
       } catch (err) {
-        console.error('[Cookie Code] 发送 MCP 信息失败:', err);
+        console.error("[Cookie Code] 发送 MCP 信息失败:", err);
       }
     } catch (err) {
-      showToast('保存失败: ' + (err.message || err), 3000);
+      showToast("保存失败: " + (err.message || err), 3000);
     }
   });
 
-
-
   // 浮动面板：新建窗口（всегда DeepSeek, выбор платформы отключён)
-  const wmNewWindowBtn = document.getElementById('cuckoo-wm-new-window');
-  wmNewWindowBtn?.addEventListener('click', async () => {
+  const wmNewWindowBtn = document.getElementById("cuckoo-wm-new-window");
+  wmNewWindowBtn?.addEventListener("click", async () => {
     try {
       await window.electronAPI.createProfileWindow();
-      showToast('Новое окно DeepSeek создано', 2200);
+      showToast("Новое окно DeepSeek создано", 2200);
       await renderWindowList();
     } catch (err) {
-      showToast('Не удалось создать окно: ' + (err.message || err), 3000);
+      showToast("Не удалось создать окно: " + (err.message || err), 3000);
     }
   });
 
   // 浮动面板：关闭
-  const wmCloseBtn = document.getElementById('cuckoo-wm-close');
-  wmCloseBtn?.addEventListener('click', closeWindowManager);
+  const wmCloseBtn = document.getElementById("cuckoo-wm-close");
+  wmCloseBtn?.addEventListener("click", closeWindowManager);
 
   // 浮动面板：刷新列表
-  const wmRefreshBtn = document.getElementById('cuckoo-wm-refresh');
-  wmRefreshBtn?.addEventListener('click', renderWindowList);
+  const wmRefreshBtn = document.getElementById("cuckoo-wm-refresh");
+  wmRefreshBtn?.addEventListener("click", renderWindowList);
 
   // 生成项目说明文档按钮
-  const genDocBtn = document.getElementById('cuckoo-btn-gen-doc');
-  genDocBtn?.addEventListener('click', handleGenerateDoc);
+  const genDocBtn = document.getElementById("cuckoo-btn-gen-doc");
+  genDocBtn?.addEventListener("click", handleGenerateDoc);
 
   // 沉浸式交流按钮
-  const immersiveBtn = document.getElementById('cuckoo-btn-immersive');
-  immersiveBtn?.addEventListener('click', () => {
-    const message = '现在你的任何疑问,或没有疑问的选择都需要和我确认 , 确认的方式是 你问一个问题我回答一个问题,然后你再问下一个问题, 最好给我选项, 也要给我个其他的选项, 谢谢 爱你哦';
-    if (!sendToChat(message, '沉浸式交流', 300)) {
-      showToast('未找到输入框，请确保已打开聊天界面', 3000);
+  const immersiveBtn = document.getElementById("cuckoo-btn-immersive");
+  immersiveBtn?.addEventListener("click", () => {
+    const message =
+      "现在你的任何疑问,或没有疑问的选择都需要和我确认 , 确认的方式是 你问一个问题我回答一个问题,然后你再问下一个问题, 最好给我选项, 也要给我个其他的选项, 谢谢 爱你哦";
+    if (!sendToChat(message, "沉浸式交流", 300)) {
+      showToast("未找到输入框，请确保已打开聊天界面", 3000);
     } else {
-      showToast('已发送沉浸式交流提示', 2200);
+      showToast("已发送沉浸式交流提示", 2200);
     }
   });
 
   // 刷新会话列表按钮
-  const refreshSessionsBtn = document.getElementById('cuckoo-btn-refresh-sessions');
-  refreshSessionsBtn?.addEventListener('click', renderSessions);
+  const refreshSessionsBtn = document.getElementById(
+    "cuckoo-btn-refresh-sessions",
+  );
+  refreshSessionsBtn?.addEventListener("click", renderSessions);
 
   // 保存延迟设置按钮
-  const saveDelayBtn = document.getElementById('cuckoo-btn-save-delay');
-  const delayMinInput = document.getElementById('cuckoo-delay-min');
-  const delayMaxInput = document.getElementById('cuckoo-delay-max');
-  saveDelayBtn?.addEventListener('click', () => {
-    const min = parseInt(delayMinInput?.value, 10);
-    const max = parseInt(delayMaxInput?.value, 10);
-    if (Number.isNaN(min) || min < 0) { showToast('最小延迟必须是非负整数', 3000); return; }
-    if (Number.isNaN(max) || max < min) { showToast('最大延迟不能小于最小延迟', 3000); return; }
-    if (max > 10000) { showToast('最大延迟不能超过 10000ms', 3000); return; }
+  const saveDelayBtn = document.getElementById("cuckoo-btn-save-delay");
+  const delayMinInput = document.getElementById("cuckoo-delay-min");
+  const delayMaxInput = document.getElementById("cuckoo-delay-max");
+  saveDelayBtn?.addEventListener("click", () => {
+    // 界面输入为秒，内部/存储统一用毫秒
+    const secToMs = (s) => Math.round(parseFloat(s) * 1000);
+    const min = secToMs(delayMinInput?.value);
+    const max = secToMs(delayMaxInput?.value);
+    if (Number.isNaN(min) || min < 0) {
+      showToast(t("overlay.delay.errMin"), 3000);
+      return;
+    }
+    if (Number.isNaN(max) || max < min) {
+      showToast(t("overlay.delay.errMax"), 3000);
+      return;
+    }
+    if (max > 10000) {
+      showToast(t("overlay.delay.errLimit"), 3000);
+      return;
+    }
     state.sendDelayMin = min;
     state.sendDelayMax = max;
-    // 保存到 localStorage
+    // 保存到 localStorage（毫秒）
     try {
-      localStorage.setItem('cuckoo-send-delay-min', String(min));
-      localStorage.setItem('cuckoo-send-delay-max', String(max));
+      localStorage.setItem("cuckoo-send-delay-min", String(min));
+      localStorage.setItem("cuckoo-send-delay-max", String(max));
     } catch (e) {}
-    showToast('延迟设置已保存：' + min + ' - ' + max + ' ms', 3000);
+    showToast(
+      t("overlay.delay.saved", { min: min / 1000, max: max / 1000 }),
+      3000,
+    );
   });
 
   // 悬浮球点击切换面板显隐
-  const statusBadge = document.getElementById('cuckoo-status-badge');
-  statusBadge?.addEventListener('click', () => {
-    const overlay = document.getElementById('cuckoo-overlay');
+  const statusBadge = document.getElementById("cuckoo-status-badge");
+  statusBadge?.addEventListener("click", () => {
+    const overlay = document.getElementById("cuckoo-overlay");
     if (!overlay) return;
-    if (overlay.classList.contains('cuckoo-hidden')) {
+    if (overlay.classList.contains("cuckoo-hidden")) {
       showOverlay();
     } else {
       hideOverlay();
@@ -708,13 +842,13 @@ function bindEvents() {
   });
 
   // 键盘快捷键
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener("keydown", (e) => {
     // Ctrl+Shift+C 切换覆盖层显示
-    if (e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+    if (e.ctrlKey && e.shiftKey && (e.key === "C" || e.key === "c")) {
       e.preventDefault();
-      const overlay = document.getElementById('cuckoo-overlay');
+      const overlay = document.getElementById("cuckoo-overlay");
       if (overlay) {
-        if (overlay.classList.contains('cuckoo-hidden')) {
+        if (overlay.classList.contains("cuckoo-hidden")) {
           showOverlay();
         } else {
           hideOverlay();
@@ -722,7 +856,7 @@ function bindEvents() {
       }
     }
     // Esc 隐藏覆盖层和窗口管理面板
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       hideOverlay();
       closeWindowManager();
       closeMcpManager();
