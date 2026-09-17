@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="app-version" content="4.0.25" />
     <title>Cookie Code — Desktop AI agent with zero token cost</title>
     <meta
       name="description"
@@ -105,7 +106,7 @@
         <div class="container">
           <div class="hero-eyebrow">
             <span class="material-symbols-outlined">verified</span>
-            Version 4.0.13 · MIT License · Free
+            Version <span id="app-version">…</span> · MIT License · Free
           </div>
           <h1>
             Desktop AI agent<br />with
@@ -307,8 +308,13 @@
               </h3>
               <p class="card-text">
                 Control and observe from your phone: tool-call notifications, AI
-                replies, the <code>/todos</code> and
-                <code>/settings</code> commands, incoming messages.
+                replies, receiving photos and documents from chat. Commands
+                <code>/help</code>, <code>/settings</code>,
+                <code>/status</code>, <code>/diff</code>, <code>/log</code>,
+                <code>/show</code>, <code>/files</code>, <code>/sessions</code>,
+                <code>/switch</code>, <code>/todos</code>, <code>/stop</code>.
+                Language selection (RU/EN), User ID filter, flexible
+                notifications.
               </p>
             </div>
 
@@ -481,6 +487,29 @@
                   </td>
                   <td>Electron browser window + JS injection</td>
                 </tr>
+                <tr>
+                  <td><span class="tool">cityTime</span></td>
+                  <td>Current time, timezone, city and country</td>
+                </tr>
+                <tr>
+                  <td><span class="tool">askUserQuestion</span></td>
+                  <td>Ask the user a question with answer options</td>
+                </tr>
+                <tr>
+                  <td><span class="tool">exitPlanMode</span></td>
+                  <td>Finish plan mode and show the plan for approval</td>
+                </tr>
+                <tr>
+                  <td><span class="tool">attachFile</span></td>
+                  <td>
+                    Attach a local file (PDF, Word, Excel, PPT, images) to the
+                    chat input
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="tool">log</span></td>
+                  <td>Output intermediate result to the execution log</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -506,56 +535,80 @@
             </div>
           </div>
           <div class="gallery">
-            <figure data-src="assets/photo_2026-09-13_22-54-33.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_2026-09-13_22-54-33.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_2026-09-13_22-54-33.jpg"
                 alt="Fully customized interface"
               />
               <figcaption>Fully customized interface</figcaption>
             </figure>
-            <figure data-src="assets/photo_1_2026-09-13_13-16-57.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_1_2026-09-13_13-16-57.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_1_2026-09-13_13-16-57.jpg"
                 alt="Customization settings"
               />
               <figcaption>Customization settings</figcaption>
             </figure>
-            <figure data-src="assets/photo_2_2026-09-13_13-16-57.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_2_2026-09-13_13-16-57.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_2_2026-09-13_13-16-57.jpg"
                 alt="Custom theme"
               />
               <figcaption>Custom theme</figcaption>
             </figure>
-            <figure data-src="assets/photo_6_2026-09-12_19-02-00.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_6_2026-09-12_19-02-00.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_6_2026-09-12_19-02-00.jpg"
                 alt="Telegram bot — settings"
               />
               <figcaption>Telegram bot — settings</figcaption>
             </figure>
-            <figure data-src="assets/photo_1_2026-09-12_19-08-16.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_1_2026-09-12_19-08-16.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_1_2026-09-12_19-08-16.jpg"
                 alt="Telegram bot — settings"
               />
               <figcaption>Telegram bot — settings</figcaption>
             </figure>
-            <figure data-src="assets/photo_2_2026-09-12_19-08-16.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_2_2026-09-12_19-08-16.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_2_2026-09-12_19-08-16.jpg"
                 alt="Telegram bot — notifications"
               />
               <figcaption>Telegram bot — notifications</figcaption>
             </figure>
-            <figure data-src="assets/photo_1_2026-09-12_19-02-00.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_1_2026-09-12_19-02-00.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_1_2026-09-12_19-02-00.jpg"
                 alt="Cookie Code — panel"
               />
               <figcaption>Cookie Code panel</figcaption>
             </figure>
-            <figure data-src="assets/photo_3_2026-09-12_19-02-00.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_3_2026-09-12_19-02-00.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_3_2026-09-12_19-02-00.jpg"
                 alt="Cookie Code — settings"
@@ -723,7 +776,10 @@ npm install</span></pre>
   <span class="cmd">"telegramEnabled"</span>: false,
   <span class="cmd">"telegramBotToken"</span>: "",
   <span class="cmd">"telegramChatId"</span>: "",
+  <span class="cmd">"telegramLanguage"</span>: "en",
+  <span class="cmd">"telegramAllowedUserId"</span>: "",
   <span class="cmd">"telegramNotifyTools"</span>: false,
+  <span class="cmd">"telegramToolNotifyIgnore"</span>: ["read", "glob", "grep"],
   <span class="cmd">"telegramChatFeed"</span>: false
 }</pre>
         </div>
@@ -809,7 +865,7 @@ npm install</span></pre>
               }
             });
           },
-          { threshold: 0.08 }
+          { threshold: 0.08 },
         );
         document.querySelectorAll(".reveal").forEach(function (el) {
           observer.observe(el);
@@ -845,6 +901,31 @@ npm install</span></pre>
         document.addEventListener("keydown", function (e) {
           if (e.key === "Escape") closeLb();
         });
+      })();
+    </script>
+    <script>
+      // Авто-версия: последний релиз из GitHub Releases API (fallback: meta).
+      (function () {
+        var el = document.getElementById("app-version");
+        if (!el) return;
+        var REPO = "merfiDEV/Cookie-code";
+        fetch("https://api.github.com/repos/" + REPO + "/releases/latest", {
+          headers: { Accept: "application/vnd.github+json" },
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          })
+          .then(function (d) {
+            var v = (d && (d.tag_name || d.name)) || "";
+            v = String(v).replace(/^v/i, "").trim();
+            if (v) el.textContent = v;
+            else throw new Error("no tag");
+          })
+          .catch(function () {
+            var meta = document.querySelector('meta[name="app-version"]');
+            el.textContent = (meta && meta.content) || "dev";
+          });
       })();
     </script>
   </body>

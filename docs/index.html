@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="app-version" content="4.0.25" />
     <title>Cookie Code — AI-агент с нулевой стоимостью токенов</title>
     <meta
       name="description"
@@ -105,7 +106,7 @@
         <div class="container">
           <div class="hero-eyebrow">
             <span class="material-symbols-outlined">verified</span>
-            Версия 4.0.13 · MIT License · Бесплатно
+            Версия <span id="app-version">…</span> · MIT License · Бесплатно
           </div>
           <h1>
             AI-агент на рабочем столе<br />с
@@ -306,8 +307,12 @@
               </h3>
               <p class="card-text">
                 Управление и наблюдение с телефона: уведомления о вызовах,
-                ответы AI, команды <code>/todos</code>, <code>/settings</code>,
-                входящие сообщения.
+                ответы AI, приём фото и документов из чата. Команды
+                <code>/help</code>, <code>/settings</code>,
+                <code>/status</code>, <code>/diff</code>, <code>/log</code>,
+                <code>/show</code>, <code>/files</code>, <code>/sessions</code>,
+                <code>/switch</code>, <code>/todos</code>, <code>/stop</code>.
+                Выбор языка (RU/EN), фильтр по User ID, гибкие уведомления.
               </p>
             </div>
 
@@ -482,6 +487,29 @@
                   </td>
                   <td>Окно браузера Electron + инъекция JS</td>
                 </tr>
+                <tr>
+                  <td><span class="tool">cityTime</span></td>
+                  <td>Текущее время, часовой пояс, город и страна</td>
+                </tr>
+                <tr>
+                  <td><span class="tool">askUserQuestion</span></td>
+                  <td>Задать пользователю вопрос с вариантами ответа</td>
+                </tr>
+                <tr>
+                  <td><span class="tool">exitPlanMode</span></td>
+                  <td>Завершить режим плана и показать план на утверждение</td>
+                </tr>
+                <tr>
+                  <td><span class="tool">attachFile</span></td>
+                  <td>
+                    Прикрепить локальный файл (PDF, Word, Excel, PPT,
+                    изображения) в поле ввода чата
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="tool">log</span></td>
+                  <td>Вывод промежуточного результата в лог выполнения</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -507,56 +535,80 @@
             </div>
           </div>
           <div class="gallery">
-            <figure data-src="assets/photo_2026-09-13_22-54-33.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_2026-09-13_22-54-33.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_2026-09-13_22-54-33.jpg"
                 alt="Полный кастомизированный интерфейс"
               />
               <figcaption>Полный кастомизированный интерфейс</figcaption>
             </figure>
-            <figure data-src="assets/photo_1_2026-09-13_13-16-57.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_1_2026-09-13_13-16-57.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_1_2026-09-13_13-16-57.jpg"
                 alt="Настройки кастомизации"
               />
               <figcaption>Настройки кастомизации</figcaption>
             </figure>
-            <figure data-src="assets/photo_2_2026-09-13_13-16-57.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_2_2026-09-13_13-16-57.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_2_2026-09-13_13-16-57.jpg"
                 alt="Собственная тема"
               />
               <figcaption>Собственная тема</figcaption>
             </figure>
-            <figure data-src="assets/photo_6_2026-09-12_19-02-00.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_6_2026-09-12_19-02-00.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_6_2026-09-12_19-02-00.jpg"
                 alt="Telegram-бот — настройки"
               />
               <figcaption>Telegram-бот — настройки</figcaption>
             </figure>
-            <figure data-src="assets/photo_1_2026-09-12_19-08-16.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_1_2026-09-12_19-08-16.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_1_2026-09-12_19-08-16.jpg"
                 alt="Telegram-бот — настройки"
               />
               <figcaption>Telegram-бот — настройки</figcaption>
             </figure>
-            <figure data-src="assets/photo_2_2026-09-12_19-08-16.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_2_2026-09-12_19-08-16.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_2_2026-09-12_19-08-16.jpg"
                 alt="Telegram-бот — уведомления"
               />
               <figcaption>Telegram-бот — уведомления</figcaption>
             </figure>
-            <figure data-src="assets/photo_1_2026-09-12_19-02-00.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_1_2026-09-12_19-02-00.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_1_2026-09-12_19-02-00.jpg"
                 alt="Cookie Code — панель"
               />
               <figcaption>Панель Cookie Code</figcaption>
             </figure>
-            <figure data-src="assets/photo_3_2026-09-12_19-02-00.jpg" class="reveal">
+            <figure
+              data-src="assets/photo_3_2026-09-12_19-02-00.jpg"
+              class="reveal"
+            >
               <img
                 src="assets/photo_3_2026-09-12_19-02-00.jpg"
                 alt="Cookie Code — настройки"
@@ -724,7 +776,10 @@ npm install</span></pre>
   <span class="cmd">"telegramEnabled"</span>: false,
   <span class="cmd">"telegramBotToken"</span>: "",
   <span class="cmd">"telegramChatId"</span>: "",
+  <span class="cmd">"telegramLanguage"</span>: "ru",
+  <span class="cmd">"telegramAllowedUserId"</span>: "",
   <span class="cmd">"telegramNotifyTools"</span>: false,
+  <span class="cmd">"telegramToolNotifyIgnore"</span>: ["read", "glob", "grep"],
   <span class="cmd">"telegramChatFeed"</span>: false
 }</pre>
         </div>
@@ -810,7 +865,7 @@ npm install</span></pre>
               }
             });
           },
-          { threshold: 0.08 }
+          { threshold: 0.08 },
         );
         document.querySelectorAll(".reveal").forEach(function (el) {
           observer.observe(el);
@@ -846,6 +901,32 @@ npm install</span></pre>
         document.addEventListener("keydown", function (e) {
           if (e.key === "Escape") closeLb();
         });
+      })();
+    </script>
+    <script>
+      // Авто-версия: последний релиз из GitHub Releases API (fallback: package.json).
+      (function () {
+        var el = document.getElementById("app-version");
+        if (!el) return;
+        var REPO = "merfiDEV/Cookie-code";
+        fetch("https://api.github.com/repos/" + REPO + "/releases/latest", {
+          headers: { Accept: "application/vnd.github+json" },
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          })
+          .then(function (d) {
+            var v = (d && (d.tag_name || d.name)) || "";
+            v = String(v).replace(/^v/i, "").trim();
+            if (v) el.textContent = v;
+            else throw new Error("no tag");
+          })
+          .catch(function () {
+            // Fallback: если API недоступен — берём из <meta> или оставляем.
+            var meta = document.querySelector('meta[name="app-version"]');
+            el.textContent = (meta && meta.content) || "dev";
+          });
       })();
     </script>
   </body>
