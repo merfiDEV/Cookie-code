@@ -134,6 +134,14 @@ let electronAPI = {
   openCuckooSettingsFile: () => {
     return ipcRenderer.invoke("cuckoo-settings-open-file");
   },
+  // ========== Событие «настройки изменились» (из TG-бота или других окон) ==========
+  // Подписка: callback получает объект-patch ({key: value}) или null (перечитать всё).
+  onSettingsChanged: (callback) => {
+    const listener = (_event, patch) => callback(patch);
+    ipcRenderer.on("cuckoo-settings-changed", listener);
+    return () =>
+      ipcRenderer.removeListener("cuckoo-settings-changed", listener);
+  },
   // ========== Пользовательские фоны (userData/backgrounds) ==========
   listCustomBackgrounds: () => {
     return ipcRenderer.invoke("cuckoo-backgrounds-list");

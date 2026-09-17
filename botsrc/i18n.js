@@ -72,6 +72,7 @@ const STRINGS = {
     "settings.agent.text": "Подтверждения, служебные сообщения, форматтеры.",
     "settings.pets.title": "🐦 <b>Чубрики (петы)</b>",
     "settings.pets.text": "Выбор спрайта и debug-режим. Файлы — в папке pets.",
+    "label.petEnabled": "Пет включён",
     "label.petId": "Пет (спрайт)",
     "label.petDebugMode": "Debug-режим пета",
     "label.jsTimeoutSec": "Таймаут JS-скриптов",
@@ -309,6 +310,7 @@ const STRINGS = {
     "settings.pets.title": "🐦 <b>Pets</b>",
     "settings.pets.text":
       "Sprite selection and debug mode. Files live in the pets folder.",
+    "label.petEnabled": "Pet enabled",
     "label.petId": "Pet (sprite)",
     "label.petDebugMode": "Pet debug mode",
     "label.jsTimeoutSec": "JS script timeout",

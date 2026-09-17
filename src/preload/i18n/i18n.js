@@ -323,6 +323,11 @@ const KEYS = {
   "settings.section.background": { ru: "Фон страницы", en: "Page background" },
   // ---- Чубрики (петы) ----
   "settings.section.pets": { ru: "Чубрики", en: "Pets" },
+  "settings.pets.enabledTitle": { ru: "Пет включён", en: "Pet enabled" },
+  "settings.pets.enabledHint": {
+    ru: "Показывать чубрика на экране. По умолчанию — да.",
+    en: "Show the pet on screen. Enabled by default.",
+  },
   "settings.pets.pickTitle": { ru: "Выбрать пета", en: "Choose a pet" },
   "settings.pets.pickHint": {
     ru: "PNG/GIF/WebP/JPG. Большие картинки автоматически сжимаются до 600×600. Кликните на превью, чтобы выбрать.",

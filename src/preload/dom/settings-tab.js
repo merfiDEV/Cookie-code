@@ -642,6 +642,17 @@ function buildPetsSection() {
     t("settings.section.pets") +
     "</div>" +
     '  <div class="ck-card ck-stack">' +
+    '    <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    "      <div>" +
+    '        <div class="ck-row-title">' +
+    t("settings.pets.enabledTitle") +
+    "</div>" +
+    '        <div class="ck-row-hint">' +
+    t("settings.pets.enabledHint") +
+    "</div>" +
+    "      </div>" +
+    '      <input type="checkbox" id="cuckoo-pet-enabled">' +
+    "    </label>" +
     '    <div class="ck-row">' +
     "      <div>" +
     '        <div class="ck-row-title">' +
@@ -742,6 +753,7 @@ function bindPetsSection() {
   const importBtn = document.getElementById("cuckoo-pets-import");
   const resetBtn = document.getElementById("cuckoo-pets-reset");
   const debugChk = document.getElementById("cuckoo-pet-debug-mode");
+  const enabledChk = document.getElementById("cuckoo-pet-enabled");
   if (!grid) return;
 
   let currentPetId = "";
@@ -906,6 +918,24 @@ function bindPetsSection() {
       }
     });
 
+  if (enabledChk) {
+    enabledChk.addEventListener("change", async () => {
+      const on = enabledChk.checked;
+      try {
+        await window.electronAPI.setCuckooSetting("petEnabled", on);
+        try {
+          const pet = require("./pet");
+          if (pet && typeof pet.setEnabled === "function") pet.setEnabled(on);
+        } catch (_) {}
+      } catch (err) {
+        console.error(
+          "[Cookie Code] Не удалось сохранить petEnabled:",
+          err.message,
+        );
+      }
+    });
+  }
+
   if (debugChk) {
     debugChk.addEventListener("change", async () => {
       const on = debugChk.checked;
@@ -930,6 +960,9 @@ function bindPetsSection() {
     try {
       const settings = await window.electronAPI.getCuckooSettings();
       if (debugChk) debugChk.checked = !!(settings && settings.petDebugMode);
+      // petEnabled: по умолчанию true → галочка стоит, если не выставлено false.
+      if (enabledChk)
+        enabledChk.checked = !settings || settings.petEnabled !== false;
     } catch (_) {}
     await loadPets();
   })();

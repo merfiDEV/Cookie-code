@@ -715,6 +715,11 @@ const SETTINGS_PAGES = {
     textKey: "settings.pets.text",
     items: [
       {
+        key: "petEnabled",
+        labelKey: "label.petEnabled",
+        type: "bool",
+      },
+      {
         key: "petId",
         labelKey: "label.petId",
         type: "enum",
@@ -1055,6 +1060,7 @@ async function _handleSettingsCallback(data, cbq) {
       try {
         await applySettings();
       } catch (_) {}
+      _notifySettingsChanged({ [key]: next });
     }
     await _showSettingsMenu(chatId, state.page, msgId);
     return;
@@ -1068,10 +1074,14 @@ async function _handleSettingsCallback(data, cbq) {
     await telegramBot.answerCallbackQuery(cbq.id, {
       text: ok ? _t("cb.saved") : _t("common.error"),
     });
-    if (ok && key === "language") {
-      try {
-        await applySettings();
-      } catch (_) {}
+    if (ok) {
+      if (key === "language") {
+        try {
+          await applySettings();
+        } catch (_) {}
+      }
+      // Пуш в UI: enum мог изменить выбор пета, язык UI, режим approval и т.д.
+      _notifySettingsChanged({ [key]: val });
     }
     await _showSettingsMenu(chatId, state.page, msgId);
     return;
@@ -1097,6 +1107,7 @@ async function _handleSettingsCallback(data, cbq) {
     await telegramBot.answerCallbackQuery(cbq.id, {
       text: ok ? String(val) + (item.unit || "") : _t("common.error"),
     });
+    if (ok) _notifySettingsChanged({ [key]: val });
     await _showSettingsMenu(chatId, state.page, msgId);
     return;
   }
@@ -1653,6 +1664,7 @@ async function _handleSettingsInput(chatId, text) {
       await applySettings();
     } catch (_) {}
   }
+  if (ok) _notifySettingsChanged({ [key]: value });
   await telegramBot.sendMessage(
     ok
       ? _t("common.saved", { label: _esc(_label(item)) })
@@ -2151,6 +2163,27 @@ async function notifyToolResult(toolName, ok, detail) {
 }
 
 /** Применить настройки: пересоздать конфиг бота и (при необходимости) запустить polling. */
+/**
+ * Разослать всем открытым окнам приложения событие "настройки изменились".
+ * Вызывается после каждого изменения settings.json через TG-бота, чтобы UI
+ * мгновенно подхватил изменения (перечитал настройки и применил эффекты).
+ *
+ * @param {object} [patch]  объект с изменёнными ключами { key: value };
+ *                          если не задан — окна перечитают всё целиком.
+ */
+function _notifySettingsChanged(patch) {
+  try {
+    const wins = windowState.getAllWindows ? windowState.getAllWindows() : [];
+    for (const win of wins) {
+      try {
+        if (!win || win.isDestroyed()) continue;
+        if (!win.webContents || win.webContents.isDestroyed()) continue;
+        win.webContents.send("cuckoo-settings-changed", patch || null);
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+
 async function applySettings() {
   const cfg = _read();
   telegramBot.configure(cfg.token, cfg.chatId, cfg.allowedUserId);

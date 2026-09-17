@@ -6,54 +6,98 @@
  * схема file:// заблокирована Chromium со страницы chat.deepseek.com, а
  * кастомная cuckoo-asset:// не проходит через fetch API даже с bypassCSP.
  */
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 // Директория с фонами (относительно preload): <projectRoot>/src/ui/backgrounds
-const BACKGROUNDS_DIR = path.join(__dirname, '..', '..', 'ui', 'backgrounds');
+const BACKGROUNDS_DIR = path.join(__dirname, "..", "..", "ui", "backgrounds");
 
 /**
  * Список встроенных фонов — синхронизирован с src/ui/backgrounds/registry.json.
  * id = имя файла без расширения.
  */
 const BUILTIN_BACKGROUNDS = [
-  { id: 'miku',             label: 'Мику',                       file: 'miku.webp' },
-  { id: 'miku-light',       label: 'Мику (светлая)',             file: 'miku-light.jpg' },
-  { id: 'abyssal-dark',     label: 'Бездна (тёмная)',            file: 'abyssal-dark.webp' },
-  { id: 'abyssal-light',    label: 'Бездна (светлая)',           file: 'abyssal-light.webp' },
-  { id: 'bee-eater',        label: 'Синещёкая щурка',            file: 'bee-eater.jpg' },
-  { id: 'blue-fantasy',     label: 'Синяя фантазия',             file: 'blue-fantasy.jpg' },
-  { id: 'cyber-night',      label: 'Кибер-ночь',                 file: 'cyber-night.webp' },
-  { id: 'dragon-heir-dark', label: 'Наследник дракона (тёмный)', file: 'dragon-heir-dark.webp' },
-  { id: 'dragon-heir-light',label: 'Наследник дракона (светлый)',file: 'dragon-heir-light.webp' },
-  { id: 'furina',           label: 'Фурина',                     file: 'furina.jpg' },
-  { id: 'harbor',           label: 'Гавань',                     file: 'harbor.webp' },
-  { id: 'hologram-dark',    label: 'Голограмма (тёмная)',        file: 'hologram-dark.webp' },
-  { id: 'hologram-light',   label: 'Голограмма (светлая)',       file: 'hologram-light.webp' },
-  { id: 'maid-day',         label: 'Горничная — день',           file: 'maid-day.webp' },
-  { id: 'maid-night',       label: 'Горничная — ночь',           file: 'maid-night.webp' },
-  { id: 'phoebe-dark',      label: 'Фиби (тёмная)',              file: 'phoebe-dark.webp' },
-  { id: 'phoebe-light',     label: 'Фиби (светлая)',             file: 'phoebe-light.webp' },
-  { id: 'starry-dark',      label: 'Звёздная ночь (тёмная)',     file: 'starry-dark.webp' },
-  { id: 'starry-light',     label: 'Звёздная ночь (светлая)',    file: 'starry-light.webp' },
-  { id: 'stellar-dark',     label: 'Звёздная дива (тёмная)',     file: 'stellar-dark.webp' },
-  { id: 'stellar-light',    label: 'Звёздная дива (светлая)',    file: 'stellar-light.webp' },
-  { id: 'summer',           label: 'Летнее стекло',              file: 'summer.jpg' },
-  { id: 'tokyo-night',      label: 'Токио ночью',                file: 'tokyo-night.webp' },
-  { id: 'war-thunder-dark', label: 'War Thunder (тёмный)',       file: 'war-thunder-dark.webp' },
-  { id: 'war-thunder-light',label: 'War Thunder (светлый)',      file: 'war-thunder-light.webp' },
-  { id: 'whale-mom',        label: 'Мама-кит',                   file: 'whale-mom.jpg' },
-  { id: 'whale-song',       label: 'Песнь кита',                 file: 'whale-song.webp' },
+  { id: "miku", label: "Мику", file: "miku.webp" },
+  { id: "miku-light", label: "Мику (светлая)", file: "miku-light.jpg" },
+  { id: "abyssal-dark", label: "Бездна (тёмная)", file: "abyssal-dark.webp" },
+  {
+    id: "abyssal-light",
+    label: "Бездна (светлая)",
+    file: "abyssal-light.webp",
+  },
+  { id: "bee-eater", label: "Синещёкая щурка", file: "bee-eater.jpg" },
+  { id: "blue-fantasy", label: "Синяя фантазия", file: "blue-fantasy.jpg" },
+  { id: "cyber-night", label: "Кибер-ночь", file: "cyber-night.webp" },
+  {
+    id: "dragon-heir-dark",
+    label: "Наследник дракона (тёмный)",
+    file: "dragon-heir-dark.webp",
+  },
+  {
+    id: "dragon-heir-light",
+    label: "Наследник дракона (светлый)",
+    file: "dragon-heir-light.webp",
+  },
+  { id: "furina", label: "Фурина", file: "furina.jpg" },
+  { id: "harbor", label: "Гавань", file: "harbor.webp" },
+  {
+    id: "hologram-dark",
+    label: "Голограмма (тёмная)",
+    file: "hologram-dark.webp",
+  },
+  {
+    id: "hologram-light",
+    label: "Голограмма (светлая)",
+    file: "hologram-light.webp",
+  },
+  { id: "maid-day", label: "Горничная — день", file: "maid-day.webp" },
+  { id: "maid-night", label: "Горничная — ночь", file: "maid-night.webp" },
+  { id: "phoebe-dark", label: "Фиби (тёмная)", file: "phoebe-dark.webp" },
+  { id: "phoebe-light", label: "Фиби (светлая)", file: "phoebe-light.webp" },
+  {
+    id: "starry-dark",
+    label: "Звёздная ночь (тёмная)",
+    file: "starry-dark.webp",
+  },
+  {
+    id: "starry-light",
+    label: "Звёздная ночь (светлая)",
+    file: "starry-light.webp",
+  },
+  {
+    id: "stellar-dark",
+    label: "Звёздная дива (тёмная)",
+    file: "stellar-dark.webp",
+  },
+  {
+    id: "stellar-light",
+    label: "Звёздная дива (светлая)",
+    file: "stellar-light.webp",
+  },
+  { id: "summer", label: "Летнее стекло", file: "summer.jpg" },
+  { id: "tokyo-night", label: "Токио ночью", file: "tokyo-night.webp" },
+  {
+    id: "war-thunder-dark",
+    label: "War Thunder (тёмный)",
+    file: "war-thunder-dark.webp",
+  },
+  {
+    id: "war-thunder-light",
+    label: "War Thunder (светлый)",
+    file: "war-thunder-light.webp",
+  },
+  { id: "whale-mom", label: "Мама-кит", file: "whale-mom.jpg" },
+  { id: "whale-song", label: "Песнь кита", file: "whale-song.webp" },
 ];
 
-const DEFAULT_ID = 'miku';
+const DEFAULT_ID = "miku";
 
 // Пользовательские фоны из <userData>/backgrounds (заполняется асинхронно
 // через window.electronAPI.listCustomBackgrounds()).
 // Каждый элемент: { id: 'custom:<base>', label, file: <абсолютный путь>, custom: true }
 let customBackgrounds = [];
 // Абсолютный путь к папке с пользовательскими фонами (для UI).
-let customBackgroundsDir = '';
+let customBackgroundsDir = "";
 
 // Кэш data-URI: file → data:image/...;base64,...
 const dataUriCache = new Map();
@@ -70,7 +114,7 @@ function getAllBackgrounds() {
  * Найти запись фона по id во всём списке (встроенные + пользовательские).
  */
 function findBackground(id) {
-  return getAllBackgrounds().find(b => b.id === id) || null;
+  return getAllBackgrounds().find((b) => b.id === id) || null;
 }
 
 /**
@@ -82,12 +126,15 @@ async function loadCustomBackgrounds() {
     const res = await window.electronAPI.listCustomBackgrounds();
     if (res && res.success) {
       customBackgrounds = res.backgrounds || [];
-      customBackgroundsDir = res.dir || '';
+      customBackgroundsDir = res.dir || "";
     } else {
       customBackgrounds = [];
     }
   } catch (err) {
-    console.error('[Cookie Code] Не удалось загрузить пользовательские фоны:', err.message);
+    console.error(
+      "[Cookie Code] Не удалось загрузить пользовательские фоны:",
+      err.message,
+    );
     customBackgrounds = [];
   }
   return customBackgrounds;
@@ -100,22 +147,25 @@ async function loadCustomBackgrounds() {
 function getDataUri(file) {
   if (dataUriCache.has(file)) return dataUriCache.get(file);
   try {
-    const fullPath = path.isAbsolute(file) ? file : path.join(BACKGROUNDS_DIR, file);
+    const fullPath = path.isAbsolute(file)
+      ? file
+      : path.join(BACKGROUNDS_DIR, file);
     const buf = fs.readFileSync(fullPath);
     const ext = path.extname(file).toLowerCase();
-    const mime = {
-      '.webp': 'image/webp',
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-    }[ext] || 'application/octet-stream';
-    const uri = 'data:' + mime + ';base64,' + buf.toString('base64');
+    const mime =
+      {
+        ".webp": "image/webp",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+      }[ext] || "application/octet-stream";
+    const uri = "data:" + mime + ";base64," + buf.toString("base64");
     dataUriCache.set(file, uri);
     return uri;
   } catch (err) {
-    console.error('[Cookie Code] Не удалось прочитать фон:', file, err.message);
-    return '';
+    console.error("[Cookie Code] Не удалось прочитать фон:", file, err.message);
+    return "";
   }
 }
 
@@ -125,24 +175,39 @@ function getDataUri(file) {
  */
 function apply(id) {
   const entry = findBackground(id);
-  const uri = entry ? getDataUri(entry.file) : '';
-  const value = uri ? 'url("' + uri + '")' : 'none';
+  const uri = entry ? getDataUri(entry.file) : "";
+  const value = uri ? 'url("' + uri + '")' : "none";
   try {
-    document.documentElement.style.setProperty('background-image', value, 'important');
-    document.body.style.setProperty('background-image', value, 'important');
+    document.documentElement.style.setProperty(
+      "background-image",
+      value,
+      "important",
+    );
+    document.body.style.setProperty("background-image", value, "important");
     // Дублируем URL в переменную — её читает reasoning-glass.js и CSS-шаблон.
-    document.documentElement.style.setProperty('--cuckoo-bg-image', uri ? value : 'none', 'important');
-    console.log('[Cookie Code] Фон применён:', id, '(' + (uri ? Math.round(uri.length / 1024) + ' КБ' : 'нет') + ')');
+    document.documentElement.style.setProperty(
+      "--cuckoo-bg-image",
+      uri ? value : "none",
+      "important",
+    );
+    console.log(
+      "[Cookie Code] Фон применён:",
+      id,
+      "(" + (uri ? Math.round(uri.length / 1024) + " КБ" : "нет") + ")",
+    );
   } catch (err) {
-    console.error('[Cookie Code] Не удалось применить фон:', err.message);
+    console.error("[Cookie Code] Не удалось применить фон:", err.message);
   }
 }
 
 function hexToRgb(hex, defaultVal = { r: 17, g: 19, b: 34 }) {
-  if (!hex || typeof hex !== 'string') return defaultVal;
-  let h = hex.trim().replace(/^#/, '');
+  if (!hex || typeof hex !== "string") return defaultVal;
+  let h = hex.trim().replace(/^#/, "");
   if (h.length === 3) {
-    h = h.split('').map(c => c + c).join('');
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("");
   }
   if (h.length !== 6) return defaultVal;
   const num = parseInt(h, 16);
@@ -175,25 +240,31 @@ function applyBlur(settings) {
   const tbBlurVal = isNaN(tbBlur) ? 0 : tbBlur;
   const tbOpVal = isNaN(tbOp) ? 55 : tbOp;
 
-  root.style.setProperty('--cuckoo-bg-blur', bg + 'px');
-  root.style.setProperty('--cuckoo-header-blur', hdVal + 'px');
-  root.style.setProperty('--cuckoo-sidebar-blur', sbVal + 'px');
-  root.style.setProperty('--cuckoo-header-opacity', hdOpVal + '%');
-  root.style.setProperty('--cuckoo-sidebar-opacity', sbOpVal + '%');
-  root.style.setProperty('--cuckoo-toolblock-opacity', tbOpVal + '%');
-  root.style.setProperty('--cuckoo-toolblock-blur', tbBlurVal + 'px');
+  root.style.setProperty("--cuckoo-bg-blur", bg + "px");
+  root.style.setProperty("--cuckoo-header-blur", hdVal + "px");
+  root.style.setProperty("--cuckoo-sidebar-blur", sbVal + "px");
+  root.style.setProperty("--cuckoo-header-opacity", hdOpVal + "%");
+  root.style.setProperty("--cuckoo-sidebar-opacity", sbOpVal + "%");
+  root.style.setProperty("--cuckoo-toolblock-opacity", tbOpVal + "%");
+  root.style.setProperty("--cuckoo-toolblock-blur", tbBlurVal + "px");
   // ===== Стеклянное поле ввода сообщения =====
   const inBlur = Number(settings && settings.inputGlassBlur);
   const inBlurVal = isNaN(inBlur) ? 12 : inBlur;
   const inOp = Number(settings && settings.inputGlassOpacity);
   const inOpVal = isNaN(inOp) ? 55 : inOp;
-  root.style.setProperty('--cuckoo-input-glass-blur', inBlurVal + 'px');
-  root.style.setProperty('--cuckoo-input-glass-opacity', inOpVal + '%');
+  root.style.setProperty("--cuckoo-input-glass-blur", inBlurVal + "px");
+  root.style.setProperty("--cuckoo-input-glass-opacity", inOpVal + "%");
 
   // Плашка «Размышление» использует свой blur (дефолт 12px, если настройка toolBlockBlur = 0).
-  root.style.setProperty('--cuckoo-reasoning-blur', (tbBlurVal > 0 ? tbBlurVal : 12) + 'px');
+  root.style.setProperty(
+    "--cuckoo-reasoning-blur",
+    (tbBlurVal > 0 ? tbBlurVal : 12) + "px",
+  );
   // И свою (более лёгкую) плотность плёнки — тонкая плашка не должна выглядеть чёрной.
-  root.style.setProperty('--cuckoo-reasoning-opacity', Math.max(15, tbOpVal - 20) + '%');
+  root.style.setProperty(
+    "--cuckoo-reasoning-opacity",
+    Math.max(15, tbOpVal - 20) + "%",
+  );
 
   // ===== Кастомизация панели Cookie Code =====
   const ovOpacity = Number(settings && settings.overlayOpacity);
@@ -202,16 +273,19 @@ function applyBlur(settings) {
   const ovBlurVal = isNaN(ovBlur) ? 12 : ovBlur;
   const ovWidth = Number(settings && settings.overlayWidth);
   const ovWidthVal = isNaN(ovWidth) ? 300 : ovWidth;
-  const ovBgColor = (settings && settings.overlayBgColor) || '#111322';
+  const ovBgColor = (settings && settings.overlayBgColor) || "#111322";
   const ovRgb = hexToRgb(ovBgColor, { r: 17, g: 19, b: 34 });
   const ovAlpha = (ovOpacityVal / 100).toFixed(2);
 
-  root.style.setProperty('--cuckoo-overlay-width', ovWidthVal + 'px');
-  root.style.setProperty('--cuckoo-overlay-blur', ovBlurVal + 'px');
-  root.style.setProperty('--cuckoo-overlay-bg', `rgba(${ovRgb.r}, ${ovRgb.g}, ${ovRgb.b}, ${ovAlpha})`);
+  root.style.setProperty("--cuckoo-overlay-width", ovWidthVal + "px");
+  root.style.setProperty("--cuckoo-overlay-blur", ovBlurVal + "px");
+  root.style.setProperty(
+    "--cuckoo-overlay-bg",
+    `rgba(${ovRgb.r}, ${ovRgb.g}, ${ovRgb.b}, ${ovAlpha})`,
+  );
 
   // Кнопки оверлея
-  const ovPrimary = (settings && settings.overlayPrimaryColor) || '#8b93ff';
+  const ovPrimary = (settings && settings.overlayPrimaryColor) || "#8b93ff";
   const pRgb = hexToRgb(ovPrimary, { r: 139, g: 147, b: 255 });
   // Темнее оттенок для градиента
   const pDarkR = Math.max(0, Math.floor(pRgb.r * 0.8));
@@ -220,17 +294,63 @@ function applyBlur(settings) {
   const ovRadius = Number(settings && settings.overlayBtnRadius);
   const ovRadiusVal = isNaN(ovRadius) ? 10 : ovRadius;
 
-  root.style.setProperty('--cuckoo-overlay-btn-radius', ovRadiusVal + 'px');
-  root.style.setProperty('--cuckoo-overlay-primary-bg', `linear-gradient(135deg, rgb(${pRgb.r}, ${pRgb.g}, ${pRgb.b}), rgb(${pDarkR}, ${pDarkG}, ${pDarkB}))`);
-  root.style.setProperty('--cuckoo-overlay-primary-shadow', `rgba(${pDarkR}, ${pDarkG}, ${pDarkB}, 0.25)`);
-  root.style.setProperty('--cuckoo-overlay-primary-shadow-hover', `rgba(${pDarkR}, ${pDarkG}, ${pDarkB}, 0.45)`);
-  root.style.setProperty('--cuckoo-overlay-secondary-bg', `rgba(${pRgb.r}, ${pRgb.g}, ${pRgb.b}, 0.12)`);
-  root.style.setProperty('--cuckoo-overlay-secondary-text', `rgb(${Math.min(255, pRgb.r + 30)}, ${Math.min(255, pRgb.g + 30)}, 255)`);
-  root.style.setProperty('--cuckoo-overlay-secondary-border', `rgba(${pRgb.r}, ${pRgb.g}, ${pRgb.b}, 0.5)`);
-  root.style.setProperty('--cuckoo-overlay-secondary-hover-bg', `rgba(${pRgb.r}, ${pRgb.g}, ${pRgb.b}, 0.28)`);
-  root.style.setProperty('--cuckoo-overlay-secondary-hover-border', `rgba(${pRgb.r}, ${pRgb.g}, ${pRgb.b}, 0.75)`);
+  root.style.setProperty("--cuckoo-overlay-btn-radius", ovRadiusVal + "px");
+  root.style.setProperty(
+    "--cuckoo-overlay-primary-bg",
+    `linear-gradient(135deg, rgb(${pRgb.r}, ${pRgb.g}, ${pRgb.b}), rgb(${pDarkR}, ${pDarkG}, ${pDarkB}))`,
+  );
+  root.style.setProperty(
+    "--cuckoo-overlay-primary-shadow",
+    `rgba(${pDarkR}, ${pDarkG}, ${pDarkB}, 0.25)`,
+  );
+  root.style.setProperty(
+    "--cuckoo-overlay-primary-shadow-hover",
+    `rgba(${pDarkR}, ${pDarkG}, ${pDarkB}, 0.45)`,
+  );
+  root.style.setProperty(
+    "--cuckoo-overlay-secondary-bg",
+    `rgba(${pRgb.r}, ${pRgb.g}, ${pRgb.b}, 0.12)`,
+  );
+  root.style.setProperty(
+    "--cuckoo-overlay-secondary-text",
+    `rgb(${Math.min(255, pRgb.r + 30)}, ${Math.min(255, pRgb.g + 30)}, 255)`,
+  );
+  root.style.setProperty(
+    "--cuckoo-overlay-secondary-border",
+    `rgba(${pRgb.r}, ${pRgb.g}, ${pRgb.b}, 0.5)`,
+  );
+  root.style.setProperty(
+    "--cuckoo-overlay-secondary-hover-bg",
+    `rgba(${pRgb.r}, ${pRgb.g}, ${pRgb.b}, 0.28)`,
+  );
+  root.style.setProperty(
+    "--cuckoo-overlay-secondary-hover-border",
+    `rgba(${pRgb.r}, ${pRgb.g}, ${pRgb.b}, 0.75)`,
+  );
 
-  console.log('[Cookie Code] Стили: фон=' + bg + 'px, шапка=' + hdVal + 'px/' + hdOpVal + '%, сайдбар=' + sbVal + 'px/' + sbOpVal + '%, tool=' + tbBlurVal + 'px/' + tbOpVal + '%, оверлей=' + ovBlurVal + 'px/' + ovOpacityVal + '%/' + ovWidthVal + 'px');
+  console.log(
+    "[Cookie Code] Стили: фон=" +
+      bg +
+      "px, шапка=" +
+      hdVal +
+      "px/" +
+      hdOpVal +
+      "%, сайдбар=" +
+      sbVal +
+      "px/" +
+      sbOpVal +
+      "%, tool=" +
+      tbBlurVal +
+      "px/" +
+      tbOpVal +
+      "%, оверлей=" +
+      ovBlurVal +
+      "px/" +
+      ovOpacityVal +
+      "%/" +
+      ovWidthVal +
+      "px",
+  );
 }
 
 /**
@@ -246,9 +366,11 @@ async function loadAndApply() {
     apply(bgId);
     applyBlur(settings);
     applyRgbUsername(settings ? settings.rgbUsername : true);
-    applyInputGlassEnabled(Boolean(settings && settings.inputGlassEnabled === true));
+    applyInputGlassEnabled(
+      Boolean(settings && settings.inputGlassEnabled === true),
+    );
   } catch (err) {
-    console.error('[Cookie Code] Не удалось загрузить настройки:', err.message);
+    console.error("[Cookie Code] Не удалось загрузить настройки:", err.message);
     apply(DEFAULT_ID);
     applyBlur(null);
     applyRgbUsername(true);
@@ -273,8 +395,8 @@ const RESET_DEFAULTS = {
   overlayOpacity: 72,
   overlayBlur: 12,
   overlayWidth: 300,
-  overlayBgColor: '#111322',
-  overlayPrimaryColor: '#8b93ff',
+  overlayBgColor: "#111322",
+  overlayPrimaryColor: "#8b93ff",
   overlayBtnRadius: 10,
   inputGlassBlur: 12,
   inputGlassOpacity: 55,
@@ -292,9 +414,9 @@ async function resetAll() {
     for (const key of Object.keys(RESET_DEFAULTS)) {
       await window.electronAPI.setCuckooSetting(key, RESET_DEFAULTS[key]);
     }
-    console.log('[Cookie Code] Настройки сброшены к дефолтам');
+    console.log("[Cookie Code] Настройки сброшены к дефолтам");
   } catch (err) {
-    console.error('[Cookie Code] Не удалось сохранить дефолты:', err.message);
+    console.error("[Cookie Code] Не удалось сохранить дефолты:", err.message);
   }
 }
 
@@ -306,12 +428,15 @@ async function resetAll() {
 function applyCustomizationEnabled(enabled) {
   try {
     if (enabled === false) {
-      document.documentElement.classList.add('cuckoo-customization-off');
+      document.documentElement.classList.add("cuckoo-customization-off");
     } else {
-      document.documentElement.classList.remove('cuckoo-customization-off');
+      document.documentElement.classList.remove("cuckoo-customization-off");
     }
   } catch (err) {
-    console.error('[Cookie Code] Не удалось применить состояние кастомизации:', err.message);
+    console.error(
+      "[Cookie Code] Не удалось применить состояние кастомизации:",
+      err.message,
+    );
   }
 }
 
@@ -323,12 +448,15 @@ function applyCustomizationEnabled(enabled) {
 function applyInputGlassEnabled(enabled) {
   try {
     if (enabled === false) {
-      document.documentElement.classList.add('cuckoo-input-glass-off');
+      document.documentElement.classList.add("cuckoo-input-glass-off");
     } else {
-      document.documentElement.classList.remove('cuckoo-input-glass-off');
+      document.documentElement.classList.remove("cuckoo-input-glass-off");
     }
   } catch (err) {
-    console.error('[Cookie Code] Не удалось применить состояние стекла поля ввода:', err.message);
+    console.error(
+      "[Cookie Code] Не удалось применить состояние стекла поля ввода:",
+      err.message,
+    );
   }
 }
 
@@ -338,14 +466,14 @@ function applyInputGlassEnabled(enabled) {
  */
 function applyRgbUsername(enabled) {
   try {
-    if (enabled === false || enabled === 'false' || enabled === 0) {
-      document.body.classList.add('cuckoo-rgb-off');
+    if (enabled === false || enabled === "false" || enabled === 0) {
+      document.body.classList.add("cuckoo-rgb-off");
     } else {
-      document.body.classList.remove('cuckoo-rgb-off');
+      document.body.classList.remove("cuckoo-rgb-off");
     }
-    console.log('[Cookie Code] RGB-ник:', enabled === false ? 'выкл' : 'вкл');
+    console.log("[Cookie Code] RGB-ник:", enabled === false ? "выкл" : "вкл");
   } catch (err) {
-    console.error('[Cookie Code] Не удалось применить RGB-ник:', err.message);
+    console.error("[Cookie Code] Не удалось применить RGB-ник:", err.message);
   }
 }
 
@@ -363,15 +491,72 @@ function getPreviewUri(file) {
  */
 function clearLocalStorage() {
   try {
-    localStorage.removeItem('cuckoo-response-meta');
-    localStorage.removeItem('cuckoo-errors');
-    console.log('[Cookie Code] LocalStorage очищен (мета + ошибки)');
+    localStorage.removeItem("cuckoo-response-meta");
+    localStorage.removeItem("cuckoo-errors");
+    console.log("[Cookie Code] LocalStorage очищен (мета + ошибки)");
   } catch (err) {
-    console.error('[Cookie Code] Ошибка очистки localStorage:', err.message);
+    console.error("[Cookie Code] Ошибка очистки localStorage:", err.message);
   }
 }
 
+/**
+ * Подписка на событие "настройки изменились" (из TG-бота или другого окна).
+ * При изменении — перечитываем настройки и мгновенно применяем фон/блюр/эффекты.
+ */
+function installSettingsListener() {
+  try {
+    if (
+      !window.electronAPI ||
+      typeof window.electronAPI.onSettingsChanged !== "function"
+    ) {
+      return;
+    }
+    window.electronAPI.onSettingsChanged((patch) => {
+      try {
+        // Список ключей, влияющих на визуал. Если patch не передан — применяем всё.
+        const VISUAL_KEYS = [
+          "customizationEnabled",
+          "background",
+          "backgroundBlur",
+          "headerBlur",
+          "sidebarBlur",
+          "headerOpacity",
+          "sidebarOpacity",
+          "toolBlockOpacity",
+          "toolBlockBlur",
+          "inputGlassEnabled",
+          "inputGlassBlur",
+          "inputGlassOpacity",
+          "rgbUsername",
+          "overlayOpacity",
+          "overlayBlur",
+          "overlayWidth",
+          "overlayBgColor",
+          "overlayPrimaryColor",
+          "overlayBtnRadius",
+        ];
+        const relevant =
+          !patch || Object.keys(patch).some((k) => VISUAL_KEYS.includes(k));
+        if (!relevant) return;
+        // Мгновенно применяем: loadAndApply читает settings.json целиком.
+        loadAndApply().catch((err) => {
+          console.error(
+            "[Cookie Code] background: применениe из события не удалось:",
+            err.message,
+          );
+        });
+      } catch (err) {
+        console.error(
+          "[Cookie Code] onSettingsChanged(bg) error:",
+          err.message,
+        );
+      }
+    });
+  } catch (_) {}
+}
+
 module.exports = {
+  installSettingsListener,
   apply,
   applyBlur,
   applyRgbUsername,

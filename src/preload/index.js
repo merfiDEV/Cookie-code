@@ -165,6 +165,12 @@ async function init() {
     // Подмена QR-кода в попапе «Скачать приложение»
     safe("init.qrOverrideStart", () => qrOverride.startWatch());
 
+    // Подписка на изменения настроек из TG-бота / других окон:
+    // фон, блюр и стекло применяются мгновенно без перезахода в настройки.
+    safe("init.backgroundSettingsListener", () =>
+      background.installSettingsListener(),
+    );
+
     // Стилизация абсолютных путей к файлам как чипов с открытием в системе
     safe("init.fileChipSetEnabled", () =>
       fileChip.setEnabled(state.fileChipEnabled !== false),

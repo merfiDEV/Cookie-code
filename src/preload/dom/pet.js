@@ -73,6 +73,8 @@ let aimOverlayEl = null;
 // Debug-режим: разрешает горячие клавиши F8/F9/F10/F11.
 // Управляется тумблером в настройках Cookie Code.
 let debugMode = false;
+// Пет включён — показывается на экране. По умолчанию true.
+let petEnabled = true;
 
 // Позиция в режиме 'center' (px, от левого верхнего угла окна)
 let centerPos = null; // { x, y } — null значит «ещё не задана → центр экрана»
@@ -326,6 +328,7 @@ async function loadPetSettings() {
     if (typeof s.petSize === "number")
       petSize = Math.max(PET_SIZE_MIN, Math.min(PET_SIZE_MAX, s.petSize));
     if (typeof s.petId === "string") currentPetId = s.petId;
+    petEnabled = s.petEnabled !== false; // default true
     debugMode = s.petDebugMode === true;
     console.log(
       "[Cookie Code] Настройки пета: mode=" +
@@ -503,6 +506,18 @@ function computePos() {
 
 function reposition() {
   ensureElements();
+
+  // Пет выключен — прячем всё (pet, debug-рамку, подпись) и выходим.
+  if (!petEnabled) {
+    if (petEl) petEl.style.display = "none";
+    if (frameEl) frameEl.style.display = "none";
+    if (labelEl) labelEl.style.display = "none";
+    return;
+  }
+
+  // Пет включён — сбрасываем display у контейнера (мог быть "none" после выключения)
+  if (petEl) petEl.style.display = "";
+
   const pos = computePos();
 
   // Спрайт или заглушка
@@ -618,6 +633,16 @@ function setPetId(id) {
  * Включить/выключить debug-режим (разблокирует F8/F9/F10/F11).
  * Вызывается из вкладки настроек Cookie Code.
  */
+/**
+ * Включить/выключить показ пета. Вызывается из настроек (UI или TG).
+ */
+function setEnabled(on) {
+  petEnabled = !!on;
+  schedule();
+  console.log("[Cookie Code] Pet enabled:", petEnabled ? "ON" : "OFF");
+  return petEnabled;
+}
+
 function setDebugMode(on) {
   debugMode = !!on;
   // Прячем/показываем уголок ресайза в зависимости от режима.
@@ -770,6 +795,76 @@ function start() {
     true,
   );
 
+  // Реакция на изменение настроек из TG-бота / другого окна:
+  // применяем всё, что касается пета, не дожидаясь ручного перезахода в настройки.
+  try {
+    if (
+      window.electronAPI &&
+      typeof window.electronAPI.onSettingsChanged === "function"
+    ) {
+      window.electronAPI.onSettingsChanged((patch) => {
+        try {
+          if (!patch) {
+            // Без патча — перечитываем все настройки целиком.
+            reloadSettings();
+            return;
+          }
+          let changed = false;
+          if ("petEnabled" in patch) {
+            petEnabled = patch.petEnabled !== false;
+            changed = true;
+          }
+          if ("petSize" in patch) {
+            const n = Number(patch.petSize);
+            if (Number.isFinite(n)) {
+              petSize = Math.max(PET_SIZE_MIN, Math.min(PET_SIZE_MAX, n));
+              applySize();
+              changed = true;
+            }
+          }
+          if (
+            "petMode" in patch &&
+            (patch.petMode === "center" || patch.petMode === "docked")
+          ) {
+            mode = patch.petMode;
+            changed = true;
+          }
+          if ("petRatioX" in patch && typeof patch.petRatioX === "number") {
+            dockOffsetXRatio = patch.petRatioX;
+            changed = true;
+          }
+          if ("petRatioY" in patch && typeof patch.petRatioY === "number") {
+            dockOffsetYRatio = patch.petRatioY;
+            changed = true;
+          }
+          if ("petId" in patch) {
+            currentPetId = String(patch.petId || "");
+            dataUriCache = null;
+            changed = true;
+          }
+          if ("petDebugMode" in patch) {
+            debugMode = patch.petDebugMode === true;
+            if (resizeHandleEl && !debugMode)
+              resizeHandleEl.style.opacity = "0";
+            changed = true;
+          }
+          if (changed) {
+            console.log(
+              "[Cookie Code] Pet: применены настройки из события",
+              patch,
+            );
+            schedule();
+          }
+        } catch (err) {
+          console.error(
+            "[Cookie Code] onSettingsChanged(pet) error:",
+            err.message,
+          );
+        }
+      });
+    }
+  } catch (_) {}
+
   // ВАЖНО: чтобы точно увидеть пета даже если body ещё перезаписывается
   console.log(
     "[Cookie Code] Pet started. pets dir =",
@@ -787,6 +882,7 @@ module.exports = {
   setPetId,
   resetSize,
   resetAllPetSettings,
+  setEnabled,
   setDebugMode,
   reloadSettings,
   loadPetSettings,
