@@ -44,15 +44,23 @@ function activateCuckooTab() {
   // Скрываем родной контент
   if (nativeScroll) nativeScroll.style.display = "none";
 
-  // Вставляем свой блок, если его ещё нет
+  // Всегда пересоздаём контент, чтобы подхватить свежие CSS/HTML.
+  // Старый удаляем.
   let ourContent = document.getElementById(TAB_CONTENT_ID);
+  if (ourContent) {
+    try {
+      ourContent.remove();
+    } catch (_) {}
+    ourContent = null;
+  }
   if (!ourContent) {
     ourContent = document.createElement("div");
     ourContent.id = TAB_CONTENT_ID;
     ourContent.style.cssText =
       "display: flex; flex-direction: column; gap: 16px; " +
-      "width: 100%; height: 100%; overflow-y: auto; " +
+      "width: 100%; min-width: 0; height: 100%; overflow-y: auto; " +
       "padding: 20px 24px; box-sizing: border-box; " +
+      "align-items: stretch; " +
       'font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; ' +
       "color: #dde1ff;";
 
@@ -89,6 +97,8 @@ function activateCuckooTab() {
     // Подтверждение инструментов + скрытие служебных сообщений
     bindAgentSettings();
     refreshAgentSettings();
+    // Чубрики (петы)
+    bindPetsSection();
   }
   ourContent.style.display = "";
 
@@ -111,11 +121,20 @@ function buildContentHTML() {
     "             border-radius: 14px; box-shadow: 0 6px 28px rgba(0,0,0,0.28); overflow: hidden; }" +
     "  .ck-stack { display: flex; flex-direction: column; }" +
     "  .ck-stack > * + * { border-top: 1px solid rgba(255,255,255,0.06); }" +
-    "  .ck-row { padding: 14px 16px; transition: background 0.16s ease; }" +
+    "  .ck-row { padding: 14px 16px; transition: background 0.16s ease; min-width: 0; }" +
     "  .ck-row:hover { background: rgba(139,147,255,0.05); }" +
-    "  .ck-row-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }" +
-    "  .ck-row-title { font-size: 13.5px; font-weight: 600; color: #e8eaff; }" +
-    "  .ck-row-hint { font-size: 11.5px; color: #8a90b8; margin-top: 3px; line-height: 1.45; max-width: 520px; }" +
+    "  .ck-row-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }" +
+    "  .ck-row-head > * { min-width: 0; }" +
+    "  .ck-row-head > *:first-child { flex: 1 1 auto; }" +
+    "  .ck-row-head > *:last-child { flex: 0 0 auto; }" +
+    "  .ck-row-title { font-size: 13.5px; font-weight: 600; color: #e8eaff; " +
+    "                  word-break: normal; overflow-wrap: break-word; }" +
+    "  .ck-row-hint { font-size: 11.5px; color: #8a90b8; margin-top: 3px; line-height: 1.45; max-width: 520px; " +
+    "                 word-break: normal; overflow-wrap: break-word; white-space: normal; }" +
+    "  .ck-card, .ck-stack { min-width: 0; }" +
+    "  #cuckoo-settings-content { min-width: 0; width: 100%; align-items: stretch; }" +
+    "  #cuckoo-settings-content > div { min-width: 0; width: 100%; flex-shrink: 0; }" +
+    "  #cuckoo-settings-content * { word-break: normal; overflow-wrap: break-word; }" +
     "  .ck-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; " +
     "              text-transform: uppercase; padding: 2px 7px; border-radius: 999px; " +
     "              background: rgba(139,147,255,0.16); color: #bec2ff; margin-left: 8px; vertical-align: middle; }" +
@@ -462,6 +481,8 @@ function buildContentHTML() {
     "  </label>" +
     "  </div>" +
     "</div>" +
+    // ===== Чубрики (петы) =====
+    buildPetsSection() +
     "<div>" +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.background") +
@@ -591,6 +612,62 @@ function buildContentHTML() {
   );
 }
 
+/**
+ * HTML-секция «Чубрики (петы)» — карточка в настройках Cookie Code.
+ * Список спрайтов + тумблер debug-режима + кнопка открыть папку.
+ * Данные подгружаются асинхронно через window.electronAPI.listPets().
+ */
+function buildPetsSection() {
+  return (
+    "<div>" +
+    '  <div class="cuckoo-section-title">' +
+    t("settings.section.pets") +
+    "</div>" +
+    '  <div class="ck-card ck-stack">' +
+    '    <div class="ck-row">' +
+    "      <div>" +
+    '        <div class="ck-row-title">' +
+    t("settings.pets.pickTitle") +
+    "</div>" +
+    '        <div class="ck-row-hint">' +
+    t("settings.pets.pickHint") +
+    "</div>" +
+    "      </div>" +
+    '      <div class="ck-btn-row" style="margin-top:10px;">' +
+    '        <button id="cuckoo-pets-import" class="ck-btn" style="flex:1;padding:6px 12px;font-size:12px;">' +
+    t("settings.pets.import") +
+    "</button>" +
+    '        <button id="cuckoo-pets-refresh" class="ck-btn" style="flex:1;padding:6px 12px;font-size:12px;">' +
+    t("settings.pets.refresh") +
+    "</button>" +
+    '        <button id="cuckoo-pets-open-folder" class="ck-btn" style="flex:1;padding:6px 12px;font-size:12px;">' +
+    t("settings.pets.openFolder") +
+    "</button>" +
+    '        <button id="cuckoo-pets-reset" class="ck-btn ck-btn-danger" style="flex:1;padding:6px 12px;font-size:12px;">' +
+    t("settings.pets.reset") +
+    "</button>" +
+    "      </div>" +
+    '      <div id="cuckoo-pets-grid" class="cuckoo-bg-grid" style="margin-top:12px;"></div>' +
+    '      <div id="cuckoo-pets-empty" class="ck-row-hint" style="margin-top:8px;display:none;">' +
+    t("settings.pets.empty") +
+    "      </div>" +
+    "    </div>" +
+    '    <label class="cuckoo-checkbox-row ck-row ck-row-head" style="cursor:pointer;">' +
+    "      <div>" +
+    '        <div class="ck-row-title">' +
+    t("settings.pets.debugTitle") +
+    "</div>" +
+    '        <div class="ck-row-hint">' +
+    t("settings.pets.debugHint") +
+    "</div>" +
+    "      </div>" +
+    '      <input type="checkbox" id="cuckoo-pet-debug-mode">' +
+    "    </label>" +
+    "  </div>" +
+    "</div>"
+  );
+}
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -631,6 +708,213 @@ function bindBackgroundGrid() {
       }
     });
   });
+}
+
+// ===== Чубрики (петы) =====
+
+/**
+ * Обработчики секции «Чубрики»: список спрайтов, тумблер debug-режима,
+ * кнопки «Обновить» / «Открыть папку», клики по превью.
+ */
+function bindPetsSection() {
+  const grid = document.getElementById("cuckoo-pets-grid");
+  const empty = document.getElementById("cuckoo-pets-empty");
+  const refreshBtn = document.getElementById("cuckoo-pets-refresh");
+  const openBtn = document.getElementById("cuckoo-pets-open-folder");
+  const importBtn = document.getElementById("cuckoo-pets-import");
+  const resetBtn = document.getElementById("cuckoo-pets-reset");
+  const debugChk = document.getElementById("cuckoo-pet-debug-mode");
+  if (!grid) return;
+
+  let currentPetId = "";
+  let currentPetFile = "";
+
+  const renderPets = (pets) => {
+    grid.innerHTML = "";
+    if (!pets || pets.length === 0) {
+      empty.style.display = "";
+      return;
+    }
+    empty.style.display = "none";
+    pets.forEach((p) => {
+      const item = document.createElement("div");
+      item.className = "cuckoo-bg-item";
+      item.setAttribute("data-pet-id", p.id);
+      item.setAttribute("data-pet-file", p.file);
+      const active =
+        p.id === currentPetId || p.file === currentPetFile
+          ? " cuckoo-bg-selected"
+          : "";
+      item.className += active;
+      item.style.position = "relative";
+      item.title = p.label;
+      // Превью
+      const prev = document.createElement("div");
+      prev.className = "cuckoo-bg-preview";
+      prev.style.backgroundImage =
+        'url("' + background.getPreviewUri(p.file) + '")';
+      prev.style.backgroundSize = "contain";
+      prev.style.backgroundRepeat = "no-repeat";
+      item.appendChild(prev);
+      // Подпись
+      const lbl = document.createElement("div");
+      lbl.className = "cuckoo-bg-label";
+      lbl.textContent = p.label;
+      item.appendChild(lbl);
+      // Клик — выбрать
+      item.addEventListener("click", async () => {
+        try {
+          currentPetId = p.id;
+          currentPetFile = p.file;
+          await window.electronAPI.setCuckooSetting("petId", p.id);
+          // Просим пет перечитать настройки (если preload уже отрисовал пета)
+          try {
+            const pet = require("./pet");
+            if (pet && typeof pet.reloadSettings === "function") {
+              await pet.reloadSettings();
+            }
+          } catch (_) {}
+          // Перерисовать сетку с активной рамкой
+          grid.querySelectorAll(".cuckoo-bg-item").forEach((el) => {
+            el.classList.toggle(
+              "cuckoo-bg-selected",
+              el.getAttribute("data-pet-id") === p.id,
+            );
+          });
+        } catch (err) {
+          console.error("[Cookie Code] Не удалось выбрать пета:", err.message);
+        }
+      });
+      grid.appendChild(item);
+    });
+  };
+
+  const loadPets = async () => {
+    try {
+      const settings = await window.electronAPI.getCuckooSettings();
+      currentPetId = (settings && settings.petId) || "";
+      const res = await window.electronAPI.listPets();
+      const pets = (res && res.pets) || [];
+      // Если petId пустой — пометим первый файл как выбранный
+      if (!currentPetId && pets.length > 0) currentPetId = pets[0].id;
+      renderPets(pets);
+    } catch (err) {
+      console.error(
+        "[Cookie Code] Не удалось загрузить список петов:",
+        err.message,
+      );
+      empty.style.display = "";
+    }
+  };
+
+  if (refreshBtn) refreshBtn.addEventListener("click", loadPets);
+
+  if (resetBtn)
+    resetBtn.addEventListener("click", async () => {
+      try {
+        try {
+          const pet = require("./pet");
+          if (pet && typeof pet.resetAllPetSettings === "function") {
+            await pet.resetAllPetSettings();
+          }
+        } catch (_) {}
+        window.electronAPI.showBannerNotification(
+          t("settings.pets.resetDone"),
+          { duration: 3500 },
+        );
+        await loadPets();
+      } catch (err) {
+        console.error("[Cookie Code] Сброс настроек пета失败:", err.message);
+      }
+    });
+
+  if (importBtn)
+    importBtn.addEventListener("click", async () => {
+      try {
+        const res = await window.electronAPI.importPet();
+        if (!res || res.canceled) return;
+        if (!res.success) {
+          window.electronAPI.showBannerNotification(
+            t("settings.pets.importError").replace(
+              "{msg}",
+              res.error || "unknown",
+            ),
+            { duration: 6000 },
+          );
+          return;
+        }
+
+        // Если файл был сжат — сообщим размеры до/после
+        if (res.normalized && res.before && res.after) {
+          window.electronAPI.showBannerNotification(
+            t("settings.pets.importCompressed")
+              .replace("{w1}", String(res.before.w))
+              .replace("{h1}", String(res.before.h))
+              .replace("{w2}", String(res.after.w))
+              .replace("{h2}", String(res.after.h)),
+            { duration: 5000 },
+          );
+        }
+
+        // Автоматически выбираем загруженного пета
+        try {
+          await window.electronAPI.setCuckooSetting("petId", res.id);
+          currentPetId = res.id;
+          try {
+            const pet = require("./pet");
+            if (pet && typeof pet.reloadSettings === "function") {
+              await pet.reloadSettings();
+            }
+          } catch (_) {}
+        } catch (_) {}
+
+        await loadPets();
+      } catch (err) {
+        console.error("[Cookie Code] Импорт пета失败:", err.message);
+      }
+    });
+
+  if (openBtn)
+    openBtn.addEventListener("click", async () => {
+      try {
+        await window.electronAPI.openPetsFolder();
+        // после открытия — обновим список через небольшую задержку
+        setTimeout(loadPets, 800);
+      } catch (err) {
+        console.error(
+          "[Cookie Code] Не удалось открыть папку петов:",
+          err.message,
+        );
+      }
+    });
+
+  if (debugChk) {
+    debugChk.addEventListener("change", async () => {
+      const on = debugChk.checked;
+      try {
+        await window.electronAPI.setCuckooSetting("petDebugMode", on);
+        try {
+          const pet = require("./pet");
+          if (pet && typeof pet.setDebugMode === "function")
+            pet.setDebugMode(on);
+        } catch (_) {}
+      } catch (err) {
+        console.error(
+          "[Cookie Code] Не удалось сохранить petDebugMode:",
+          err.message,
+        );
+      }
+    });
+  }
+
+  // Начальное состояние тумблера debug-режима + загрузка списка
+  (async () => {
+    try {
+      const settings = await window.electronAPI.getCuckooSettings();
+      if (debugChk) debugChk.checked = !!(settings && settings.petDebugMode);
+    } catch (_) {}
+    await loadPets();
+  })();
 }
 
 /**

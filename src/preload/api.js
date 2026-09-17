@@ -141,6 +141,16 @@ let electronAPI = {
   openCustomBackgroundsFolder: () => {
     return ipcRenderer.invoke("cuckoo-backgrounds-open-folder");
   },
+  // ========== Спрайты петов (userData/pets) ==========
+  listPets: () => {
+    return ipcRenderer.invoke("cuckoo-pets-list");
+  },
+  openPetsFolder: () => {
+    return ipcRenderer.invoke("cuckoo-pets-open-folder");
+  },
+  importPet: () => {
+    return ipcRenderer.invoke("cuckoo-pets-import");
+  },
   // ========== Todo-задачи ==========
   getTodos: () => {
     return ipcRenderer.invoke("todo-get");

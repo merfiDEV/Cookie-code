@@ -1190,6 +1190,110 @@ function registerIpcHandlers() {
     }
   });
 
+  // ========== Спрайты петов (userData/pets) ==========
+  // Папка: <userData>/pets — пользователь кладёт туда PNG/GIF чубриков.
+  const PET_EXT = [".webp", ".jpg", ".jpeg", ".png", ".gif"];
+  const getPetsDir = () => path.join(app.getPath("userData"), "pets");
+
+  ipcMain.handle("cuckoo-pets-list", async () => {
+    try {
+      const fs = require("fs");
+      const dir = getPetsDir();
+      fs.mkdirSync(dir, { recursive: true });
+      const files = fs.readdirSync(dir).filter((f) => {
+        return PET_EXT.includes(path.extname(f).toLowerCase());
+      });
+      const list = files.map((f) => {
+        const ext = path.extname(f);
+        const base = f.slice(0, -ext.length);
+        return {
+          id: base,
+          label: base,
+          file: path.join(dir, f),
+        };
+      });
+      return { success: true, dir, pets: list };
+    } catch (err) {
+      console.error("[Cookie Code] 读取 петов失败:", err.message);
+      return {
+        success: false,
+        error: err.message,
+        dir: getPetsDir(),
+        pets: [],
+      };
+    }
+  });
+
+  // Открыть папку со спрайтами петов в системном проводнике.
+  ipcMain.handle("cuckoo-pets-open-folder", async () => {
+    try {
+      const fs = require("fs");
+      const dir = getPetsDir();
+      fs.mkdirSync(dir, { recursive: true });
+      const errMsg = await shell.openPath(dir);
+      if (errMsg) return { success: false, error: errMsg };
+      return { success: true, path: dir };
+    } catch (err) {
+      console.error("[Cookie Code] 打开 папку петов失败:", err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Импорт пета из произвольного файла: диалог выбора → копирование в pets
+  // → нормализация (ресайз до 600×600) → возврат имени для авто-выбора.
+  ipcMain.handle("cuckoo-pets-import", async (event) => {
+    try {
+      const fs = require("fs");
+      const dir = getPetsDir();
+      fs.mkdirSync(dir, { recursive: true });
+
+      // Диалог выбора файла-картинки
+      const parentWin =
+        require("electron").BrowserWindow.fromWebContents(event.sender) || null;
+      const dlg = await dialog.showOpenDialog(parentWin, {
+        title: "Выберите спрайт пета",
+        properties: ["openFile"],
+        filters: [
+          {
+            name: "Изображения",
+            extensions: ["png", "gif", "webp", "jpg", "jpeg"],
+          },
+        ],
+      });
+      if (dlg.canceled || !dlg.filePaths || !dlg.filePaths[0]) {
+        return { success: false, canceled: true };
+      }
+      const src = dlg.filePaths[0];
+
+      // Нормализуем имя: [a-zA-Z0-9_-], без пробелов/кириллицы.
+      const ext0 = path.extname(src).toLowerCase();
+      let base = path.basename(src, ext0).replace(/[^a-zA-Z0-9_-]+/g, "_");
+      if (!base) base = "pet_" + Date.now();
+      const target = path.join(dir, base + ext0);
+
+      // Копируем поверх (если файл с таким именем уже есть — перезапишем).
+      fs.copyFileSync(src, target);
+
+      // Сжимаем до лимитов.
+      const { normalizePetFile } = require("./pet-image");
+      const norm = normalizePetFile(target);
+
+      return {
+        success: true,
+        id: base,
+        file: target,
+        label: base,
+        normalized: !!(norm && norm.changed),
+        before: (norm && norm.before) || null,
+        after: (norm && norm.after) || null,
+        warning: norm && !norm.success ? norm.error : null,
+      };
+    } catch (err) {
+      console.error("[Cookie Code] Импорт пета失败:", err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
   // Карта иконок Material Icon Theme.
   // Отдаёт уникальные SVG + два маппинга (имя файла иконки → ext/имя файла),
   // чтобы не дублировать одинаковые SVG. Preload кеширует результат.

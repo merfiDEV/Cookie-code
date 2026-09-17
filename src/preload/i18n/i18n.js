@@ -321,6 +321,41 @@ const KEYS = {
     en: "Dangerous commands (regex, one per line)",
   },
   "settings.section.background": { ru: "Фон страницы", en: "Page background" },
+  // ---- Чубрики (петы) ----
+  "settings.section.pets": { ru: "Чубрики", en: "Pets" },
+  "settings.pets.pickTitle": { ru: "Выбрать пета", en: "Choose a pet" },
+  "settings.pets.pickHint": {
+    ru: "PNG/GIF/WebP/JPG. Большие картинки автоматически сжимаются до 600×600. Кликните на превью, чтобы выбрать.",
+    en: "PNG/GIF/WebP/JPG. Large images are auto-resized to 600×600. Click a preview to select.",
+  },
+  "settings.pets.import": { ru: "Загрузить…", en: "Upload…" },
+  "settings.pets.reset": { ru: "Сбросить", en: "Reset" },
+  "settings.pets.resetDone": {
+    ru: "Настройки пета сброшены к дефолтам",
+    en: "Pet settings reset to defaults",
+  },
+  "settings.pets.refresh": { ru: "Обновить", en: "Refresh" },
+  "settings.pets.openFolder": { ru: "Открыть папку", en: "Open folder" },
+  "settings.pets.empty": {
+    ru: "В папке пока нет PNG/GIF. Нажмите «Открыть папку» и положите туда спрайт.",
+    en: 'No PNG/GIF in the folder yet. Click "Open folder" and drop a sprite there.',
+  },
+  "settings.pets.debugTitle": {
+    ru: "Debug-режим пета",
+    en: "Pet debug mode",
+  },
+  "settings.pets.debugHint": {
+    ru: "Разблокирует горячие клавиши: F8 — прицел (посадить пета), F9 — рамка поля, F10 — режим, F11 — сброс размера.",
+    en: "Unlocks hotkeys: F8 — aim (place the pet), F9 — field frame, F10 — mode, F11 — reset size.",
+  },
+  "settings.pets.importError": {
+    ru: "Не удалось загрузить пета: {msg}",
+    en: "Failed to upload pet: {msg}",
+  },
+  "settings.pets.importCompressed": {
+    ru: "Пет сжат: {w1}×{h1} → {w2}×{h2}",
+    en: "Pet compressed: {w1}×{h1} → {w2}×{h2}",
+  },
   "settings.bg.openFolder": {
     ru: "Открыть папку фонов",
     en: "Open backgrounds folder",
