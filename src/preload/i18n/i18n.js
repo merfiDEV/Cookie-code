@@ -446,13 +446,13 @@ const KEYS = {
   },
   "settings.section.language": { ru: "Язык", en: "Language" },
   // ---- Категории / подвкладки настроек ----
-  "settings.tab.theme": { ru: "🎨 Тема и стекло", en: "🎨 Theme & Glass" },
-  "settings.tab.overlay": { ru: "🪟 Панель Cookie", en: "🪟 Cookie Panel" },
-  "settings.tab.bg": { ru: "🖼 Фон страницы", en: "🖼 Page Background" },
-  "settings.tab.telegram": { ru: "🤖 Telegram-бот", en: "🤖 Telegram Bot" },
+  "settings.tab.theme": { ru: "Тема и стекло", en: "Theme & Glass" },
+  "settings.tab.overlay": { ru: "Панель Cookie", en: "Cookie Panel" },
+  "settings.tab.bg": { ru: "Фон страницы", en: "Page Background" },
+  "settings.tab.telegram": { ru: "Telegram-бот", en: "Telegram Bot" },
   "settings.tab.system": {
-    ru: "⚙️ Система и безопасность",
-    en: "⚙️ System & Security",
+    ru: "Система и безопасность",
+    en: "System & Security",
   },
   "settings.section.maintenance": {
     ru: "Обслуживание и сброс",

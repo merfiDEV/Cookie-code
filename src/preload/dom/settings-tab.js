@@ -103,6 +103,8 @@ function activateCuckooTab() {
     // Шрифт
     bindFontsSection();
     refreshFontWeight();
+    // Подвкладки (категории)
+    bindSettingsTabs();
   }
   ourContent.style.display = "";
 
@@ -113,6 +115,39 @@ function activateCuckooTab() {
 /**
  * HTML-содержимое вкладки настроек Cookie Code.
  */
+/**
+ * Инлайн-SVG иконки для подвкладок настроек (без внешних ресурсов).
+ */
+const TAB_ICONS = {
+  theme:
+    '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5a6.5 6.5 0 100 13c.9 0 1.5-.6 1.5-1.4 0-.4-.2-.7-.4-1-.2-.2-.3-.5-.3-.8 0-.7.6-1.3 1.3-1.3h1.4A2.5 2.5 0 0015 7.5C15 4.2 11.9 1.5 8 1.5z" stroke="currentColor" stroke-width="1.2"/><circle cx="5" cy="6" r="1" fill="currentColor"/><circle cx="8" cy="4.5" r="1" fill="currentColor"/><circle cx="11" cy="6" r="1" fill="currentColor"/></svg>',
+  overlay:
+    '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="2.5" width="13" height="11" rx="1.6" stroke="currentColor" stroke-width="1.2"/><rect x="8" y="8" width="5" height="4" rx="1" fill="currentColor"/></svg>',
+  bg: '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="2.5" width="13" height="11" rx="1.6" stroke="currentColor" stroke-width="1.2"/><circle cx="5.5" cy="6" r="1.2" fill="currentColor"/><path d="M2 12l3.5-3.5L9 12l2-2 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  telegram:
+    '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 2.2L1.8 7.1c-.7.3-.7.7-.1.9l3 1 1.1 3.4c.1.4.3.5.6.2l1.6-1.5 3 2.2c.5.3.9.1 1-.5l1.6-9.4c.2-.7-.3-1-.9-.7z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M6.2 9.4L12 5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>',
+  system:
+    '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.2"/><path d="M8 1.5v1.8M8 12.7v1.8M14.5 8h-1.8M3.3 8H1.5M12.6 3.4l-1.3 1.3M4.7 11.3l-1.3 1.3M12.6 12.6l-1.3-1.3M4.7 4.7L3.4 3.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+};
+
+/**
+ * Кнопка подвкладки с SVG-иконкой и подписью.
+ */
+function tabButtonHTML(tab, labelKey) {
+  return (
+    '    <button class="ck-settings-tab ck-btn" data-tab="' +
+    tab +
+    '">' +
+    '<span class="ck-tab-icon">' +
+    (TAB_ICONS[tab] || "") +
+    "</span>" +
+    "<span>" +
+    t(labelKey) +
+    "</span>" +
+    "</button>"
+  );
+}
+
 function buildContentHTML() {
   const items = background.getAllBackgrounds().map(backgroundItemHTML).join("");
   const fontItems = fonts.getAllFonts().map(fontItemHTML).join("");
@@ -143,6 +178,23 @@ function buildContentHTML() {
     "  .ck-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; " +
     "              text-transform: uppercase; padding: 2px 7px; border-radius: 999px; " +
     "              background: rgba(139,147,255,0.16); color: #bec2ff; margin-left: 8px; vertical-align: middle; }" +
+    // ===== Подвкладки (категории) =====
+    "  .cuckoo-settings-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 6px; " +
+    "                          position: sticky; top: 0; z-index: 20; padding: 8px 0; " +
+    "                          background: linear-gradient(180deg, rgba(17,19,34,0.92) 70%, rgba(17,19,34,0)); " +
+    "                          backdrop-filter: blur(6px); transition: transform 0.22s ease, opacity 0.22s ease; }" +
+    "  .cuckoo-settings-tabs.ck-tabs-hidden { transform: translateY(-120%); opacity: 0; pointer-events: none; }" +
+    "  .ck-settings-tab { display: inline-flex; align-items: center; gap: 6px; " +
+    "                     padding: 8px 14px; font-size: 12.5px; border-radius: 10px; " +
+    "                     border: 1px solid rgba(139,147,255,0.25); background: rgba(139,147,255,0.08); " +
+    "                     color: #cfd3ff; cursor: pointer; transition: all 0.16s; white-space: nowrap; }" +
+    "  .ck-tab-icon { display: inline-flex; align-items: center; justify-content: center; }" +
+    "  .ck-tab-icon svg { display: block; }" +
+    "  .ck-settings-tab:hover { background: rgba(139,147,255,0.18); color: #fff; }" +
+    "  .ck-settings-tab.ck-tab-active { background: linear-gradient(180deg,#8b93ff,#5b63d6); " +
+    "                     color: #fff; border-color: transparent; box-shadow: 0 4px 14px rgba(91,99,214,0.4); }" +
+    "  [data-cat] { display: none; }" +
+    "  [data-cat].ck-cat-active { display: block; }" +
     // ===== Заголовки =====
     "  .cuckoo-settings-title { font-size: 22px; font-weight: 700; margin: 0 0 4px; color: #eef0ff; letter-spacing: -0.01em; }" +
     "  .cuckoo-settings-subtitle { color: #8a90b8; font-size: 13px; margin: 0 0 20px; line-height: 1.5; }" +
@@ -221,8 +273,16 @@ function buildContentHTML() {
     t("settings.subtitle") +
     "</div>" +
     "</div>" +
+    // Подвкладки (категории настроек)
+    '  <div class="cuckoo-settings-tabs" id="cuckoo-settings-tabs">' +
+    tabButtonHTML("theme", "settings.tab.theme") +
+    tabButtonHTML("overlay", "settings.tab.overlay") +
+    tabButtonHTML("bg", "settings.tab.bg") +
+    tabButtonHTML("telegram", "settings.tab.telegram") +
+    tabButtonHTML("system", "settings.tab.system") +
+    "  </div>" +
     // Кастомизация + Язык — в одной секции
-    "<div>" +
+    '<div data-cat="theme">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.customization") +
     "</div>" +
@@ -255,7 +315,7 @@ function buildContentHTML() {
     "    </div>" +
     "  </div>" +
     "</div>" +
-    "<div>" +
+    '<div data-cat="theme">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.blur") +
     "</div>" +
@@ -278,7 +338,7 @@ function buildContentHTML() {
     '    <input type="range" id="cuckoo-blur-sidebar" class="cuckoo-blur-slider" min="0" max="30" step="1" value="12">' +
     "  </div>" +
     "</div>" +
-    "<div>" +
+    '<div data-cat="theme">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.opacity") +
     "</div>" +
@@ -307,7 +367,7 @@ function buildContentHTML() {
     '    <input type="range" id="cuckoo-blur-toolblock" class="cuckoo-blur-slider" min="0" max="30" step="1" value="0">' +
     "  </div>" +
     "</div>" +
-    "<div>" +
+    '<div data-cat="overlay">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.overlay") +
     "</div>" +
@@ -354,7 +414,7 @@ function buildContentHTML() {
     '    <input type="range" id="cuckoo-radius-overlay-btn" class="cuckoo-blur-slider" min="4" max="24" step="1" value="10">' +
     "  </div>" +
     "</div>" +
-    "<div>" +
+    '<div data-cat="theme">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.effects") +
     "</div>" +
@@ -367,7 +427,7 @@ function buildContentHTML() {
     "  </label>" +
     "  </div>" +
     "</div>" +
-    "<div>" +
+    '<div data-cat="theme">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.inputGlass") +
     "</div>" +
@@ -397,7 +457,7 @@ function buildContentHTML() {
     '    <input type="range" id="cuckoo-op-input" class="cuckoo-blur-slider" min="0" max="100" step="5" value="55">' +
     "  </div>" +
     "</div>" +
-    "<div>" +
+    '<div data-cat="system">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.dangerous") +
     "</div>" +
@@ -411,7 +471,7 @@ function buildContentHTML() {
     "</button>" +
     "  </div>" +
     "</div>" +
-    "<div>" +
+    '<div data-cat="system">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.agent") +
     "</div>" +
@@ -509,7 +569,7 @@ function buildContentHTML() {
     "</div>" +
     // ===== Чубрики (петы) =====
     buildPetsSection() +
-    "<div>" +
+    '<div data-cat="bg">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.background") +
     "</div>" +
@@ -529,7 +589,7 @@ function buildContentHTML() {
     "</div>" +
     "</div>" +
     // ===== Шрифт =====
-    "<div>" +
+    '<div data-cat="bg">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.font") +
     "</div>" +
@@ -554,7 +614,7 @@ function buildContentHTML() {
     t("settings.font.hint") +
     "</div>" +
     "</div>" +
-    "<div>" +
+    '<div data-cat="telegram">' +
     '  <div class="cuckoo-section-title">' +
     t("tg.title") +
     "</div>" +
@@ -605,7 +665,7 @@ function buildContentHTML() {
     "</button>" +
     "  </div>" +
     "</div>" +
-    "<div>" +
+    '<div data-cat="system">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.service") +
     "</div>" +
@@ -626,7 +686,7 @@ function buildContentHTML() {
     "  </div>" +
     "</div>" +
     // ===== Диагностика интеграции =====
-    "<div>" +
+    '<div data-cat="system">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.diagnostics") +
     "</div>" +
@@ -671,7 +731,7 @@ function buildContentHTML() {
  */
 function buildPetsSection() {
   return (
-    "<div>" +
+    '<div data-cat="bg">' +
     '  <div class="cuckoo-section-title">' +
     t("settings.section.pets") +
     "</div>" +
@@ -1496,6 +1556,51 @@ function bindFontsSection() {
   bindFontWeightSlider();
   // Подтягиваем пользовательские шрифты с диска и перерисовываем сетку.
   refreshFontGrid();
+}
+
+/**
+ * Подвкладки (категории) настроек: показываем только активную категорию.
+ */
+function bindSettingsTabs() {
+  const bar = document.getElementById("cuckoo-settings-tabs");
+  if (!bar) return;
+  const buttons = bar.querySelectorAll(".ck-settings-tab");
+  const pages = document.querySelectorAll("#" + TAB_CONTENT_ID + " [data-cat]");
+  const activate = (tab) => {
+    buttons.forEach((b) => {
+      b.classList.toggle("ck-tab-active", b.getAttribute("data-tab") === tab);
+    });
+    pages.forEach((p) => {
+      p.classList.toggle("ck-cat-active", p.getAttribute("data-cat") === tab);
+    });
+  };
+  buttons.forEach((b) => {
+    b.addEventListener("click", () => activate(b.getAttribute("data-tab")));
+  });
+  // Первая вкладка активна по умолчанию.
+  const first = buttons[0];
+  activate(first ? first.getAttribute("data-tab") : "theme");
+
+  // Скрываем панель при скролле вниз, показываем при скролле вверх.
+  const content = document.getElementById(TAB_CONTENT_ID);
+  if (content) {
+    let lastY = content.scrollTop;
+    content.addEventListener(
+      "scroll",
+      () => {
+        const y = content.scrollTop;
+        const delta = y - lastY;
+        if (Math.abs(delta) < 4) return;
+        if (delta > 0 && y > 40) {
+          bar.classList.add("ck-tabs-hidden");
+        } else {
+          bar.classList.remove("ck-tabs-hidden");
+        }
+        lastY = y;
+      },
+      { passive: true },
+    );
+  }
 }
 
 /**
@@ -2721,8 +2826,12 @@ function injectSettingsTab() {
     '<div class="ds-button__background"></div>' +
     '<div class="ds-button__icon">' +
     '  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-    '    <path d="M8 1.5C4.41 1.5 1.5 4.41 1.5 8C1.5 11.59 4.41 14.5 8 14.5C11.59 14.5 14.5 11.59 14.5 8C14.5 4.41 11.59 1.5 8 1.5ZM8 13C5.24 13 3 10.76 3 8C3 5.24 5.24 3 8 3C10.76 3 13 5.24 13 8C13 10.76 10.76 13 8 13Z" fill="currentColor"/>' +
-    '    <circle cx="8" cy="8" r="2.4" fill="currentColor"/>' +
+    // Тело печенья с «укусом» справа-сверху.
+    '    <path d="M8 1.6a6.4 6.4 0 106.4 6.4c0-.5-.06-1-.17-1.47a1.6 1.6 0 01-2.1-1.9 1.6 1.6 0 01-1.74-1.74A1.6 1.6 0 019.47 1.77 6.5 6.5 0 008 1.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>' +
+    // Крошки.
+    '    <circle cx="6" cy="6.2" r="0.85" fill="currentColor"/>' +
+    '    <circle cx="8.4" cy="9.4" r="0.85" fill="currentColor"/>' +
+    '    <circle cx="5.4" cy="9.9" r="0.7" fill="currentColor"/>' +
     "  </svg>" +
     "</div>" +
     '<span class="ds-button__content">Cookie Code</span>';
