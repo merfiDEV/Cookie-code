@@ -100,6 +100,22 @@ Under each AI reply you get an automatic badge:
 
 Change instantly, no reload required.
 
+### Fonts
+
+Full control over the font of the Cookie Code UI **and** the DeepSeek page:
+
+- **System font** by default — nothing forced
+- **Built-in Anthropic Mono** — one-click choice
+- **Your own fonts** — drop files (`.ttf` / `.otf` / `.woff` / `.woff2`) into `<userData>/fonts` (button **"Open fonts folder"**) and click **"Refresh"** — the font appears in the preview grid
+- **Weight slider** (100–900) — works for both the system font and any custom font
+- Pick from a preview grid in **Settings → Cookie Code**; applies instantly to the whole UI and the page
+
+All settings persist in `cuckoo-settings.json` (`font`, `fontWeight`).
+
+<p align="center">
+  <img src="assets/settings-subtabs.jpg" alt="Custom Anthropic Mono font on the DeepSeek page" width="800">
+</p>
+
 ### Blur & transparency
 
 Full control over the UI glass effect:
@@ -140,6 +156,15 @@ Control and monitor Cookie Code from your phone:
 ### Clean window
 
 No Electron system menu — the app opens straight into DeepSeek. All standard keyboard shortcuts (Ctrl+C/V, Ctrl+R, F12) still work.
+
+### Context transfer
+
+Continue a long chat in a new one without losing progress:
+
+- **"Transfer context"** button in the Cookie Code panel
+- The current chat history is read from the DOM and **the AI compresses it into a structured summary** (goal, decisions, changed files, open questions)
+- A new chat opens automatically and the summary is injected as context — work continues from the same point
+- Long histories are auto-trimmed by token estimate
 
 ### Project initialization
 
@@ -274,6 +299,8 @@ Cookie Code is built to be reshaped: swap wallpapers, tune the glass effect, cha
   <img src="assets/photo_1_2026-09-13_13-16-57.jpg" alt="Cookie Code — customization settings" width="800">
   <br>
   <img src="assets/photo_2_2026-09-13_13-16-57.jpg" alt="Cookie Code — custom theme" width="800">
+  <br>
+  <img src="assets/settings-subtabs.jpg" alt="Cookie Code — custom Anthropic Mono font on the DeepSeek page" width="800">
 </p>
 
 ### Appearance
@@ -282,6 +309,7 @@ Everything visual lives in **Settings → Cookie Code** and persists in `cuckoo-
 
 - **Backgrounds** — 27 built-in wallpapers, or drop your own image into `src/ui/backgrounds/` and register it in `registry.json`.
 - **Glass effect** — background / header / sidebar blur, opacity, and tool-block glass blur.
+- **Fonts** — system by default, built-in Anthropic Mono, or your own fonts from a folder; weight slider (100–900). Applies to both the UI and the DeepSeek page.
 - **RGB username** — animated rainbow gradient in the sidebar, toggled under **Effects**.
 - **Desktop pets (chubriks)** — perch a sprite right on the message input field: it sits on the top edge, rides along as the field moves, can be dragged with the mouse and resized by the corner handle. The anchor point is stored in field-relative fractions, so the pet stays in place across any resolution or zoom level.
 
@@ -314,6 +342,8 @@ User settings live in `cuckoo-settings.json` under the app's userData directory:
 {
   "background": "miku",
   "backgroundBlur": 0,
+  "font": "system",
+  "fontWeight": 400,
   "headerBlur": 12,
   "sidebarBlur": 12,
   "headerOpacity": 45,
@@ -366,6 +396,8 @@ src/
 │   │   ├── response-meta.js  ⏱ badge under replies
 │   │   ├── settings-tab.js   Cookie Code tab in Settings
 │   │   ├── background.js     Wallpaper & blur engine
+│   │   ├── context-port.js   Chat context transfer
+│   │   ├── fonts.js          UI & page font engine
 │   │   └── ...
 │   └── overlay/         Overlay panel UI
 │       ├── template.js       buildOverlayHTML() + OVERLAY_CSS
@@ -375,6 +407,7 @@ src/
 │   └── deepseek.js      Platform adapter
 ├── ui/
 │   ├── backgrounds/     27 wallpapers + registry.json
+│   ├── fonts/           Built-in fonts (Anthropic Mono)
 │   └── logos/
 tools/                 Tool implementations (run in main process)
 └── cuckoo-tools.d.ts  Type declarations for the AI

@@ -65,6 +65,26 @@ let electronAPI = {
   newChat: () => {
     return ipcRenderer.invoke("new-chat");
   },
+  // ========== Перенос контекста (Context Port) ==========
+  contextPortGetInitPrompt: () => {
+    return ipcRenderer.invoke("context-port:get-init-prompt");
+  },
+  contextPortStart: (history, stage, initPrompt) => {
+    return ipcRenderer.invoke("context-port:start", {
+      history,
+      stage,
+      initPrompt,
+    });
+  },
+  contextPortSummary: (summary) => {
+    return ipcRenderer.invoke("context-port:summary", { summary });
+  },
+  contextPortTake: () => {
+    return ipcRenderer.invoke("context-port:take");
+  },
+  contextPortClear: () => {
+    return ipcRenderer.invoke("context-port:clear");
+  },
   createProfileWindow: () => {
     return ipcRenderer.invoke("create-profile-window");
   },
@@ -148,6 +168,13 @@ let electronAPI = {
   },
   openCustomBackgroundsFolder: () => {
     return ipcRenderer.invoke("cuckoo-backgrounds-open-folder");
+  },
+  // ========== Пользовательские шрифты (userData/fonts) ==========
+  listCustomFonts: () => {
+    return ipcRenderer.invoke("cuckoo-fonts-list");
+  },
+  openCustomFontsFolder: () => {
+    return ipcRenderer.invoke("cuckoo-fonts-open-folder");
   },
   // ========== Спрайты петов (userData/pets) ==========
   listPets: () => {

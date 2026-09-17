@@ -13,6 +13,7 @@ const { initProject } = require("./project-context");
 const { isDangerous } = require("./dangerous-commands");
 const settingsStore = require("./settings-store");
 const chatExport = require("./chat-export");
+const contextPort = require("./context-port");
 const { decodeOutput, normalizeCommand } = require("../../tools/decodeOutput");
 const gitDiff = require("./git-diff");
 const todoStore = require("./todo-store");
@@ -542,6 +543,81 @@ function registerIpcHandlers() {
     if (!url) url = "https://chat.deepseek.com/";
     try {
       await win.webContents.loadURL(url);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Отдать текущий промпт инициализации проекта (для переноса контекста).
+  // Пересобирается из сохранённого projectDir, а не из памяти renderer.
+  ipcMain.handle("context-port:get-init-prompt", async (event) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const store = ctx ? ctx.sessionStore : null;
+      const projectDir = store ? store.state.selectedProjectDir : null;
+      if (!projectDir) return { success: true, prompt: "" };
+      const { buildInitPrompt } = require("./project-context");
+      const providerId = (ctx && ctx.providerId) || "";
+      const prompt = await buildInitPrompt(projectDir, providerId);
+      return { success: true, prompt: prompt || "" };
+    } catch (err) {
+      console.error(
+        "[Cookie Code] context-port:get-init-prompt error:",
+        err.message,
+      );
+      return { success: false, error: err.message, prompt: "" };
+    }
+  });
+
+  // ========== Перенос контекста (Context Port) ==========
+  // Хранилище живёт в main и переживает reload страницы при смене чата.
+  ipcMain.handle(
+    "context-port:start",
+    async (event, { history, stage, initPrompt }) => {
+      try {
+        const wcId = event.sender.id;
+        contextPort.set(wcId, {
+          history: history || "",
+          stage: stage || "history",
+          initPrompt: initPrompt || "",
+        });
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+  );
+
+  ipcMain.handle("context-port:summary", async (event, { summary }) => {
+    try {
+      const wcId = event.sender.id;
+      const cur = contextPort.get(wcId) || {};
+      contextPort.set(wcId, {
+        stage: "summary",
+        history: cur.history || "",
+        summary: summary || "",
+        initPrompt: cur.initPrompt || "",
+      });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("context-port:take", async (event) => {
+    try {
+      const wcId = event.sender.id;
+      const data = contextPort.get(wcId);
+      return { success: true, data: data || null };
+    } catch (err) {
+      return { success: false, error: err.message, data: null };
+    }
+  });
+
+  ipcMain.handle("context-port:clear", async (event) => {
+    try {
+      contextPort.clear(event.sender.id);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -1186,6 +1262,60 @@ function registerIpcHandlers() {
       return { success: true, path: dir };
     } catch (err) {
       console.error("[Cookie Code] 打开 папку фонов失败:", err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ========== Пользовательские шрифты (userData/fonts) ==========
+  // Папка: <userData>/fonts — пользователь кладёт туда .ttf/.otf/.woff/.woff2,
+  // они автоматически появляются в выборе шрифта в настройках.
+  const CUSTOM_FONT_EXT = [".ttf", ".otf", ".woff", ".woff2"];
+  const getCustomFontsDir = () => path.join(app.getPath("userData"), "fonts");
+
+  ipcMain.handle("cuckoo-fonts-list", async () => {
+    try {
+      const fs = require("fs");
+      const dir = getCustomFontsDir();
+      fs.mkdirSync(dir, { recursive: true });
+      const files = fs.readdirSync(dir).filter((f) => {
+        return CUSTOM_FONT_EXT.includes(path.extname(f).toLowerCase());
+      });
+      const list = files.map((f) => {
+        const ext = path.extname(f);
+        const base = f.slice(0, -ext.length);
+        return {
+          id: "custom:" + base,
+          label: base,
+          file: path.join(dir, f),
+          custom: true,
+        };
+      });
+      return { success: true, dir, fonts: list };
+    } catch (err) {
+      console.error(
+        "[Cookie Code] 读取 пользовательских шрифтов失败:",
+        err.message,
+      );
+      return {
+        success: false,
+        error: err.message,
+        dir: getCustomFontsDir(),
+        fonts: [],
+      };
+    }
+  });
+
+  // Открыть папку с пользовательскими шрифтами в системном проводнике.
+  ipcMain.handle("cuckoo-fonts-open-folder", async () => {
+    try {
+      const fs = require("fs");
+      const dir = getCustomFontsDir();
+      fs.mkdirSync(dir, { recursive: true });
+      const errMsg = await shell.openPath(dir);
+      if (errMsg) return { success: false, error: errMsg };
+      return { success: true, path: dir };
+    } catch (err) {
+      console.error("[Cookie Code] 打开 папку шрифтов失败:", err.message);
       return { success: false, error: err.message };
     }
   });

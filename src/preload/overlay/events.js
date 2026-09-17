@@ -26,6 +26,7 @@ const {
 const todoPanel = require("./todo-panel");
 const { handleInitProject, renderSessions } = require("../dom/session-list");
 const { handleManualParse } = require("../dom/observer");
+const contextPort = require("../dom/context-port");
 const { sendToChat } = require("../dom/chat-input");
 const { getProviderByUrl } = require("../../../src/providers");
 const { estimateTokens } = require("../dom/token-estimator");
@@ -549,6 +550,30 @@ function bindEvents() {
   // 手动解析按钮
   const manualParseBtn = document.getElementById("cuckoo-btn-manual-parse");
   manualParseBtn?.addEventListener("click", handleManualParse);
+
+  // Перенос контекста в новый чат
+  const contextPortBtn = document.getElementById("cuckoo-btn-context-port");
+  contextPortBtn?.addEventListener("click", async () => {
+    const ok = await showConfirmDialog(t("contextPort.confirm"), {
+      okText: t("contextPort.confirmOk"),
+      showCancel: true,
+      cancelText: t("contextPort.cancel"),
+    });
+    if (!ok) return;
+    contextPortBtn.disabled = true;
+    try {
+      const res = await contextPort.startTransfer();
+      if (res && res.success) {
+        showToast(t("contextPort.started"), 3000);
+      } else {
+        showToast(t("contextPort.empty"), 3500);
+        contextPortBtn.disabled = false;
+      }
+    } catch (err) {
+      showToast(t("contextPort.error") + ": " + err.message, 3500);
+      contextPortBtn.disabled = false;
+    }
+  });
 
   // Экстренная остановка активных дочерних процессов (кнопка Kill в плашке статуса)
   const killBtn = document.getElementById("cuckoo-btn-kill");

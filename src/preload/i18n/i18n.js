@@ -95,6 +95,30 @@ const KEYS = {
     en: "Manually parse tool calls in the latest reply",
   },
   "overlay.btn.manualParse.loading": { ru: "Разбор...", en: "Parsing..." },
+  // ---- Перенос контекста (Context Port) ----
+  "overlay.btn.contextPort": {
+    ru: "Перенести контекст",
+    en: "Transfer context",
+  },
+  "overlay.btn.contextPort.title": {
+    ru: "Перенести контекст этого чата в новый (с AI-суммаризацией)",
+    en: "Transfer this chat's context to a new one (with AI summary)",
+  },
+  "contextPort.confirm": {
+    ru: "Перенести контекст текущего чата в новый?\n\nИстория будет сжата AI в конспект, затем новый чат откроется автоматически.",
+    en: "Transfer this chat's context to a new one?\n\nThe history will be summarized by AI, then a new chat opens automatically.",
+  },
+  "contextPort.confirmOk": { ru: "Перенести", en: "Transfer" },
+  "contextPort.cancel": { ru: "Отмена", en: "Cancel" },
+  "contextPort.started": {
+    ru: "Перенос запущен…",
+    en: "Transfer started…",
+  },
+  "contextPort.empty": {
+    ru: "В чате нет сообщений для переноса",
+    en: "No messages to transfer",
+  },
+  "contextPort.error": { ru: "Ошибка переноса", en: "Transfer error" },
   "overlay.toast.executing": {
     ru: "Команда уже выполняется, ручной разбор не нужен",
     en: "A command is already running, no manual parse needed",
@@ -432,15 +456,27 @@ const KEYS = {
     ru: "Свои картинки: положите файлы (.webp/.jpg/.png/.gif) в папку и нажмите «Обновить».",
     en: "Custom images: drop files (.webp/.jpg/.png/.gif) into the folder and click Refresh.",
   },
+  // ---- Шрифт ----
+  "settings.section.font": { ru: "Шрифт", en: "Font" },
+  "settings.font.openFolder": {
+    ru: "Открыть папку шрифтов",
+    en: "Open fonts folder",
+  },
+  "settings.font.refresh": { ru: "Обновить", en: "Refresh" },
+  "settings.font.weight": { ru: "Жирность", en: "Weight" },
+  "settings.font.hint": {
+    ru: "Свои шрифты: положите файлы (.ttf/.otf/.woff/.woff2) в папку и нажмите «Обновить». Шрифт применяется ко всему интерфейсу и странице.",
+    en: "Custom fonts: drop files (.ttf/.otf/.woff/.woff2) into the folder and click Refresh. The font applies to the whole UI and page.",
+  },
   "settings.section.language": { ru: "Язык", en: "Language" },
   // ---- Категории / подвкладки настроек ----
-  "settings.tab.theme": { ru: "🎨 Тема и стекло", en: "🎨 Theme & Glass" },
-  "settings.tab.overlay": { ru: "🪟 Панель Cookie", en: "🪟 Cookie Panel" },
-  "settings.tab.bg": { ru: "🖼 Фон страницы", en: "🖼 Page Background" },
-  "settings.tab.telegram": { ru: "🤖 Telegram-бот", en: "🤖 Telegram Bot" },
+  "settings.tab.theme": { ru: "Тема и стекло", en: "Theme & Glass" },
+  "settings.tab.overlay": { ru: "Панель Cookie", en: "Cookie Panel" },
+  "settings.tab.bg": { ru: "Фон страницы", en: "Page Background" },
+  "settings.tab.telegram": { ru: "Telegram-бот", en: "Telegram Bot" },
   "settings.tab.system": {
-    ru: "⚙️ Система и безопасность",
-    en: "⚙️ System & Security",
+    ru: "Система и безопасность",
+    en: "System & Security",
   },
   "settings.section.maintenance": {
     ru: "Обслуживание и сброс",
