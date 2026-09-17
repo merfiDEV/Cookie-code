@@ -112,6 +112,10 @@ Full control over the font of the Cookie Code UI **and** the DeepSeek page:
 
 All settings persist in `cuckoo-settings.json` (`font`, `fontWeight`).
 
+<p align="center">
+  <img src="assets/settings-subtabs.jpg" alt="Custom Anthropic Mono font on the DeepSeek page" width="800">
+</p>
+
 ### Blur & transparency
 
 Full control over the UI glass effect:
@@ -286,6 +290,8 @@ Cookie Code is built to be reshaped: swap wallpapers, tune the glass effect, cha
   <img src="assets/photo_1_2026-09-13_13-16-57.jpg" alt="Cookie Code — customization settings" width="800">
   <br>
   <img src="assets/photo_2_2026-09-13_13-16-57.jpg" alt="Cookie Code — custom theme" width="800">
+  <br>
+  <img src="assets/settings-subtabs.jpg" alt="Cookie Code — custom Anthropic Mono font on the DeepSeek page" width="800">
 </p>
 
 ### Appearance

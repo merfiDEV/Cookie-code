@@ -78,6 +78,10 @@
 
 Все настройки сохраняются в `cuckoo-settings.json` (`font`, `fontWeight`).
 
+<p align="center">
+  <img src="assets/settings-subtabs.jpg" alt="Кастомный шрифт Anthropic Mono на странице DeepSeek" width="800">
+</p>
+
 ### Блюр и прозрачность
 
 Полный контроль над стеклянным эффектом интерфейса:
@@ -251,6 +255,8 @@ Cookie Code создан для того, чтобы его перестраив
   <img src="assets/photo_1_2026-09-13_13-16-57.jpg" alt="Cookie Code — настройки кастомизации" width="800">
   <br>
   <img src="assets/photo_2_2026-09-13_13-16-57.jpg" alt="Cookie Code — собственная тема" width="800">
+  <br>
+  <img src="assets/settings-subtabs.jpg" alt="Cookie Code — кастомный шрифт Anthropic Mono на странице DeepSeek" width="800">
 </p>
 
 ### Внешний вид
