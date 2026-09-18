@@ -47,6 +47,7 @@ function activateCuckooTab() {
 
   // Всегда пересоздаём контент, чтобы подхватить свежие CSS/HTML.
   // Старый удаляем.
+  resetLazyObserver();
   let ourContent = document.getElementById(TAB_CONTENT_ID);
   if (ourContent) {
     try {
@@ -68,6 +69,9 @@ function activateCuckooTab() {
     ourContent.innerHTML = buildContentHTML();
 
     wrapper.appendChild(ourContent);
+
+    // Ленивая подгрузка превью фонов (декодируем только видимые плитки).
+    installLazyImages(ourContent);
 
     // Вешаем обработчики на превью фонов
     bindBackgroundGrid();
@@ -215,10 +219,12 @@ function buildContentHTML() {
     // ===== Фоны (сетка) =====
     "  .cuckoo-bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }" +
     "  .cuckoo-bg-item { cursor: pointer; border: 2px solid rgba(139,147,255,0.18); border-radius: 12px; " +
-    "                    overflow: hidden; transition: border-color 0.18s, transform 0.15s, box-shadow 0.18s; background: rgba(0,0,0,0.25); }" +
-    "  .cuckoo-bg-item:hover { border-color: rgba(139,147,255,0.65); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.35); }" +
+    "                    overflow: hidden; background: rgba(0,0,0,0.25); " +
+    "                    content-visibility: auto; contain-intrinsic-size: 140px 110px; " +
+    "                    contain: layout style paint; transition: border-color 0.12s; }" +
+    "  .cuckoo-bg-item:hover { border-color: rgba(139,147,255,0.65); }" +
     "  .cuckoo-bg-item.cuckoo-bg-selected { border-color: #8b93ff; box-shadow: 0 0 0 2px rgba(139,147,255,0.35); }" +
-    "  .cuckoo-bg-preview { width: 100%; aspect-ratio: 16/10; background-size: cover; background-position: center; background-color: #0f1220; }" +
+    "  .cuckoo-bg-preview { width: 100%; aspect-ratio: 16/10; background-size: cover; background-position: center; background-color: #0f1220; contain: strict; }" +
     "  .cuckoo-bg-label { font-size: 11px; padding: 6px 8px; text-align: center; color: #cfd3ff; " +
     "                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }" +
     "  .cuckoo-font-preview { width: 100%; aspect-ratio: 16/10; display: flex; align-items: center; " +
@@ -948,10 +954,9 @@ function bindPetsSection() {
       // Превью
       const prev = document.createElement("div");
       prev.className = "cuckoo-bg-preview";
-      prev.style.backgroundImage =
-        'url("' + background.getPreviewUri(p.file) + '")';
-      prev.style.backgroundSize = "contain";
-      prev.style.backgroundRepeat = "no-repeat";
+      // Ленивая загрузка: data-URI подставит IntersectionObserver при появлении.
+      prev.setAttribute("data-lazy-file", p.file);
+      prev.setAttribute("data-lazy-fit", "contain");
       item.appendChild(prev);
       // Подпись
       const lbl = document.createElement("div");
@@ -1003,6 +1008,7 @@ function bindPetsSection() {
       });
       grid.appendChild(item);
     });
+    installLazyImages(grid);
   };
 
   const loadPets = async () => {
@@ -1429,23 +1435,82 @@ function openChromaModal(pet) {
   window.addEventListener("keydown", onKey, true);
 }
 
+// ===== Lazy-загрузка превью (фоны/петы) =====
+// Раньше каждая плитка сразу получала background-image с data-URI полного
+// размера (до 1.2 МБ / ~48 МБ decoded на картинку) — 28+ плиток в DOM
+// декодировались одновременно и вызывали лаги при пролистывании.
+// Теперь data-URI подгружается только при приближении плитки к вьюпорту.
+let lazyObserver = null;
+
+function getLazyRoot() {
+  return document.getElementById(TAB_CONTENT_ID) || null;
+}
+
+function getLazyObserver() {
+  if (lazyObserver) return lazyObserver;
+  if (typeof IntersectionObserver === "undefined") return null;
+  const root = getLazyRoot();
+  if (!root) return null;
+  lazyObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        lazyObserver.unobserve(el);
+        const file = el.getAttribute("data-lazy-file");
+        const fit = el.getAttribute("data-lazy-fit") || "cover";
+        el.removeAttribute("data-lazy-file");
+        el.removeAttribute("data-lazy-fit");
+        if (!file) return;
+        try {
+          const uri = background.getPreviewUri(file);
+          if (uri) {
+            el.style.backgroundImage = 'url("' + uri + '")';
+            el.style.backgroundSize = fit;
+            el.style.backgroundRepeat = "no-repeat";
+          }
+        } catch (_) {}
+      });
+    },
+    { root, rootMargin: "300px 0px" },
+  );
+  return lazyObserver;
+}
+
+/**
+ * Сбросить текущий observer (вызывается при пересоздании вкладки).
+ */
+function resetLazyObserver() {
+  try {
+    if (lazyObserver) lazyObserver.disconnect();
+  } catch (_) {}
+  lazyObserver = null;
+}
+
+/**
+ * Подписать все элементы [data-lazy-file] внутри scope на ленивую загрузку.
+ */
+function installLazyImages(scopeEl) {
+  const scope = scopeEl || getLazyRoot();
+  if (!scope) return;
+  const obs = getLazyObserver();
+  if (!obs) return;
+  scope.querySelectorAll("[data-lazy-file]").forEach((n) => obs.observe(n));
+}
+
 /**
  * Собрать HTML одного превью фона.
  */
 function backgroundItemHTML(b) {
-  const uri = background.getPreviewUri(b.file);
-  const styleAttr = uri
-    ? " style=\"background-image: url('" + uri + "');\""
-    : "";
   return (
     '<div class="cuckoo-bg-item" data-bg-id="' +
-    b.id +
+    escapeHtml(b.id) +
     '" title="' +
     escapeHtml(b.label) +
     '">' +
-    '  <div class="cuckoo-bg-preview"' +
-    styleAttr +
-    "></div>" +
+    '  <div class="cuckoo-bg-preview" data-lazy-file="' +
+    escapeHtml(b.file) +
+    '"></div>' +
     '  <div class="cuckoo-bg-label">' +
     escapeHtml(b.label) +
     "</div>" +
@@ -1468,6 +1533,7 @@ async function refreshBackgroundGrid() {
     .getAllBackgrounds()
     .map(backgroundItemHTML)
     .join("");
+  installLazyImages(gridEl);
   bindBackgroundGrid();
   await refreshBackgroundSelection();
 }
@@ -1535,6 +1601,7 @@ async function refreshFontGrid() {
   if (!gridEl) return;
   await fonts.loadCustomFonts();
   gridEl.innerHTML = fonts.getAllFonts().map(fontItemHTML).join("");
+  installLazyImages(gridEl);
   bindFontGrid();
   await refreshFontSelection();
 }
