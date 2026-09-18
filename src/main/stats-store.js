@@ -48,7 +48,13 @@ const EMPTY = {
   models: {},
   // общий счётчик сообщений и токенов (для быстрого доступа)
   totals: { sessions: 0, messages: 0, tokens: 0 },
+  // sessionId -> [hash, ...] — какие сообщения уже учтены (дедупликация).
+  // Ограничиваем список, чтобы файл не рос бесконечно.
+  countedHashes: {},
 };
+
+// Максимум хранимых хэшей на сессию.
+const MAX_HASHES_PER_SESSION = 500;
 
 function readStats() {
   try {
@@ -62,6 +68,7 @@ function readStats() {
       days: parsed.days || {},
       models: parsed.models || {},
       totals: { ...EMPTY.totals, ...(parsed.totals || {}) },
+      countedHashes: parsed.countedHashes || {},
     };
   } catch (err) {
     console.error("[Cookie Code] 读取 статистики失败:", err.message);
@@ -85,6 +92,7 @@ function writeStats(stats) {
  * @param {object} ev
  * @param {string} [ev.sessionId]
  * @param {'user'|'ai'} ev.role
+ * @param {string} [ev.hash]    стабильный хэш сообщения (для дедупликации)
  * @param {number} [ev.tokens]  дельта токенов (если известна)
  * @param {string} [ev.model]
  */
@@ -95,6 +103,17 @@ function recordMessage(ev) {
   const day = dayKey(now);
 
   if (!stats.createdAt) stats.createdAt = now;
+
+  // Дедупликация по хэшу: одно и то же сообщение (в т.ч. после перерендера
+  // диалога при SPA-навигации) учитывается ровно один раз за сессию.
+  const hash = ev && ev.hash ? String(ev.hash) : "";
+  if (hash) {
+    const seen = stats.countedHashes[sid] || [];
+    if (seen.indexOf(hash) !== -1) return stats;
+    seen.push(hash);
+    if (seen.length > MAX_HASHES_PER_SESSION) seen.shift();
+    stats.countedHashes[sid] = seen;
+  }
 
   // Сессия
   if (!stats.sessions[sid]) {

@@ -33,6 +33,7 @@ const contextPort = require("./dom/context-port");
 const fonts = require("./dom/fonts");
 const statsDashboard = require("./dom/stats-dashboard");
 const statsRecorder = require("./dom/stats-recorder");
+const messageCounter = require("./dom/message-counter");
 const whatsNew = require("./dom/whats-new");
 const i18n = require("./i18n/i18n");
 const state = require("./dom/state");
@@ -109,6 +110,8 @@ async function init() {
 
     // Сбор статистики использования (токены + сообщения).
     safe("init.statsRecorderStart", () => statsRecorder.start());
+    // Учёт сообщений (user / ai) по появлению .ds-message в DOM.
+    safe("init.messageCounterStart", () => messageCounter.start());
 
     // Дашборд статистики на домашней странице.
     safe("init.statsDashboardStart", () => statsDashboard.start());
