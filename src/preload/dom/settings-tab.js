@@ -103,6 +103,7 @@ function activateCuckooTab() {
     // Шрифт
     bindFontsSection();
     refreshFontWeight();
+    refreshFontColor();
     // Статистика
     bindStatsSection();
     // Подвкладки (категории)
@@ -618,6 +619,20 @@ function buildContentHTML() {
     t("settings.font.weight") +
     '</span><span class="cuckoo-blur-value" id="cuckoo-font-weight-val">400</span></div>' +
     '    <input type="range" id="cuckoo-font-weight" class="cuckoo-blur-slider" min="100" max="900" step="100" value="400">' +
+    "  </div>" +
+    '  <div class="cuckoo-blur-row" style="flex-direction:row;justify-content:space-between;align-items:center;">' +
+    '    <span style="font-size:13px;color:#cfd3ff;">' +
+    t("settings.font.color") +
+    "</span>" +
+    '    <div style="display:flex;align-items:center;gap:8px;">' +
+    '      <input type="color" id="cuckoo-color-font" value="#eef0ff" style="width:32px;height:32px;border:none;border-radius:6px;cursor:pointer;background:transparent;">' +
+    '      <span id="cuckoo-color-font-val" class="cuckoo-blur-value">' +
+    t("settings.font.colorSystem") +
+    "</span>" +
+    '      <button id="cuckoo-color-font-reset" class="ck-btn" style="padding:6px 10px;font-size:11.5px;">' +
+    t("settings.font.colorReset") +
+    "</button>" +
+    "    </div>" +
     "  </div>" +
     '  <div class="ck-row-hint" style="margin-top:8px;">' +
     t("settings.font.hint") +
@@ -1698,6 +1713,7 @@ function bindFontsSection() {
   bindFontFolderButtons();
   refreshFontSelection();
   bindFontWeightSlider();
+  bindFontColor();
   // Подтягиваем пользовательские шрифты с диска и перерисовываем сетку.
   refreshFontGrid();
 }
@@ -1791,6 +1807,74 @@ async function refreshFontWeight() {
     const label = document.getElementById("cuckoo-font-weight-val");
     if (input) input.value = String(w);
     if (label) label.textContent = String(w);
+  } catch (_) {}
+}
+
+/**
+ * Выбор цвета текста: пипетка + кнопка сброса.
+ * На input — мгновенно применяем, на change — сохраняем в settings.json.
+ */
+function bindFontColor() {
+  const input = document.getElementById("cuckoo-color-font");
+  const label = document.getElementById("cuckoo-color-font-val");
+  const resetBtn = document.getElementById("cuckoo-color-font-reset");
+  if (input) {
+    input.addEventListener("input", () => {
+      if (label) label.textContent = input.value;
+      fonts.applyColor(input.value);
+    });
+    input.addEventListener("change", async () => {
+      const v = fonts.normalizeColor(input.value);
+      if (!v) return;
+      try {
+        const res = await window.electronAPI.setCuckooSetting("fontColor", v);
+        if (!res || !res.success) {
+          console.error(
+            "[Cookie Code] Не удалось сохранить цвет шрифта:",
+            res && res.error,
+          );
+        }
+      } catch (err) {
+        console.error(
+          "[Cookie Code] Ошибка сохранения цвета шрифта:",
+          err.message,
+        );
+      }
+    });
+  }
+  if (resetBtn) {
+    resetBtn.addEventListener("click", async () => {
+      fonts.applyColor("");
+      if (label) label.textContent = t("settings.font.colorSystem");
+      try {
+        const res = await window.electronAPI.setCuckooSetting("fontColor", "");
+        if (!res || !res.success) {
+          console.error(
+            "[Cookie Code] Не удалось сбросить цвет шрифта:",
+            res && res.error,
+          );
+        }
+      } catch (err) {
+        console.error("[Cookie Code] Ошибка сброса цвета шрифта:", err.message);
+      }
+    });
+  }
+}
+
+/**
+ * Выставить пипетку/подпись по сохранённому цвету шрифта.
+ */
+async function refreshFontColor() {
+  try {
+    const settings = await window.electronAPI.getCuckooSettings();
+    const raw = settings && settings.fontColor;
+    const v = fonts.normalizeColor(raw);
+    const input = document.getElementById("cuckoo-color-font");
+    const label = document.getElementById("cuckoo-color-font-val");
+    if (input) input.value = v || "#eef0ff";
+    if (label) {
+      label.textContent = v ? v : t("settings.font.colorSystem");
+    }
   } catch (_) {}
 }
 

@@ -464,6 +464,9 @@ const KEYS = {
   },
   "settings.font.refresh": { ru: "Обновить", en: "Refresh" },
   "settings.font.weight": { ru: "Жирность", en: "Weight" },
+  "settings.font.color": { ru: "Цвет текста", en: "Text color" },
+  "settings.font.colorSystem": { ru: "Системный", en: "System" },
+  "settings.font.colorReset": { ru: "Сбросить", en: "Reset" },
   "settings.font.hint": {
     ru: "Свои шрифты: положите файлы (.ttf/.otf/.woff/.woff2) в папку и нажмите «Обновить». Шрифт применяется ко всему интерфейсу и странице.",
     en: "Custom fonts: drop files (.ttf/.otf/.woff/.woff2) into the folder and click Refresh. The font applies to the whole UI and page.",
