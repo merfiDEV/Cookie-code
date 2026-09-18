@@ -20,6 +20,7 @@
  *   - guard от повторного входа в refresh.
  */
 const { getProviderByUrl } = require("../../../src/providers");
+const { t } = require("../i18n/i18n");
 const state = require("./state");
 
 const ROOT_ID = "cuckoo-stats-dashboard";
@@ -172,15 +173,16 @@ function levelFor(messages) {
   return "l4";
 }
 
+// Ключ значения → ключ i18n подписи карточки.
 const CARD_LABELS = [
-  ["sessions", "Сессии"],
-  ["messages", "Сообщения"],
-  ["tokens", "Токены"],
-  ["activeDays", "Активных дней"],
-  ["currentStreak", "Текущая серия"],
-  ["longestStreak", "Макс. серия"],
-  ["peakHour", "Пик. час"],
-  ["favoriteModel", "Любимая модель"],
+  ["sessions", "dashboard.card.sessions"],
+  ["messages", "dashboard.card.messages"],
+  ["tokens", "dashboard.card.tokens"],
+  ["activeDays", "dashboard.card.activeDays"],
+  ["currentStreak", "dashboard.card.currentStreak"],
+  ["longestStreak", "dashboard.card.longestStreak"],
+  ["peakHour", "dashboard.card.peakHour"],
+  ["favoriteModel", "dashboard.card.favoriteModel"],
 ];
 
 /**
@@ -194,14 +196,14 @@ function buildSkeleton() {
   head.className = "ckd-head";
   const title = document.createElement("div");
   title.className = "ckd-title";
-  title.textContent = "Cookie Code · Обзор";
+  title.textContent = t("dashboard.title");
   const hint = document.createElement("span");
   hint.className = "ckd-drag-hint";
-  hint.textContent = "⠿ тяни (debug)";
+  hint.textContent = t("dashboard.dragHint");
   title.appendChild(hint);
   const range = document.createElement("div");
   range.className = "ckd-range";
-  range.textContent = RANGE_DAYS + " дн · всего за всё время";
+  range.textContent = t("dashboard.range", { days: RANGE_DAYS });
   head.appendChild(title);
   head.appendChild(range);
 
@@ -213,7 +215,7 @@ function buildSkeleton() {
     c.className = "ckd-card";
     const k = document.createElement("div");
     k.className = "k";
-    k.textContent = label;
+    k.textContent = t(label);
     const v = document.createElement("div");
     v.className = "v";
     c.appendChild(k);
@@ -240,16 +242,16 @@ function buildSkeleton() {
  * Компактная сигнатура сводки — чтобы пропускать render без изменений.
  */
 function signatureOf(s) {
-  const t = s.totals || {};
+  const tot = s.totals || {};
   const days = Array.isArray(s.days) ? s.days : [];
   let acc = "";
   for (let i = 0; i < days.length; i++) acc += (days[i].messages || 0) + ",";
   return (
-    t.sessions +
+    tot.sessions +
     "|" +
-    t.messages +
+    tot.messages +
     "|" +
-    t.tokens +
+    tot.tokens +
     "|" +
     (s.activeDays || 0) +
     "|" +
@@ -274,23 +276,24 @@ function render(summary) {
   if (!rootEl) return;
   if (!ui) buildSkeleton();
   const s = summary || {};
-  const t = s.totals || {};
+  const tot = s.totals || {};
   const days = Array.isArray(s.days) ? s.days : [];
 
+  const dash = t("dashboard.placeholder");
   const peakLabel =
     s.peakHour === "—" || s.peakHour == null
-      ? "—"
+      ? dash
       : String(s.peakHour).padStart(2, "0") + ":00";
 
   const values = {
-    sessions: String(t.sessions || 0),
-    messages: String(t.messages || 0),
-    tokens: formatTokens(t.tokens || 0),
+    sessions: String(tot.sessions || 0),
+    messages: String(tot.messages || 0),
+    tokens: formatTokens(tot.tokens || 0),
     activeDays: String(s.activeDays || 0),
-    currentStreak: (s.currentStreak || 0) + " дн",
-    longestStreak: (s.longestStreak || 0) + " дн",
+    currentStreak: t("dashboard.unit.days", { n: s.currentStreak || 0 }),
+    longestStreak: t("dashboard.unit.days", { n: s.longestStreak || 0 }),
     peakHour: peakLabel,
-    favoriteModel: s.favoriteModel || "—",
+    favoriteModel: s.favoriteModel || dash,
   };
   Object.keys(values).forEach((key) => {
     const node = ui.cardNodes[key];
@@ -316,15 +319,16 @@ function render(summary) {
     const cell = ui.heatCells[i];
     const cls = "ckd-cell " + levelFor(d.messages);
     if (cell.className !== cls) cell.className = cls;
-    const title = d.date + ": " + (d.messages || 0) + " сообщ.";
+    const title = t("dashboard.cellTitle", {
+      date: d.date,
+      n: d.messages || 0,
+    });
     if (cell.title !== title) cell.title = title;
   }
 
   const foot =
-    (debugMode ? "F6 — рамка · F7 — обновить · " : "") +
-    "Метрики — за всё время · теплокарта — " +
-    RANGE_DAYS +
-    " дн";
+    (debugMode ? t("dashboard.foot.debug") : "") +
+    t("dashboard.foot.main", { days: RANGE_DAYS });
   if (ui.foot.textContent !== foot) ui.foot.textContent = foot;
 }
 
@@ -385,10 +389,12 @@ function clampToViewport(left, top) {
  * @param {string} where  метка (restore/drag/resize)
  */
 function logPos(where, left, top) {
+  // Логи только в debug-режиме, чтобы не засорять консоль.
+  if (!debugMode) return;
   try {
     const rect = rootEl.getBoundingClientRect();
     const l = Math.round(left != null ? left : rect.left);
-    const t = Math.round(top != null ? top : rect.top);
+    const tp = Math.round(top != null ? top : rect.top);
     const rX = (rect.left / window.innerWidth).toFixed(4);
     const rY = (rect.top / window.innerHeight).toFixed(4);
     // Развёрнутый лог для точного позиционирования: пиксели, доли,
@@ -400,7 +406,7 @@ function logPos(where, left, top) {
         "  позиция:      left=" +
         l +
         "px  top=" +
-        t +
+        tp +
         "px\n" +
         "  доли окна:    ratioX=" +
         rX +

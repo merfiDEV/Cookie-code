@@ -311,6 +311,16 @@ declare function openBrowserWindow(url: string, options?: { id?: string; width?:
  */
 declare function injectJS(windowId: string, code: string): Promise<any>;
 
+/**
+ * 在当前页面（main world，等同于 DevTools/F12 控制台）执行 JS 并返回结果。
+ * 默认作用于主窗口（即运行本对话的窗口）；也可通过 windowId 指定 open_browser_window 打开的窗口。
+ * 可用 DOM、window.*、localStorage 等页面能力；不提供 window.electronAPI。
+ * @param code JS 代码：以 return 开头的语句块，或表达式（如 IIFE，其返回值会被捕获）；支持 await
+ * @param windowId 可选，目标窗口 ID；不传则使用主窗口
+ * @returns code 的返回值（需为 JSON 兼容值）
+ */
+declare function injectPageJS(code: string, windowId?: string): Promise<any>;
+
 // ================= 附件上传 =================
 
 /**
