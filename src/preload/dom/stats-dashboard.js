@@ -389,6 +389,8 @@ function clampToViewport(left, top) {
  * @param {string} where  метка (restore/drag/resize)
  */
 function logPos(where, left, top) {
+  // Логи только в debug-режиме, чтобы не засорять консоль.
+  if (!debugMode) return;
   try {
     const rect = rootEl.getBoundingClientRect();
     const l = Math.round(left != null ? left : rect.left);
