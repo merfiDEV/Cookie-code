@@ -27,7 +27,15 @@ function enabled() {
   return state.statsEnabled !== false;
 }
 
-/** Записать сообщение (user / ai). */
+/**
+ * Записать сообщение (user / ai).
+ * @param {'user'|'ai'} role
+ * @param {object} [extra]
+ * @param {string} [extra.hash]    стабильный хэш сообщения — для дедупликации
+ *                                 (перерендер диалога не раздувает счётчик)
+ * @param {string} [extra.model]
+ * @param {number} [extra.tokens]
+ */
 function recordMessage(role, extra) {
   if (!enabled()) return;
   try {
@@ -39,6 +47,7 @@ function recordMessage(role, extra) {
     window.electronAPI.statsRecordMessage({
       sessionId: currentSessionId(),
       role,
+      hash: (extra && extra.hash) || "",
       model: (extra && extra.model) || "",
       tokens: (extra && extra.tokens) || 0,
     });

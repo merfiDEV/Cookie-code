@@ -47,6 +47,7 @@ function activateCuckooTab() {
 
   // Всегда пересоздаём контент, чтобы подхватить свежие CSS/HTML.
   // Старый удаляем.
+  resetLazyObserver();
   let ourContent = document.getElementById(TAB_CONTENT_ID);
   if (ourContent) {
     try {
@@ -68,6 +69,9 @@ function activateCuckooTab() {
     ourContent.innerHTML = buildContentHTML();
 
     wrapper.appendChild(ourContent);
+
+    // Ленивая подгрузка превью фонов (декодируем только видимые плитки).
+    installLazyImages(ourContent);
 
     // Вешаем обработчики на превью фонов
     bindBackgroundGrid();
@@ -103,6 +107,7 @@ function activateCuckooTab() {
     // Шрифт
     bindFontsSection();
     refreshFontWeight();
+    refreshFontColor();
     // Статистика
     bindStatsSection();
     // Подвкладки (категории)
@@ -175,6 +180,13 @@ function buildContentHTML() {
     "                 word-break: normal; overflow-wrap: break-word; white-space: normal; }" +
     "  .ck-card, .ck-stack { min-width: 0; }" +
     "  #cuckoo-settings-content { min-width: 0; width: 100%; align-items: stretch; }" +
+    // ===== Кастомный скроллбар в стиле настроек =====
+    "  #cuckoo-settings-content::-webkit-scrollbar { width: 8px; }" +
+    "  #cuckoo-settings-content::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 8px; margin: 8px 0; }" +
+    "  #cuckoo-settings-content::-webkit-scrollbar-thumb { background: rgba(139,147,255,0.35); border-radius: 8px; " +
+    "        border: 2px solid transparent; background-clip: padding-box; transition: background 0.16s; }" +
+    "  #cuckoo-settings-content::-webkit-scrollbar-thumb:hover { background: rgba(139,147,255,0.6); background-clip: padding-box; }" +
+    "  #cuckoo-settings-content { scrollbar-width: thin; scrollbar-color: rgba(139,147,255,0.4) rgba(255,255,255,0.04); }" +
     "  #cuckoo-settings-content > div { min-width: 0; width: 100%; flex-shrink: 0; }" +
     "  #cuckoo-settings-content * { word-break: normal; overflow-wrap: break-word; }" +
     "  .ck-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; " +
@@ -207,10 +219,12 @@ function buildContentHTML() {
     // ===== Фоны (сетка) =====
     "  .cuckoo-bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }" +
     "  .cuckoo-bg-item { cursor: pointer; border: 2px solid rgba(139,147,255,0.18); border-radius: 12px; " +
-    "                    overflow: hidden; transition: border-color 0.18s, transform 0.15s, box-shadow 0.18s; background: rgba(0,0,0,0.25); }" +
-    "  .cuckoo-bg-item:hover { border-color: rgba(139,147,255,0.65); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.35); }" +
+    "                    overflow: hidden; background: rgba(0,0,0,0.25); " +
+    "                    content-visibility: auto; contain-intrinsic-size: 140px 110px; " +
+    "                    contain: layout style paint; transition: border-color 0.12s; }" +
+    "  .cuckoo-bg-item:hover { border-color: rgba(139,147,255,0.65); }" +
     "  .cuckoo-bg-item.cuckoo-bg-selected { border-color: #8b93ff; box-shadow: 0 0 0 2px rgba(139,147,255,0.35); }" +
-    "  .cuckoo-bg-preview { width: 100%; aspect-ratio: 16/10; background-size: cover; background-position: center; background-color: #0f1220; }" +
+    "  .cuckoo-bg-preview { width: 100%; aspect-ratio: 16/10; background-size: cover; background-position: center; background-color: #0f1220; contain: strict; }" +
     "  .cuckoo-bg-label { font-size: 11px; padding: 6px 8px; text-align: center; color: #cfd3ff; " +
     "                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }" +
     "  .cuckoo-font-preview { width: 100%; aspect-ratio: 16/10; display: flex; align-items: center; " +
@@ -612,6 +626,20 @@ function buildContentHTML() {
     '</span><span class="cuckoo-blur-value" id="cuckoo-font-weight-val">400</span></div>' +
     '    <input type="range" id="cuckoo-font-weight" class="cuckoo-blur-slider" min="100" max="900" step="100" value="400">' +
     "  </div>" +
+    '  <div class="cuckoo-blur-row" style="flex-direction:row;justify-content:space-between;align-items:center;">' +
+    '    <span style="font-size:13px;color:#cfd3ff;">' +
+    t("settings.font.color") +
+    "</span>" +
+    '    <div style="display:flex;align-items:center;gap:8px;">' +
+    '      <input type="color" id="cuckoo-color-font" value="#eef0ff" style="width:32px;height:32px;border:none;border-radius:6px;cursor:pointer;background:transparent;">' +
+    '      <span id="cuckoo-color-font-val" class="cuckoo-blur-value">' +
+    t("settings.font.colorSystem") +
+    "</span>" +
+    '      <button id="cuckoo-color-font-reset" class="ck-btn" style="padding:6px 10px;font-size:11.5px;">' +
+    t("settings.font.colorReset") +
+    "</button>" +
+    "    </div>" +
+    "  </div>" +
     '  <div class="ck-row-hint" style="margin-top:8px;">' +
     t("settings.font.hint") +
     "</div>" +
@@ -926,10 +954,9 @@ function bindPetsSection() {
       // Превью
       const prev = document.createElement("div");
       prev.className = "cuckoo-bg-preview";
-      prev.style.backgroundImage =
-        'url("' + background.getPreviewUri(p.file) + '")';
-      prev.style.backgroundSize = "contain";
-      prev.style.backgroundRepeat = "no-repeat";
+      // Ленивая загрузка: data-URI подставит IntersectionObserver при появлении.
+      prev.setAttribute("data-lazy-file", p.file);
+      prev.setAttribute("data-lazy-fit", "contain");
       item.appendChild(prev);
       // Подпись
       const lbl = document.createElement("div");
@@ -981,6 +1008,7 @@ function bindPetsSection() {
       });
       grid.appendChild(item);
     });
+    installLazyImages(grid);
   };
 
   const loadPets = async () => {
@@ -1407,23 +1435,82 @@ function openChromaModal(pet) {
   window.addEventListener("keydown", onKey, true);
 }
 
+// ===== Lazy-загрузка превью (фоны/петы) =====
+// Раньше каждая плитка сразу получала background-image с data-URI полного
+// размера (до 1.2 МБ / ~48 МБ decoded на картинку) — 28+ плиток в DOM
+// декодировались одновременно и вызывали лаги при пролистывании.
+// Теперь data-URI подгружается только при приближении плитки к вьюпорту.
+let lazyObserver = null;
+
+function getLazyRoot() {
+  return document.getElementById(TAB_CONTENT_ID) || null;
+}
+
+function getLazyObserver() {
+  if (lazyObserver) return lazyObserver;
+  if (typeof IntersectionObserver === "undefined") return null;
+  const root = getLazyRoot();
+  if (!root) return null;
+  lazyObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        lazyObserver.unobserve(el);
+        const file = el.getAttribute("data-lazy-file");
+        const fit = el.getAttribute("data-lazy-fit") || "cover";
+        el.removeAttribute("data-lazy-file");
+        el.removeAttribute("data-lazy-fit");
+        if (!file) return;
+        try {
+          const uri = background.getPreviewUri(file);
+          if (uri) {
+            el.style.backgroundImage = 'url("' + uri + '")';
+            el.style.backgroundSize = fit;
+            el.style.backgroundRepeat = "no-repeat";
+          }
+        } catch (_) {}
+      });
+    },
+    { root, rootMargin: "300px 0px" },
+  );
+  return lazyObserver;
+}
+
+/**
+ * Сбросить текущий observer (вызывается при пересоздании вкладки).
+ */
+function resetLazyObserver() {
+  try {
+    if (lazyObserver) lazyObserver.disconnect();
+  } catch (_) {}
+  lazyObserver = null;
+}
+
+/**
+ * Подписать все элементы [data-lazy-file] внутри scope на ленивую загрузку.
+ */
+function installLazyImages(scopeEl) {
+  const scope = scopeEl || getLazyRoot();
+  if (!scope) return;
+  const obs = getLazyObserver();
+  if (!obs) return;
+  scope.querySelectorAll("[data-lazy-file]").forEach((n) => obs.observe(n));
+}
+
 /**
  * Собрать HTML одного превью фона.
  */
 function backgroundItemHTML(b) {
-  const uri = background.getPreviewUri(b.file);
-  const styleAttr = uri
-    ? " style=\"background-image: url('" + uri + "');\""
-    : "";
   return (
     '<div class="cuckoo-bg-item" data-bg-id="' +
-    b.id +
+    escapeHtml(b.id) +
     '" title="' +
     escapeHtml(b.label) +
     '">' +
-    '  <div class="cuckoo-bg-preview"' +
-    styleAttr +
-    "></div>" +
+    '  <div class="cuckoo-bg-preview" data-lazy-file="' +
+    escapeHtml(b.file) +
+    '"></div>' +
     '  <div class="cuckoo-bg-label">' +
     escapeHtml(b.label) +
     "</div>" +
@@ -1446,6 +1533,7 @@ async function refreshBackgroundGrid() {
     .getAllBackgrounds()
     .map(backgroundItemHTML)
     .join("");
+  installLazyImages(gridEl);
   bindBackgroundGrid();
   await refreshBackgroundSelection();
 }
@@ -1513,6 +1601,7 @@ async function refreshFontGrid() {
   if (!gridEl) return;
   await fonts.loadCustomFonts();
   gridEl.innerHTML = fonts.getAllFonts().map(fontItemHTML).join("");
+  installLazyImages(gridEl);
   bindFontGrid();
   await refreshFontSelection();
 }
@@ -1691,6 +1780,7 @@ function bindFontsSection() {
   bindFontFolderButtons();
   refreshFontSelection();
   bindFontWeightSlider();
+  bindFontColor();
   // Подтягиваем пользовательские шрифты с диска и перерисовываем сетку.
   refreshFontGrid();
 }
@@ -1784,6 +1874,74 @@ async function refreshFontWeight() {
     const label = document.getElementById("cuckoo-font-weight-val");
     if (input) input.value = String(w);
     if (label) label.textContent = String(w);
+  } catch (_) {}
+}
+
+/**
+ * Выбор цвета текста: пипетка + кнопка сброса.
+ * На input — мгновенно применяем, на change — сохраняем в settings.json.
+ */
+function bindFontColor() {
+  const input = document.getElementById("cuckoo-color-font");
+  const label = document.getElementById("cuckoo-color-font-val");
+  const resetBtn = document.getElementById("cuckoo-color-font-reset");
+  if (input) {
+    input.addEventListener("input", () => {
+      if (label) label.textContent = input.value;
+      fonts.applyColor(input.value);
+    });
+    input.addEventListener("change", async () => {
+      const v = fonts.normalizeColor(input.value);
+      if (!v) return;
+      try {
+        const res = await window.electronAPI.setCuckooSetting("fontColor", v);
+        if (!res || !res.success) {
+          console.error(
+            "[Cookie Code] Не удалось сохранить цвет шрифта:",
+            res && res.error,
+          );
+        }
+      } catch (err) {
+        console.error(
+          "[Cookie Code] Ошибка сохранения цвета шрифта:",
+          err.message,
+        );
+      }
+    });
+  }
+  if (resetBtn) {
+    resetBtn.addEventListener("click", async () => {
+      fonts.applyColor("");
+      if (label) label.textContent = t("settings.font.colorSystem");
+      try {
+        const res = await window.electronAPI.setCuckooSetting("fontColor", "");
+        if (!res || !res.success) {
+          console.error(
+            "[Cookie Code] Не удалось сбросить цвет шрифта:",
+            res && res.error,
+          );
+        }
+      } catch (err) {
+        console.error("[Cookie Code] Ошибка сброса цвета шрифта:", err.message);
+      }
+    });
+  }
+}
+
+/**
+ * Выставить пипетку/подпись по сохранённому цвету шрифта.
+ */
+async function refreshFontColor() {
+  try {
+    const settings = await window.electronAPI.getCuckooSettings();
+    const raw = settings && settings.fontColor;
+    const v = fonts.normalizeColor(raw);
+    const input = document.getElementById("cuckoo-color-font");
+    const label = document.getElementById("cuckoo-color-font-val");
+    if (input) input.value = v || "#eef0ff";
+    if (label) {
+      label.textContent = v ? v : t("settings.font.colorSystem");
+    }
   } catch (_) {}
 }
 

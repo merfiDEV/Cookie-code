@@ -29,6 +29,12 @@ const BUILTIN_FONTS = [
     file: ["Anthropic Mono Web.otf", "Anthropic Mono Web Regular Italic.otf"],
     family: "Anthropic Mono",
   },
+  {
+    id: "ndot-47",
+    label: "Ndot 47",
+    file: "ndot-47-inspired-by-nothing.otf",
+    family: "Ndot 47",
+  },
 ];
 
 const DEFAULT_ID = "system";
@@ -36,9 +42,11 @@ const DEFAULT_ID = "system";
 // Жирность по умолчанию (обычное начертание).
 const DEFAULT_WEIGHT = 400;
 
-// Текущий выбранный шрифт и жирность (для повторного применения).
+// Текущий выбранный шрифт, жирность и цвет (для повторного применения).
 let currentFontId = DEFAULT_ID;
 let currentWeight = DEFAULT_WEIGHT;
+// Кастомный цвет текста ("#rrggbb"). "" — системный (правило не применяется).
+let currentColor = "";
 
 // Стиль инъекции (id <style>).
 const STYLE_ID = "cuckoo-font-style";
@@ -217,6 +225,22 @@ function normalizeWeight(w) {
 }
 
 /**
+ * Нормализовать HEX-цвет. Возвращает "#rrggbb" или "" (системный).
+ * Принимает "#rgb", "#rrggbb" (регистр любой).
+ */
+function normalizeColor(c) {
+  if (c == null) return "";
+  const s = String(c).trim();
+  if (!s) return "";
+  let hex = s.startsWith("#") ? s.slice(1) : s;
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  }
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return "";
+  return "#" + hex.toLowerCase();
+}
+
+/**
  * Полный селектор правила для страницы DeepSeek (с исключением иконок).
  */
 function pageSelector() {
@@ -232,12 +256,66 @@ function pageSelector() {
 }
 
 /**
+ * Селекторы элементов Cookie Code для правила цвета.
+ * Панель оверлея (#cuckoo-overlay) и её содержимое исключены —
+ * у оверлея собственная цветовая схема (overlayBgColor/overlayPrimaryColor).
+ */
+function cookieColorSelectors() {
+  const ex = ":not(#cuckoo-overlay):not(#cuckoo-overlay *)";
+  return [
+    "#cuckoo-root" + ex,
+    "#cuckoo-root *" + ex,
+    "[class*='cuckoo-']" + ex,
+    "[class*='cuckoo-'] *" + ex,
+    "[id*='cuckoo-']" + ex,
+    "[id*='cuckoo-'] *" + ex,
+    "#cuckoo-toast" + ex,
+    "#cuckoo-confirm-dialog" + ex,
+    "#cuckoo-confirm-dialog *" + ex,
+    "#cuckoo-custom-banner-dialog" + ex,
+    "#cuckoo-custom-banner-dialog *" + ex,
+    ".cuckoo-todo-panel" + ex,
+    ".cuckoo-todo-panel *" + ex,
+    ".cuckoo-diff-panel" + ex,
+    ".cuckoo-diff-panel *" + ex,
+    ".cuckoo-file-chip" + ex,
+  ];
+}
+
+/**
+ * Селектор страницы DeepSeek для правила цвета.
+ * Исключает все элементы Cookie Code (в т.ч. панель оверлея).
+ */
+function pageColorSelector() {
+  const notIcons = ICON_FONT_KEYWORDS.map(
+    (k) => ":not([class*='" + k + "' i])",
+  ).join("");
+  const notCuckoo =
+    ":not(#cuckoo-root):not(#cuckoo-root *):not([id*='cuckoo-'])" +
+    ":not([class*='cuckoo-']):not(#cuckoo-overlay):not(#cuckoo-overlay *)";
+  const n = notIcons + notCuckoo;
+  return (
+    "html" +
+    notIcons +
+    ", body" +
+    notIcons +
+    ", body *" +
+    n +
+    ", [class*='ds-markdown']" +
+    n +
+    ", [class*='ds-markdown'] *" +
+    n
+  );
+}
+
+/**
  * Собрать полный CSS: @font-face (если кастомный) + правила font-family
  * и font-weight с !important — для элементов Cookie Code и всей страницы.
  * Жирность применяется ВСЕГДА, в том числе для системного шрифта.
  */
-function buildFontCss(entry, weight) {
+function buildFontCss(entry, weight, color) {
   const w = normalizeWeight(weight);
+  const c = normalizeColor(color);
   const parts = [];
 
   // @font-face + font-family — только для кастомного шрифта.
@@ -282,6 +360,25 @@ function buildFontCss(entry, weight) {
       " !important; }",
   );
 
+  // Кастомный цвет текста — только если задан.
+  // Панель оверлея (#cuckoo-overlay) исключена из правил цвета.
+  if (c) {
+    parts.push(
+      "/* Cookie Code UI color */\n" +
+        cookieColorSelectors().join(",\n") +
+        " { color: " +
+        c +
+        " !important; }",
+    );
+    parts.push(
+      "/* DeepSeek page color */\n" +
+        pageColorSelector() +
+        " { color: " +
+        c +
+        " !important; }",
+    );
+  }
+
   return parts.join("\n\n");
 }
 
@@ -301,13 +398,14 @@ function clearFontStyle() {
  * @param {string} id
  * @param {number} [weight]  если не задан — используется текущая жирность
  */
-function apply(id, weight) {
+function apply(id, weight, color) {
   try {
     const fontId = id || DEFAULT_ID;
     if (weight !== undefined) currentWeight = normalizeWeight(weight);
+    if (color !== undefined) currentColor = normalizeColor(color);
     currentFontId = fontId;
     const entry = findFont(fontId);
-    const css = buildFontCss(entry, currentWeight);
+    const css = buildFontCss(entry, currentWeight, currentColor);
     clearFontStyle();
     if (!css) return;
     const style = document.createElement("style");
@@ -319,6 +417,8 @@ function apply(id, weight) {
       entry && !entry.system ? fontId : "системный",
       "жирность:",
       currentWeight,
+      "цвет:",
+      currentColor || "системный",
     );
   } catch (err) {
     console.error("[Cookie Code] Не удалось применить шрифт:", err.message);
@@ -334,6 +434,15 @@ function applyWeight(weight) {
 }
 
 /**
+ * Применить только цвет текста (без смены шрифта/жирности).
+ * Пустое/невалидное значение → системный цвет.
+ * @param {string} color  "#rrggbb" или ""
+ */
+function applyColor(color) {
+  apply(currentFontId, currentWeight, color);
+}
+
+/**
  * Загрузить настройки и применить шрифт.
  */
 async function loadAndApply() {
@@ -345,7 +454,8 @@ async function loadAndApply() {
       settings && settings.fontWeight != null
         ? settings.fontWeight
         : DEFAULT_WEIGHT;
-    apply(fontId, weight);
+    const color = (settings && settings.fontColor) || "";
+    apply(fontId, weight, color);
   } catch (err) {
     console.error("[Cookie Code] Не удалось загрузить шрифт:", err.message);
     apply(DEFAULT_ID, DEFAULT_WEIGHT);
@@ -368,7 +478,8 @@ function installSettingsListener() {
         if (
           patch &&
           !Object.prototype.hasOwnProperty.call(patch, "font") &&
-          !Object.prototype.hasOwnProperty.call(patch, "fontWeight")
+          !Object.prototype.hasOwnProperty.call(patch, "fontWeight") &&
+          !Object.prototype.hasOwnProperty.call(patch, "fontColor")
         )
           return;
         loadAndApply().catch((err) => {
@@ -405,6 +516,8 @@ function invalidatePreviewCache(file) {
 module.exports = {
   apply,
   applyWeight,
+  applyColor,
+  normalizeColor,
   loadAndApply,
   installSettingsListener,
   getAllFonts,

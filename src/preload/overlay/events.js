@@ -541,7 +541,7 @@ function bindEvents() {
 
   // 首次使用提示浮窗：关闭按钮
   const firstCloseBtn = document.getElementById("cuckoo-btn-first-close");
-  firstCloseBtn?.addEventListener("click", hideFirstTimeDialog);
+  firstCloseBtn?.addEventListener("click", () => hideFirstTimeDialog(true));
   clearBtn?.addEventListener("click", () => {
     commandHistory.length = 0;
     renderHistory();

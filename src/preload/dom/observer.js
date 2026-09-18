@@ -23,7 +23,6 @@ const {
 const toolRender = require("./tool-render");
 const toolResultInline = require("./tool-result-inline");
 const responseMeta = require("./response-meta");
-const statsRecorder = require("./stats-recorder");
 
 const {
   sendToolResultToChat,
@@ -413,9 +412,6 @@ async function processLatestAIResponseInner(retryCount = 0, force = false) {
   if (!force && processedMessages.has(lastMessage)) {
     return; // 已处理过，跳过
   }
-
-  // Учёт статистики: одно AI-сообщение на завершённый ответ.
-  safe("observer.statsRecordAi", () => statsRecorder.recordMessage("ai"));
 
   // 跳过用户消息（其中包含系统提示词里的示例代码块，不应被执行）
   const providerForUser = getCurrentProvider();
