@@ -24,6 +24,7 @@ const { CityTimeTool } = require("./CityTimeTool");
 const { MySQLTool } = require("./MySQLTool");
 const { OpenBrowserWindowTool } = require("./OpenBrowserWindowTool");
 const { InjectJSTool } = require("./InjectJSTool");
+const { InjectPageJSTool } = require("./InjectPageJSTool");
 const { McpCallTool } = require("./McpCallTool");
 const { McpListServersTool, McpGetToolsTool } = require("./McpQueryTools");
 const {
@@ -62,6 +63,7 @@ registry.register(new CityTimeTool());
 registry.register(new MySQLTool());
 registry.register(new OpenBrowserWindowTool());
 registry.register(new InjectJSTool());
+registry.register(new InjectPageJSTool());
 registry.register(new McpCallTool());
 registry.register(new McpListServersTool());
 registry.register(new McpGetToolsTool());
@@ -106,6 +108,7 @@ module.exports = {
   ReadPhotoTool,
   ExitPlanModeTool,
   AttachFileTool,
+  InjectPageJSTool,
   // 便捷方法
   getAllTools: () => registry,
   getToolDescriptions: () => registry.getDescriptions(),
