@@ -25,10 +25,10 @@
 - Добавляйте комментарии, особенно к сложной логике
 - Пишите просто, следуйте принципу «наименьшего удивления»
 - Перед началом работы создавайте отдельную ветку для feature или исправления.
-   Используйте формат `feature/<short-name>` или `fix/<short-name>`, например:
-   `feature/super-puper-update`.
+  Используйте формат `feature/<short-name>` или `fix/<short-name>`, например:
+  `feature/super-puper-update`.
 - Следуйте существующей архитектуре, структуре файлов, API и стилю проекта.
-   Не добавляйте новый подход, если в проекте уже есть подходящий шаблон.
+  Не добавляйте новый подход, если в проекте уже есть подходящий шаблон.
 
 ## Pull Request
 
@@ -61,9 +61,13 @@
 4. Зарегистрируйте его в `ToolRegistry` (см. `src/main/tool-registry.js`).
 5. Обновите `tools/rules.md` и `README.md`.
 
+## Кодекс поведения
+
+Участвуя в проекте, вы соглашаетесь соблюдать [Кодекс поведения](CODE_OF_CONDUCT.md).
+
 ## Лицензия
 
-Проект распространяется под лицензией GPL-3.0. Все вклады подпадают под неё же.
+Проект распространяется под лицензией MIT. Все вклады подпадают под неё же.
 
 ---
 
@@ -80,12 +84,12 @@ Thank you for helping improve the project! We welcome all contributions:
 
 1. Fork the repository and clone it locally.
 2. Install dependencies: `npm install`
-    - If npm reports that the Electron postinstall script was blocked by
-       `allowScripts`, run:
-       - `npm install-scripts approve electron`
-       - then run `npm install` again.
-    - Otherwise, the Electron binary will not be downloaded and the app will
-       fail to start.
+   - If npm reports that the Electron postinstall script was blocked by
+     `allowScripts`, run:
+     - `npm install-scripts approve electron`
+     - then run `npm install` again.
+   - Otherwise, the Electron binary will not be downloaded and the app will
+     fail to start.
 3. Start the application: `npm start`
 
 ## Code Style
@@ -96,20 +100,20 @@ Thank you for helping improve the project! We welcome all contributions:
 - Add comments for complex logic where they improve maintainability.
 - Keep the implementation simple and follow the principle of least surprise.
 - Create a separate branch for every feature or fix before making changes.
-   Use `feature/<short-name>` or `fix/<short-name>`, for example:
-   `feature/super-puper-update`.
+  Use `feature/<short-name>` or `fix/<short-name>`, for example:
+  `feature/super-puper-update`.
 - Follow the existing project architecture, file structure, APIs, and coding
-   style. Do not introduce a new pattern when an existing one fits.
+  style. Do not introduce a new pattern when an existing one fits.
 
 ## Pull Requests
 
 1. Base your branch on the latest `master`.
 2. Test your changes before submitting them: `npm start`.
 3. Keep commit messages short and precise. Use the project convention:
-    - `feat: add support for a new tool`
-    - `fix: fix command execution timeout`
-    - `docs: update README`
-    - `refactor: restructure tool registration`
+   - `feat: add support for a new tool`
+   - `fix: fix command execution timeout`
+   - `docs: update README`
+   - `refactor: restructure tool registration`
 4. Describe what changed and how it was tested in the pull request.
 
 ## Bug Reports
@@ -132,7 +136,12 @@ Use the existing implementations in `tools/` as a reference:
 4. Register it in `ToolRegistry` (see `src/main/tool-registry.js`).
 5. Update `tools/rules.md` and `README.md`.
 
+## Code of Conduct
+
+By participating in this project, you agree to abide by the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## License
 
-The project is distributed under the GPL-3.0 license. All contributions are
-subject to the same license.
+The project is distributed under the MIT license. All contributions are subject
+to the same license.
