@@ -525,6 +525,41 @@ const KEYS = {
     ru: "Дашборд виден только на домашней странице и сам скрывается при входе в чат.",
     en: "The dashboard is visible only on the home page and hides itself when you enter a chat.",
   },
+  // ---- Дашборд статистики (home-страница) ----
+  "dashboard.title": {
+    ru: "Cookie Code · Обзор",
+    en: "Cookie Code · Overview",
+  },
+  "dashboard.dragHint": { ru: "⠿ тяни (debug)", en: "⠿ drag (debug)" },
+  "dashboard.range": {
+    ru: "{days} дн · всего за всё время",
+    en: "{days} d · all time",
+  },
+  "dashboard.card.sessions": { ru: "Сессии", en: "Sessions" },
+  "dashboard.card.messages": { ru: "Сообщения", en: "Messages" },
+  "dashboard.card.tokens": { ru: "Токены", en: "Tokens" },
+  "dashboard.card.activeDays": { ru: "Активных дней", en: "Active days" },
+  "dashboard.card.currentStreak": { ru: "Текущая серия", en: "Current streak" },
+  "dashboard.card.longestStreak": { ru: "Макс. серия", en: "Longest streak" },
+  "dashboard.card.peakHour": { ru: "Пик. час", en: "Peak hour" },
+  "dashboard.card.favoriteModel": {
+    ru: "Любимая модель",
+    en: "Favorite model",
+  },
+  "dashboard.unit.days": { ru: "{n} дн", en: "{n} d" },
+  "dashboard.cellTitle": {
+    ru: "{date}: {n} сообщ.",
+    en: "{date}: {n} msgs",
+  },
+  "dashboard.foot.debug": {
+    ru: "F6 — рамка · F7 — обновить · ",
+    en: "F6 — frame · F7 — refresh · ",
+  },
+  "dashboard.foot.main": {
+    ru: "Метрики — за всё время · теплокарта — {days} дн",
+    en: "Metrics — all time · heatmap — {days} d",
+  },
+  "dashboard.placeholder": { ru: "—", en: "—" },
   // ---- Настройки: диагностика интеграции ----
   "settings.section.diagnostics": {
     ru: "Диагностика интеграции",
