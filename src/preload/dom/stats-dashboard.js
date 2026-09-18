@@ -63,6 +63,36 @@ function isSettingsOpen() {
 }
 
 /**
+ * Есть ли текст в поле ввода чата (на home-странице дашборд при этом прячем).
+ * Игнорирует поля, принадлежащие оверлею/дашборду Cookie Code.
+ */
+function isHomeInputFilled() {
+  try {
+    const nodes = document.querySelectorAll(
+      'textarea, div[contenteditable="true"], [role="textbox"]',
+    );
+    for (const el of nodes) {
+      if (el.closest("#cuckoo-overlay, #" + ROOT_ID)) continue;
+      const st = window.getComputedStyle(el);
+      if (
+        st.display === "none" ||
+        st.visibility === "hidden" ||
+        st.opacity === "0"
+      )
+        continue;
+      const text =
+        el.tagName === "TEXTAREA" || el.tagName === "INPUT"
+          ? el.value
+          : el.textContent;
+      if (text && text.trim()) return true;
+    }
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
  * Является ли текущая страница домашней (по провайдеру).
  */
 function isHomePage() {
@@ -516,8 +546,8 @@ async function syncVisibility(force) {
     return;
   }
   const home = isHomePage();
-  // Настройки открыты — прячем дашборд, чтобы не мешал.
-  if (!home || isSettingsOpen()) {
+  // Настройки открыты ИЛИ в поле ввода уже что-то набрано — прячем дашборд.
+  if (!home || isSettingsOpen() || isHomeInputFilled()) {
     rootEl.classList.add("cuckoo-hidden");
     return;
   }
@@ -629,6 +659,16 @@ function start() {
 
   window.addEventListener("popstate", () => syncVisibility(true));
   window.addEventListener("hashchange", () => syncVisibility(true));
+
+  // Мгновенная реакция на начало/очистку ввода текста на home-странице.
+  // Покрывает и textarea (input), и contenteditable (input), и очистку.
+  const onAnyInput = () => {
+    try {
+      syncVisibility();
+    } catch (_) {}
+  };
+  document.addEventListener("input", onAnyInput, true);
+  document.addEventListener("compositionend", onAnyInput, true);
 
   // SPA-навигация через history.pushState/replaceState не вызывает
   // popstate/hashchange — оборачиваем, чтобы дашборд скрывался сразу
