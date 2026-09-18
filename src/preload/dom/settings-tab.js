@@ -175,6 +175,13 @@ function buildContentHTML() {
     "                 word-break: normal; overflow-wrap: break-word; white-space: normal; }" +
     "  .ck-card, .ck-stack { min-width: 0; }" +
     "  #cuckoo-settings-content { min-width: 0; width: 100%; align-items: stretch; }" +
+    // ===== Кастомный скроллбар в стиле настроек =====
+    "  #cuckoo-settings-content::-webkit-scrollbar { width: 8px; }" +
+    "  #cuckoo-settings-content::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 8px; margin: 8px 0; }" +
+    "  #cuckoo-settings-content::-webkit-scrollbar-thumb { background: rgba(139,147,255,0.35); border-radius: 8px; " +
+    "        border: 2px solid transparent; background-clip: padding-box; transition: background 0.16s; }" +
+    "  #cuckoo-settings-content::-webkit-scrollbar-thumb:hover { background: rgba(139,147,255,0.6); background-clip: padding-box; }" +
+    "  #cuckoo-settings-content { scrollbar-width: thin; scrollbar-color: rgba(139,147,255,0.4) rgba(255,255,255,0.04); }" +
     "  #cuckoo-settings-content > div { min-width: 0; width: 100%; flex-shrink: 0; }" +
     "  #cuckoo-settings-content * { word-break: normal; overflow-wrap: break-word; }" +
     "  .ck-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; " +
