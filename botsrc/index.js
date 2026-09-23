@@ -221,6 +221,11 @@ const _pendingQuestions = new Map();
 const _callbackTokens = new Map();
 const _pendingApprovals = new Map();
 const _approvalCallbackTokens = new Map();
+/**
+ * Реестр уведомлений о долгих процессах.
+ * key = token ('k<number>') → { pid, messageId }
+ */
+const _longProcessTokens = new Map();
 let _cbTokenCounter = 0;
 let _onQuestionAnswered = null;
 
@@ -312,6 +317,11 @@ async function _handleCallback(chatId, data, cbq) {
   const approvalRef = _approvalCallbackTokens.get(token);
   if (approvalRef) {
     await _handleApprovalCallback(approvalRef, cbq);
+    return;
+  }
+  const longProcRef = _longProcessTokens.get(token);
+  if (longProcRef) {
+    await _handleLongProcessCallback(token, longProcRef, cbq);
     return;
   }
   const ref = _callbackTokens.get(token);
@@ -466,6 +476,86 @@ function cancelApproval(requestId) {
   if (typeof entry.resolve === "function")
     entry.resolve({ success: false, skipped: true });
   return { success: true };
+}
+
+/**
+ * Уведомить о долгоиграющем процессе и прислать кнопку «Убить процесс».
+ * Вызывается из bash/pwsh инструментов, если команда не завершилась за N сек.
+ * @param {number} pid      pid дочернего процесса
+ * @param {string} command  текст команды (для сообщения)
+ * @param {number} sec      порог в секундах (для текста)
+ * @returns {Promise<{success:boolean, skipped?:boolean, error?:string}>}
+ */
+async function notifyLongProcess(pid, command, sec) {
+  const cfg = _read();
+  console.log(
+    "[LongProc] notifyLongProcess cfg:",
+    JSON.stringify({
+      enabled: cfg.enabled,
+      hasToken: !!cfg.token,
+      chatId: cfg.chatId,
+    }),
+  );
+  if (!cfg.enabled || !cfg.token || !cfg.chatId)
+    return { success: false, skipped: true };
+  const numPid = Number(pid);
+  if (!numPid) return { success: false, error: "pid не задан" };
+
+  const token = "k" + ++_cbTokenCounter;
+  const cmd = String(command || "").slice(0, 500);
+  const msg =
+    _t("longproc.title") +
+    "\n" +
+    _t("longproc.body", { sec: sec || 10 }) +
+    "\n<pre>" +
+    escapeHtml(cmd) +
+    "</pre>";
+  const res = await telegramBot.sendMessage(msg, {
+    parseMode: "HTML",
+    replyMarkup: {
+      inline_keyboard: [[{ text: _t("longproc.kill"), callback_data: token }]],
+    },
+  });
+  if (!res.success) return res;
+  _longProcessTokens.set(token, {
+    pid: numPid,
+    messageId: res.messageId || null,
+  });
+  return { success: true, token };
+}
+
+/** Обработать нажатие кнопки «Убить процесс». */
+async function _handleLongProcessCallback(token, ref, cbq) {
+  _longProcessTokens.delete(token);
+  let killed = false;
+  let notFound = false;
+  try {
+    const { processManager } = require("../src/main/process-manager");
+    const r = await processManager.killProcess(ref.pid);
+    killed = !!(r && r.success);
+    notFound = !killed && !!(r && /не найден/.test(r.error || ""));
+  } catch (err) {
+    _log("error", "killProcess error:", err.message);
+  }
+  const statusText = killed
+    ? _t("longproc.killed")
+    : notFound
+      ? _t("longproc.gone")
+      : _t("longproc.killFailed");
+  await telegramBot.answerCallbackQuery(cbq.id, {
+    text: killed
+      ? _t("longproc.killed")
+      : notFound
+        ? _t("longproc.gone")
+        : _t("longproc.killFailed"),
+  });
+  if (ref.messageId) {
+    await telegramBot.editMessageText(
+      ref.messageId,
+      _t("longproc.title") + "\n" + statusText,
+      { parseMode: "HTML", replyMarkup: { inline_keyboard: [] } },
+    );
+  }
 }
 
 /** Перерисовать сообщение с вопросами: отметить выбранное, убрать лишние кнопки. */
@@ -2327,6 +2417,7 @@ module.exports = {
   notifyAllDone,
   requestApproval,
   cancelApproval,
+  notifyLongProcess,
   askQuestion,
   setOnQuestionAnswered,
   _handleIncoming,

@@ -231,6 +231,14 @@ const STRINGS = {
     "approval.deniedShort": "❌ Отклонено",
     "approval.closed": "Запрос уже закрыт",
 
+    // ===== Долгий процесс =====
+    "longproc.title": "⏳ <b>Долгий процесс</b>",
+    "longproc.body": "Команда выполняется более {sec} с:",
+    "longproc.kill": "🛑 Убить процесс",
+    "longproc.killed": "🛑 Процесс остановлен пользователем",
+    "longproc.killFailed": "⚠️ Не удалось остановить процесс",
+    "longproc.gone": "Процесс уже завершён",
+
     // ===== Вопросы от AI =====
     "question.title": "❓ <b>Вопрос от ИИ</b>",
     "question.hint": "<i>Выберите вариант кнопкой ниже.</i>",
@@ -468,6 +476,14 @@ const STRINGS = {
     "approval.allowedShort": "✅ Allowed",
     "approval.deniedShort": "❌ Denied",
     "approval.closed": "Request already closed",
+
+    // ===== Long process =====
+    "longproc.title": "⏳ <b>Long-running process</b>",
+    "longproc.body": "Command has been running for over {sec}s:",
+    "longproc.kill": "🛑 Kill process",
+    "longproc.killed": "🛑 Process stopped by user",
+    "longproc.killFailed": "⚠️ Failed to stop process",
+    "longproc.gone": "Process already finished",
 
     // ===== AI questions =====
     "question.title": "❓ <b>Question from AI</b>",
