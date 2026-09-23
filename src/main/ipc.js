@@ -721,7 +721,7 @@ function registerIpcHandlers() {
           });
         },
       );
-      processManager.track(child);
+      processManager.track(child, trimmed);
     });
   });
 

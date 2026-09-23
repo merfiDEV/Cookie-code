@@ -304,7 +304,7 @@ function runBash(args, projectDir) {
     );
 
     if (processManager && child) {
-      processManager.track(child);
+      processManager.track(child, command);
     }
   });
 }

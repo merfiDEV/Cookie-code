@@ -1,7 +1,9 @@
-const { Tool, ToolResult } = require('./ToolRegistry');
-const { execFile } = require('child_process');
-const path = require('path');
-const { decodeOutput } = require('./decodeOutput');
+const { Tool, ToolResult } = require("./ToolRegistry");
+const { execFile } = require("child_process");
+const path = require("path");
+const { decodeOutput } = require("./decodeOutput");
+
+
 
 // PowerShell 危险命令列表（额外覆盖 PowerShell 特有危险操作）
 const DANGEROUS_PWSH_CMDS = [
@@ -28,41 +30,41 @@ const DANGEROUS_PWSH_CMDS = [
 class PwshTool extends Tool {
   constructor() {
     super(
-      'pwsh',
-      '执行 PowerShell 命令（powershell -NoProfile -Command）。非零退出以 [exit code] 标记返回，不视为错误。',
+      "pwsh",
+      "执行 PowerShell 命令（powershell -NoProfile -Command）。非零退出以 [exit code] 标记返回，不视为错误。",
       {
-        type: 'object',
+        type: "object",
         properties: {
           command: {
-            type: 'string',
-            description: '要执行的 PowerShell 命令'
+            type: "string",
+            description: "要执行的 PowerShell 命令",
           },
           description: {
-            type: 'string',
-            description: '命令用途说明'
+            type: "string",
+            description: "命令用途说明",
           },
           workdir: {
-            type: 'string',
-            description: '工作目录（相对路径基于项目根目录），默认项目根目录'
+            type: "string",
+            description: "工作目录（相对路径基于项目根目录），默认项目根目录",
           },
           timeoutMs: {
-            type: 'number',
-            description: '超时毫秒数，默认 30000',
-            default: 30000
-          }
+            type: "number",
+            description: "超时毫秒数，默认 30000",
+            default: 30000,
+          },
         },
-        required: ['command'],
-        additionalProperties: false
+        required: ["command"],
+        additionalProperties: false,
       },
-      'pwsh(command, options?)'
+      "pwsh(command, options?)",
     );
   }
 
   getPromptSection() {
     return {
-      name: 'tool:pwsh',
+      name: "tool:pwsh",
       order: 106,
-      text: '执行 PowerShell 命令（powershell -NoProfile -Command）并返回 stdout/stderr。每次调用在全新 pwsh 进程中运行：状态不会跨调用保留——请用 workdir 参数而非 cd。路径使用 Windows 原生形式（C:\\...）；用 $env:NAME 读取环境变量。非零退出以 [exit code: N] 标记报告。'
+      text: "执行 PowerShell 命令（powershell -NoProfile -Command）并返回 stdout/stderr。每次调用在全新 pwsh 进程中运行：状态不会跨调用保留——请用 workdir 参数而非 cd。路径使用 Windows 原生形式（C:\\...）；用 $env:NAME 读取环境变量。非零退出以 [exit code: N] 标记报告。",
     };
   }
 
@@ -70,18 +72,18 @@ class PwshTool extends Tool {
     const { command, description, workdir, timeoutMs, projectDir } = params;
 
     try {
-      if (!command || typeof command !== 'string') {
-        return ToolResult.error('invalid command: expected a non-empty string');
+      if (!command || typeof command !== "string") {
+        return ToolResult.error("invalid command: expected a non-empty string");
       }
 
       const trimmed = command.trim();
       if (!trimmed) {
-        return ToolResult.error('invalid command: expected a non-empty string');
+        return ToolResult.error("invalid command: expected a non-empty string");
       }
 
       // 危险命令检查
       if (DANGEROUS_PWSH_CMDS.some((p) => p.test(trimmed))) {
-        return ToolResult.error('命令被安全策略拒绝（危险命令）: ' + trimmed);
+        return ToolResult.error("命令被安全策略拒绝（危险命令）: " + trimmed);
       }
 
       // 确定工作目录
@@ -90,29 +92,40 @@ class PwshTool extends Tool {
         const normalized = workdir.replace(/\//g, path.sep);
         workDir = path.isAbsolute(normalized)
           ? normalized
-          : (projectDir ? path.join(projectDir, normalized) : path.resolve(normalized));
+          : projectDir
+            ? path.join(projectDir, normalized)
+            : path.resolve(normalized);
       } else if (projectDir) {
         workDir = projectDir;
       } else {
-        workDir = process.env.USERPROFILE || process.env.HOME || 'C:\\';
+        workDir = process.env.USERPROFILE || process.env.HOME || "C:\\";
       }
 
-      const timeout = typeof timeoutMs === 'number' && timeoutMs > 0 ? timeoutMs : 30000;
+      const timeout =
+        typeof timeoutMs === "number" && timeoutMs > 0 ? timeoutMs : 30000;
 
-      console.log('[PwshTool] 执行命令: ' + trimmed + ', cwd=' + workDir);
+      console.log("[PwshTool] 执行命令: " + trimmed + ", cwd=" + workDir);
 
       return await new Promise((resolve) => {
         let processManager = null;
         try {
-          processManager = require('../src/main/process-manager').processManager;
+          processManager =
+            require("../src/main/process-manager").processManager;
         } catch (_) {}
 
         const child = execFile(
-          'powershell',
-          ['-NoProfile', '-Command', trimmed],
-          { cwd: workDir, timeout, maxBuffer: 1024 * 1024, windowsHide: true, encoding: 'buffer' },
+          "powershell",
+          ["-NoProfile", "-Command", trimmed],
+          {
+            cwd: workDir,
+            timeout,
+            maxBuffer: 1024 * 1024,
+            windowsHide: true,
+            encoding: "buffer",
+          },
           (error, stdout, stderr) => {
-            const wasKilledByUser = processManager && child && processManager.wasKilled(child.pid);
+            const wasKilledByUser =
+              processManager && child && processManager.wasKilled(child.pid);
             if (processManager && child) processManager.untrack(child);
             const out = decodeOutput(stdout);
             const err = decodeOutput(stderr);
@@ -120,39 +133,39 @@ class PwshTool extends Tool {
             // dsh 风格渲染
             let body = out;
             if (err && err.length > 0) {
-              if (body.length > 0 && !body.endsWith('\n')) body += '\n';
-              body += '[stderr]\n' + err;
+              if (body.length > 0 && !body.endsWith("\n")) body += "\n";
+              body += "[stderr]\n" + err;
             }
-            if (body.length === 0) body = '(no output)';
+            if (body.length === 0) body = "(no output)";
 
             const markers = [];
             if (error) {
               if (wasKilledByUser) {
-                markers.push('[terminated by user]');
+                markers.push("[terminated by user]");
               } else if (error.killed) {
-                markers.push('[timed out after ' + timeout + 'ms]');
-              } else if (typeof error.code === 'number') {
-                markers.push('[exit code: ' + error.code + ']');
+                markers.push("[timed out after " + timeout + "ms]");
+              } else if (typeof error.code === "number") {
+                markers.push("[exit code: " + error.code + "]");
               } else {
-                markers.push('[exit code: 1]');
+                markers.push("[exit code: 1]");
               }
             }
 
             if (markers.length > 0) {
-              if (!body.endsWith('\n')) body += '\n';
-              body += markers.join('\n');
+              if (!body.endsWith("\n")) body += "\n";
+              body += markers.join("\n");
             }
 
             resolve(ToolResult.success(body));
-          }
+          },
         );
 
         if (processManager && child) {
-          processManager.track(child);
+          processManager.track(child, trimmed);
         }
       });
     } catch (err) {
-      return ToolResult.error('命令执行异常: ' + err.message);
+      return ToolResult.error("命令执行异常: " + err.message);
     }
   }
 }
