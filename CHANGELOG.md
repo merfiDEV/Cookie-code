@@ -35,6 +35,39 @@
 
 - 🧹 **Принудительная фиксация языка DeepSeek** — удалён модуль `src/preload/dom/deepseek-language.js`, который переключал Language на «Система» и блокировал селект (`pointer-events:none`, `aria-disabled`, гашение `onMouseDown`/`onKeyDown`). Язык интерфейса DeepSeek снова выбирается пользователем свободно.
 
+### Added (EN)
+
+- 📤 **Tool `attach_telegram` — send files to Telegram** — the AI can attach any local file and send it straight to the chat with the bot:
+  - JS API `attachTelegram(filePath, caption?, comment?)`: `caption` is the file caption, `comment` is an extra note the AI adds itself (why the file, what's inside, what to look at);
+  - if only `comment` is given, it becomes the caption; if both are given, `comment` is appended to `caption` on a separate line;
+  - 45 MB limit (headroom under Telegram's 50 MB cap), caption and comment are truncated to 1024 chars;
+  - sent through the already-configured bot (`telegramBot.sendDocument`) — no new dependencies;
+  - oversized files, a missing file, or an unconfigured bot return a clear error;
+  - declared in `cuckoo-tools.d.ts`, wrapped as `attachTelegram` in the `JsRunner` sandbox.
+- 📁 **Telegram bot: pick a project with buttons** — the new `/projects` command (aliases `/project`, `/proj`) opens a project list as an inline keyboard:
+  - the list is built from saved "session → project" mappings of the active profile plus the current project;
+  - paged output, 8 projects per page, with "◀️ Back / Next ▶️" buttons and a page counter;
+  - picking a project switches the window to the **existing session** of that project (same navigation as `/switch`) — no new chat is created;
+  - the "⌨️ Enter path manually" button accepts an absolute folder path as the next message;
+  - if no project is selected, `/diff`, `/log`, and `/sessions` show the message together with the project picker.
+
+### Changed (EN)
+
+- 📜 **`/log` and `/sessions` edit the message instead of posting new ones** — on repeat calls and when paging, the bot updates the message it already sent (`editMessageText`); if the message was deleted manually, a new one is sent.
+- 🆕 **`/new` reports the result** — instead of silence or `⚠️ undefined`, the bot answers explicitly: "🆕 New chat opened", "⚠️ No active window…", or "❌ Failed to open a new chat: \\<reason\\>".
+- 🌐 **The bot language is no longer forced** — `readSettings()` returns exactly what is stored in the settings file, with no system-language substitution; on `/start` the bot no longer demands a language choice and just shows help.
+
+### Fixed (EN)
+
+- 🐛 **`/new` did not respond** — `newChat()` calls `loadURL` to the home page, which unloads the window's JS context, so `executeJavaScript` awaiting a result hung forever. The call is now fire-and-forget and the reply comes back immediately.
+- 🐛 **Project picker pagination crashed** — `ReferenceError: msgId is not defined` in the callback-button handler; the message id is now taken from `cbq.message`, and a failed edit falls back to sending a new message.
+- 🐛 **Project selection did not apply in the app** — setting a project by a known path did not switch the window to its session. Added the IPC `set-project-dir` (plus `setProjectDir` in preload and `setProjectByDir` in main): it finds the session by project folder and navigates to it.
+- 🐛 **"setProjectDir is unavailable in the window" error** — the method did not exist; the full IPC → preload → main path was added.
+
+### Removed (EN)
+
+- 🧹 **Forced DeepSeek language lock** — deleted the `src/preload/dom/deepseek-language.js` module, which switched Language to "System" and locked the select (`pointer-events:none`, `aria-disabled`, neutered `onMouseDown`/`onKeyDown`). The DeepSeek UI language can be chosen freely by the user again.
+
 ## [4.0.33] - 2026-09-23
 
 ### Added
