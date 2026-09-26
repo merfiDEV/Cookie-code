@@ -27,7 +27,7 @@ const background = require("./dom/background");
 const reasoningGlass = require("./dom/reasoning-glass");
 const inputGlass = require("./dom/input-glass");
 const forceDarkTheme = require("./dom/force-dark-theme");
-const deepseekLanguage = require("./dom/deepseek-language");
+
 const qrOverride = require("./dom/qr-override");
 const fileChip = require("./dom/file-chip");
 const contextPort = require("./dom/context-port");
@@ -192,8 +192,7 @@ async function init() {
     // Принудительно держим тёмную тему DeepSeek
     safe("init.forceDarkThemeStart", () => forceDarkTheme.startWatch());
 
-    // Фиксируем язык интерфейса DeepSeek на «Система» и запрещаем его менять
-    safe("init.deepseekLanguageStart", () => deepseekLanguage.startWatch());
+
 
     // Подмена QR-кода в попапе «Скачать приложение»
     safe("init.qrOverrideStart", () => qrOverride.startWatch());
