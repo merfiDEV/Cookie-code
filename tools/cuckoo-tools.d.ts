@@ -334,6 +334,18 @@ declare function injectPageJS(code: string, windowId?: string): Promise<any>;
  */
 declare function attachFile(filePath: string): Promise<{ fileName: string; size: number; message: string }>;
 
+/**
+ * 将本地文件作为文档发送到用户的 Telegram（通过已配置的 Telegram-бот）。
+ * 当用户要求「把文件发到 Telegram / 发到 TG / 发给我」时使用。
+ * 需在设置中启用 Telegram-бот 并填写 token 与 chat_id。
+ * @param filePath 要发送的文件路径（相对项目根目录或绝对路径）
+  * @param caption 可选，文件说明文字（最多 1024 字符）
+  * @param comment 可选，AI 想额外补充的备注（例如为什么发送、文件内容、注意事项）。若已给 caption，会追加到 caption 后另起一段；若未给 caption，则作为 caption 直接发送（最多 1024 字符）
+  * @returns { fileName: string, size: number, messageId: number | null, message: string }
+  * @throws 文件不存在、不是文件、超过 45MB、Telegram 未启用/未配置或发送失败时抛出异常
+  */
+ declare function attachTelegram(filePath: string, caption?: string, comment?: string): Promise<{ fileName: string; size: number; messageId: number | null; message: string }>;
+
 // ================= MCP =================
 
 /**
