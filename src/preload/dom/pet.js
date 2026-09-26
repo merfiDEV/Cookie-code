@@ -81,6 +81,28 @@ let centerPos = null; // { x, y } — null значит «ещё не задан
 let dragging = false;
 let dragOff = { x: 0, y: 0 };
 
+// ---- Поглаживание ----
+// Пет «мурчит», когда его держат мышкой и водят туда-сюда.
+// Ведём учёт пройденной дистанции: каждые STROKE_HEART_DISTANCE px движения
+// из-под пета вылетает сердечко. Мельчайший клик без движения сердечек не даёт.
+//
+// ВАЖНО: поглаживание — временное. Пет уводится за мышкой, а после отпускания
+// возвращается на исходную позицию (homeCenterPos / homeRatioX / homeRatioY),
+// запомненную в onDragStart. Так пет не «уползает» от частого поглаживания.
+const STROKE_HEART_DISTANCE = 28; // px движения между сердечками
+const STROKE_HEART_TTL = 1200; // мс — сколько сердечко живёт
+const STROKE_HEART_MAX = 30; // защита: не больше N сердечек одновременно
+const STROKE_RETURN_MS = 260; // мс — плавный возврат на исходную
+let stroking = false; // держат ли пета прямо сейчас
+let strokeAccum = 0; // накопленная дистанция с последнего сердечка
+let strokeLastPos = null; // { x, y } — прошлая точка курсора
+let strokeHearts = []; // активные сердечки (для очистки)
+let strokeWiggle = 0; // счётчик для покачивания
+// Исходная позиция пета на момент начала поглаживания.
+let homeCenterPos = null; // { x, y } | null — для режима center
+let homeRatioX = null; // доля X — для режима docked
+let homeRatioY = null; // доля Y — для режима docked
+
 const MIME = {
   ".webp": "image/webp",
   ".jpg": "image/jpeg",
@@ -225,27 +247,220 @@ function ensureElements() {
   }
 }
 
+// ---- Поглаживание: сердечки ----
+
+/** Создать одно сердечко, вылетающее из точки (x, y). */
+function spawnHeart(x, y) {
+  try {
+    // Защита от переполнения: если сердечек слишком много — не плодим.
+    if (strokeHearts.length >= STROKE_HEART_MAX) return;
+    const h = document.createElement("div");
+    h.textContent = "❤";
+    const size = 14 + Math.round(Math.random() * 10);
+    // Небольшой случайный разлёт в стороны, чтобы сердечки не шли в одну точку.
+    const driftX = (Math.random() - 0.5) * 30;
+    h.style.cssText =
+      "position:fixed;z-index:2147483002;pointer-events:none;" +
+      "left:" +
+      Math.round(x) +
+      "px;top:" +
+      Math.round(y) +
+      "px;" +
+      "font-size:" +
+      size +
+      "px;line-height:1;" +
+      "filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35));" +
+      "will-change:transform,opacity;";
+    document.body.appendChild(h);
+    strokeHearts.push(h);
+
+    // Анимация: всплывает вверх, слегка покачиваясь, и растворяется.
+    try {
+      h.animate(
+        [
+          { transform: "translate(-50%,-50%) scale(0.4)", opacity: 0 },
+          { transform: "translate(-50%,-90%) scale(1)", opacity: 1, offset: 0.25 },
+          {
+            transform:
+              "translate(calc(-50% + " +
+              driftX +
+              "px),-220%) scale(0.9)",
+            opacity: 0,
+          },
+        ],
+        { duration: STROKE_HEART_TTL, easing: "ease-out" },
+      );
+    } catch (_) {
+      // Если Web Animations API недоступен — просто убираем через TTL.
+    }
+
+    setTimeout(() => {
+      try {
+        h.remove();
+      } catch (_) {}
+      const i = strokeHearts.indexOf(h);
+      if (i !== -1) strokeHearts.splice(i, 1);
+    }, STROKE_HEART_TTL + 50);
+  } catch (_) {}
+}
+
+/** Лёгкое покачивание пета при поглаживании («мурчит»). */
+function wigglePet() {
+  if (!petEl) return;
+  strokeWiggle++;
+  const dir = strokeWiggle % 2 === 0 ? 1 : -1;
+  try {
+    petEl.animate(
+      [
+        { transform: "rotate(0deg) scale(1)" },
+        { transform: "rotate(" + dir * 5 + "deg) scale(1.06)" },
+        { transform: "rotate(0deg) scale(1)" },
+      ],
+      { duration: 260, easing: "ease-in-out" },
+    );
+  } catch (_) {}
+}
+
+/** Сбросить состояние поглаживания (при отпускании мыши). */
+function endStroke() {
+  stroking = false;
+  strokeAccum = 0;
+  strokeLastPos = null;
+}
+
 // ---- Drag ----
+// Пет перетаскивается мышкой в ЛЮБОМ режиме. Движение мышкой по удержанию
+// засчитывается как поглаживание: копим дистанцию и через каждые
+// STROKE_HEART_DISTANCE px выпускаем сердечко.
 function onDragStart(e) {
-  if (mode !== "center") return;
-  if (!centerPos) return;
+  if (aiming) return; // в режиме прицела клик обрабатывает оверлей
   dragging = true;
-  dragOff = { x: e.clientX - centerPos.x, y: e.clientY - centerPos.y };
-  petEl.style.cursor = "grabbing";
+  // Запоминаем исходную позицию пета ДО поглаживания — после отпускания
+  // мыши пет вернётся сюда. Поглаживание — это временный «увод» пета.
+  homeCenterPos = centerPos ? { x: centerPos.x, y: centerPos.y } : null;
+  homeRatioX = dockOffsetXRatio;
+  homeRatioY = dockOffsetYRatio;
+  if (mode === "center" && centerPos) {
+    dragOff = { x: e.clientX - centerPos.x, y: e.clientY - centerPos.y };
+  }
+  if (petEl) petEl.style.cursor = "grabbing";
+  // Начинаем поглаживание.
+  stroking = true;
+  strokeAccum = 0;
+  strokeLastPos = { x: e.clientX, y: e.clientY };
   try {
     petEl.setPointerCapture(e.pointerId);
   } catch (_) {}
   e.preventDefault();
 }
+
 function onDragMove(e) {
   if (!dragging) return;
-  centerPos = { x: e.clientX - dragOff.x, y: e.clientY - dragOff.y };
-  reposition();
+
+  // Тянем пета: в режиме 'center' — свободно, в 'docked' — сдвигаем точку
+  // посадки в долях поля ввода, чтобы пет следовал за мышкой.
+  if (mode === "center") {
+    if (!centerPos) centerPos = { x: e.clientX - petSize / 2, y: e.clientY - petSize / 2 };
+    else centerPos = { x: e.clientX - dragOff.x, y: e.clientY - dragOff.y };
+    reposition();
+  } else {
+    // docked: пересчитываем доли от текущего положения курсора.
+    dragDockedTo(e.clientX, e.clientY);
+  }
+
+  // Поглаживание: считаем пройденную дистанцию.
+  if (stroking && strokeLastPos) {
+    const dx = e.clientX - strokeLastPos.x;
+    const dy = e.clientY - strokeLastPos.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    strokeAccum += dist;
+    strokeLastPos = { x: e.clientX, y: e.clientY };
+    while (strokeAccum >= STROKE_HEART_DISTANCE) {
+      strokeAccum -= STROKE_HEART_DISTANCE;
+      spawnHeart(e.clientX, e.clientY - petSize * 0.4);
+      wigglePet();
+    }
+  }
 }
+
 function onDragEnd() {
   if (!dragging) return;
   dragging = false;
+  endStroke();
   if (petEl) petEl.style.cursor = "grab";
+  // Поглаживание — временное: возвращаем пета на исходную позицию,
+  // запомненную в onDragStart. Новую позицию НЕ сохраняем.
+  returnPetHome();
+}
+
+/**
+ * Вернуть пета на исходную позицию (до поглаживания).
+ * Плавно, через короткую CSS-анимацию; после — сбрасываем inline-transform,
+ * чтобы не мешать обычному позиционированию (left/top).
+ */
+function returnPetHome() {
+  if (!petEl) return;
+  try {
+    const fromLeft = petEl.style.left;
+    const fromTop = petEl.style.top;
+
+    // Восстанавливаем координаты-«дом».
+    if (mode === "center" && homeCenterPos) {
+      centerPos = { x: homeCenterPos.x, y: homeCenterPos.y };
+    } else if (mode === "docked") {
+      if (typeof homeRatioX === "number") dockOffsetXRatio = homeRatioX;
+      if (typeof homeRatioY === "number") dockOffsetYRatio = homeRatioY;
+    }
+
+    // Считаем целевую позицию и анимируем перелёт от текущей к ней.
+    const pos = computePos();
+    const toLeft = Math.round(pos.x) + "px";
+    const toTop = Math.round(pos.y) + "px";
+
+    if (fromLeft && fromTop && (fromLeft !== toLeft || fromTop !== toTop)) {
+      try {
+        petEl.animate(
+          [
+            { left: fromLeft, top: fromTop },
+            { left: toLeft, top: toTop },
+          ],
+          { duration: STROKE_RETURN_MS, easing: "cubic-bezier(.34,1.4,.64,1)" },
+        );
+      } catch (_) {}
+    }
+
+    // Фиксируем финальную позицию сразу — анимация визуальная, поверх неё.
+    reposition();
+  } catch (_) {
+    // В крайнем случае — просто пересчитываем позицию.
+    try { reposition(); } catch (_) {}
+  } finally {
+    homeCenterPos = null;
+    homeRatioX = null;
+    homeRatioY = null;
+  }
+}
+
+/**
+ * Пересчитать точку посадки пета в долях поля ввода по позиции курсора.
+ * Используется при перетаскивании в docked-режиме.
+ */
+function dragDockedTo(clientX, clientY) {
+  try {
+    const input = document.querySelector(INPUT_SELECTOR);
+    if (!input) return;
+    const r = input.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return;
+    // Курсор держит пета за центр: точка посадки — центр пета, а тело выше.
+    const anchorX = clientX;
+    const anchorY = clientY + petSize / 2;
+    let rx = (anchorX - r.left) / r.width;
+    let ry = (anchorY - r.top) / r.height;
+    // Не даём уехать далеко за пределы поля (мягкие границы).
+    dockOffsetXRatio = Math.max(-0.2, Math.min(1.2, rx));
+    dockOffsetYRatio = Math.max(-1.5, Math.min(1.5, ry));
+    reposition();
+  } catch (_) {}
 }
 
 // ---- Resize ----

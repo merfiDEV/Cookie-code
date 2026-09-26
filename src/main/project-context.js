@@ -196,6 +196,103 @@ async function initProject(skipPrompt = false, windowContext = null) {
 }
 
 /**
+ * Установить проект по уже известному пути (без диалога выбора папки).
+ * Используется Telegram-ботом: выбор проекта кнопкой.
+ * @param {string} selectedDir  абсолютный путь к каталогу проекта
+ * @param {object|null} windowContext  контекст окна (win + sessionStore)
+ * @returns {{success: boolean, dir?: string, error?: string}}
+ */
+async function setProjectByDir(selectedDir, windowContext = null) {
+  const ctx = windowContext || windowState.getMainContext();
+  const mainWindow = ctx ? ctx.win : windowState.getMainWindow();
+  const sessionStore = ctx ? ctx.sessionStore : null;
+
+  if (!selectedDir || typeof selectedDir !== "string") {
+    return { success: false, error: "路径 не задан" };
+  }
+  const dir = selectedDir.trim();
+  if (!dir) return { success: false, error: "路径 не задан" };
+
+  // Проверяем, что каталог существует.
+  try {
+    const st = fs.statSync(dir);
+    if (!st.isDirectory()) return { success: false, error: "Не каталог: " + dir };
+  } catch (_) {
+    return { success: false, error: "Каталог не найден: " + dir };
+  }
+
+  // Ищем существующую сессию этого проекта: переключаемся на неё, а не
+  // создаём новый чат (новый чат = переход на homeUrl, контекст теряется).
+  let existingSessionId = null;
+  if (sessionStore && typeof sessionStore.readSessionStore === "function") {
+    try {
+      const all = sessionStore.readSessionStore();
+      for (const [sid, sdir] of Object.entries(all || {})) {
+        if (sdir === dir) {
+          existingSessionId = sid;
+          break;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Переключаем окно на найденную сессию (та же навигация, что и /switch).
+    if (existingSessionId && mainWindow && !mainWindow.isDestroyed()) {
+      let url = null;
+      try {
+        const { getProviderByUrl } = require("../providers");
+        const provider = getProviderByUrl(mainWindow.webContents.getURL());
+        if (provider && typeof provider.getSessionUrl === "function") {
+          url = provider.getSessionUrl(existingSessionId);
+        } else if (provider && provider.sessionUrlBase) {
+          url = provider.sessionUrlBase + existingSessionId;
+        }
+      } catch (_) {}
+      if (!url) url = "https://chat.deepseek.com/a/chat/s/" + existingSessionId;
+      try {
+        await mainWindow.webContents.loadURL(url);
+      } catch (err) {
+        console.error("[Cookie Code] setProjectByDir: loadURL failed:", err.message);
+      }
+    }
+
+  if (sessionStore) {
+    // Если нашли сессию — она и станет текущей; иначе запоминаем проект как
+    // pending (привяжется, когда появится sessionId).
+    sessionStore.state.selectedProjectDir = dir;
+    if (existingSessionId) {
+      sessionStore.state.currentSessionId = existingSessionId;
+      sessionStore.saveSessionDirMapping(existingSessionId, dir);
+    } else if (sessionStore.state.currentSessionId) {
+      sessionStore.saveSessionDirMapping(sessionStore.state.currentSessionId, dir);
+    } else {
+      let sessionId = null;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          const url = mainWindow.webContents.getURL();
+          sessionId = sessionStore.extractSessionIdFromUrl(url);
+        } catch (_) {}
+      }
+      if (sessionId) {
+        sessionStore.state.currentSessionId = sessionId;
+        sessionStore.saveSessionDirMapping(sessionId, dir);
+      } else {
+        sessionStore.state.pendingProjectDir = dir;
+      }
+    }
+  }
+
+  // Обновляем display пути и список сессий в renderer.
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send("project-dir-updated", dir);
+    } catch (_) {}
+  }
+
+  return { success: true, dir, sessionId: existingSessionId || null };
+}
+
+/**
  * Собрать текст промпта инициализации проекта (без диалога и без отправки).
  * Используется и в initProject(), и при переносе контекста в новый чат.
  * @param {string} selectedDir  каталог проекта
@@ -354,5 +451,6 @@ module.exports = {
   IGNORED_DIRS,
   getDirectoryTree,
   initProject,
+  setProjectByDir,
   buildInitPrompt,
 };

@@ -59,7 +59,9 @@ const DEFAULTS = {
   telegramNotifyTools: false, // присылать уведомления о результате tool
   // Список имён tool, уведомления о которых НЕ отправлять (по одному в строке).
   // Актуально только при включённом telegramNotifyTools.
-  telegramToolNotifyIgnore: ["read", "readLines", "glob", "grep", "todoWrite"],
+  // "read"/"readLines" здесь НЕ исключаем: чтение файлов — заметное действие,
+  // и в компактных уведомлениях оно показывается как «📖 Reading <path>».
+  telegramToolNotifyIgnore: ["glob", "grep", "todoWrite"],
   telegramChatFeed: false, // принимать сообщения из TG в чат DeepSeek
   // ===== Подтверждение tool-вызовов (approval gate) =====
   // 'off'    — выполнять всё автоматически (прежнее поведение)

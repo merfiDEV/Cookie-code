@@ -303,8 +303,70 @@ async function askQuestion(requestId, questions) {
 /** Обработать нажатие inline-кнопки с ответом на вопрос. */
 async function _handleCallback(chatId, data, cbq) {
   const token = String(data || "");
+  // id сообщения, к которому привязана нажатая кнопка (для editMessageText).
+  const msgId = cbq && cbq.message && cbq.message.message_id;
 
   // Меню настроек /settings — обрабатываем раньше других, т.к. префикс 'st_'.
+  // Выбор проекта кнопкой / ручной ввод — обрабатываем до settings.
+  if (token.startsWith("st_proj_")) {
+    const arg = token.slice("st_proj_".length);
+    await telegramBot.answerCallbackQuery(cbq.id);
+
+    // Навигация по страницам выбора проекта.
+    if (arg.startsWith("pg_")) {
+      const page = parseInt(arg.slice(3), 10) || 1;
+      _projectPage.set(chatId, page);
+      const view = _projectView(page);
+      if (msgId) {
+        const res = await telegramBot.editMessageText(msgId, view.text, {
+          parseMode: "HTML",
+          replyMarkup: view.keyboard,
+        });
+        if (res && res.success) return;
+      }
+      await telegramBot.sendMessage(view.text, {
+        parseMode: "HTML",
+        replyMarkup: view.keyboard,
+      });
+      return;
+    }
+    if (arg === "noop") return;
+
+    if (arg === "manual") {
+      _projectWaiting.add(chatId);
+      await telegramBot.sendMessage(_t("project.manualHint"));
+      return;
+    }
+
+    // Выбор проекта: формат 'p<page>_<idx>' (idx — глобальный индекс в списке).
+    let idx = NaN;
+    const m = arg.match(/^p\d+_(\d+)$/);
+    if (m) {
+      idx = parseInt(m[1], 10);
+    } else {
+      // Обратная совместимость со старым форматом 'st_proj_<idx>'.
+      idx = parseInt(arg, 10);
+    }
+    const projects = _knownProjects();
+    const dir = projects[idx];
+    if (!dir) {
+      await telegramBot.sendMessage(_t("project.none"));
+      return;
+    }
+    const r = await _setProject(chatId, dir);
+    if (r.success)
+      await telegramBot.sendMessage(
+        _t("project.set", { dir: escapeHtml(r.dir || dir) }),
+        { parseMode: "HTML" },
+      );
+    else
+      await telegramBot.sendMessage(
+        _t("project.setFailed", { err: escapeHtml(r.error || "") }),
+        { parseMode: "HTML" },
+      );
+    return;
+  }
+
   if (token.startsWith("st_")) {
     try {
       await _handleSettingsCallback(token, cbq);
@@ -1095,9 +1157,9 @@ async function _handleSettingsCallback(data, cbq) {
     if (!pager) return;
     pager.page = page;
     if (type === "sessions") {
-      await _cmdSessions(chatId, page);
+      await _cmdSessions(chatId, page, msgId);
     } else if (type === "log") {
-      await _cmdLog(chatId, page);
+      await _cmdLog(chatId, page, msgId);
     } else if (type === "todos") {
       await _cmdTodos(chatId, page);
     } else if (type === "diff") {
@@ -1341,25 +1403,48 @@ async function _cmdStatus() {
   return telegramBot.sendMessage(lines.join("\n"), { parseMode: "HTML" });
 }
 
-/** /new — новый чат (очистка контекста текущей сессии). */
+/**
+ * /new — новый чат (переход на домашнюю страницу провайдера).
+ *
+ * Важно: newChat() делает loadURL на homeUrl и тем самым ВЫГРУЖАЕТ JS-контекст
+ * окна. Поэтому executeJavaScript с ожиданием результата зависает навсегда
+ * (промис не резолвится при навигации) — раньше из-за этого бот молчал.
+ * Здесь мы вызываем newChat «выстрелил-и-забыл» и сразу отвечаем.
+ */
 async function _cmdNew() {
-  const res = await _evalInWindow(
-    "(async () => { try { const r = await window.electronAPI.newChat(); return r; } catch (e) { return { success: false, error: e.message }; } })()",
-  );
-  if (!res.success)
-    return telegramBot.sendMessage("⚠️ " + escapeHtml(res.error));
-  const inner = res.result || {};
-  if (inner.success === false)
-    return telegramBot.sendMessage(
-      "⚠️ " + escapeHtml(inner.error || _t("common.error")),
-    );
+  const win = (() => {
+    try {
+      return windowState.getMainWindow();
+    } catch (_) {
+      return null;
+    }
+  })();
+  if (!win || win.isDestroyed())
+    return telegramBot.sendMessage(_t("new.noWindow"));
+
+  // Fire-and-forget: не await-им executeJavaScript, т.к. loadURL внутри
+  // newChat() выгружает контекст и промис не вернётся.
+  try {
+    win.webContents.executeJavaScript(
+      "try { window.electronAPI.newChat(); } catch (e) {} true",
+      true,
+    ).catch(() => {});
+  } catch (_) {}
+
+  // Небольшая пауза, чтобы окно успело начать навигацию, и сразу отвечаем.
+  await new Promise((r) => setTimeout(r, 300));
   return telegramBot.sendMessage(_t("new.done"));
 }
 
 /** /diff [page] — показать текущие изменения (git diff) в проекте (с пагинацией). */
 async function _cmdDiff(chatId, page) {
   const projectDir = _projectDir();
-  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
+  // Проект не выбран: предлагаем выбрать кнопками.
+  if (!projectDir)
+    return telegramBot.sendMessage(
+      escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"),
+      { parseMode: "HTML", replyMarkup: _projectKeyboard() },
+    );
 
   const gitDiff = require("../src/main/git-diff");
   const status = await gitDiff.getStatus(projectDir);
@@ -1483,8 +1568,145 @@ function _projectDir() {
   );
 }
 
-// Пагинация: key = `${chatId}:${type}` → { items, page, pageSize }
+// Пагинация: key = `${chatId}:${type}` → { items, page, pageSize, editMessageId }
 const _pagers = new Map();
+
+// Последнее отправленное сообщение списка: key = `${chatId}:${type}` → messageId.
+// Нужно, чтобы повторная команда (/log, /sessions) редактировала то же сообщение,
+// а не отправляла новое.
+const _lastListMsg = new Map();
+
+// Режим ручного ввода пути к проекту: chatId → true (ждём абсолютный путь).
+const _projectWaiting = new Set();
+
+// Известные проекты: берём из session-dir-map активного профиля + текущий.
+function _knownProjects() {
+  const dirs = new Set();
+  try {
+    const ctx = _activeContext();
+    const store = ctx && ctx.sessionStore;
+    // 1) Сессии активного профиля: sessionId → projectDir.
+    if (store && typeof store.readSessionStore === "function") {
+      const all = store.readSessionStore();
+      for (const dir of Object.values(all || {})) {
+        if (dir && typeof dir === "string") dirs.add(dir);
+      }
+    }
+    // 2) Плюс текущий выбранный проект.
+    const cur = _projectDir();
+    if (cur) dirs.add(cur);
+    // 3) Плюс недавние из настроек, если есть (telegramRecentProjects).
+    try {
+      const s = settingsStore.readSettings();
+      const rec = s && s.telegramRecentProjects;
+      if (Array.isArray(rec)) {
+        for (const d of rec) if (d && typeof d === "string") dirs.add(d);
+      }
+    } catch (_) {}
+    // Сортируем по алфавиту (без обрезки — пагинация ниже).
+    return Array.from(dirs).sort((a, b) => a.localeCompare(b));
+  } catch (_) {
+    return [];
+  }
+}
+
+// Текущая страница выбора проекта: chatId → номер страницы.
+const _projectPage = new Map();
+const PROJECT_PAGE_SIZE = 8;
+
+/**
+ * Отрисовать страницу выбора проекта: текст + inline-клавиатура.
+ * Кнопки: по одной на проект (st_proj_p<page>_<idx>), навигация ‹/›,
+ * и «ввести путь вручную» (st_proj_manual).
+ * @param {number} page  номер страницы (1-based)
+ */
+function _projectView(page) {
+  const projects = _knownProjects();
+  const size = PROJECT_PAGE_SIZE;
+  const pages = Math.max(1, Math.ceil(projects.length / size));
+  let cur = Math.min(Math.max(1, page || 1), pages);
+  const slice = projects.slice((cur - 1) * size, cur * size);
+  const offset = (cur - 1) * size;
+
+  const rows = [];
+  slice.forEach((dir, i) => {
+    const base = dir.split(/[\\/]/).filter(Boolean).pop() || dir;
+    rows.push([
+      { text: "📁 " + base, callback_data: "st_proj_p" + cur + "_" + (offset + i) },
+    ]);
+  });
+
+  // Навигация ‹/› (если страниц больше одной).
+  if (pages > 1) {
+    const nav = [];
+    if (cur > 1)
+      nav.push({ text: _t("page.prev"), callback_data: "st_proj_pg_" + (cur - 1) });
+    nav.push({ text: cur + "/" + pages, callback_data: "st_proj_noop" });
+    if (cur < pages)
+      nav.push({ text: _t("page.next"), callback_data: "st_proj_pg_" + (cur + 1) });
+    rows.push(nav);
+  }
+
+  rows.push([{ text: _t("project.manual"), callback_data: "st_proj_manual" }]);
+
+  const title = _t("project.title");
+  const hint = _t("project.pickHint");
+  const list = slice.length
+    ? slice.map((d) => "• " + escapeHtml(d)).join("\n")
+    : _t("project.none");
+  const text = title + "\n" + hint + "\n\n" + list;
+
+  return {
+    text,
+    keyboard: { inline_keyboard: rows },
+    page: cur,
+    pages,
+  };
+}
+
+/** Клавиатура выбора проекта (первая страница). Оставлено для совместимости. */
+function _projectKeyboard() {
+  return _projectView(1).keyboard;
+}
+
+/**
+ * Установить проект в активном окне (через electronAPI того же окна).
+ * Пишем selectedProjectDir в session-store активного профиля и уведомляем renderer.
+ */
+async function _setProject(chatId, dir) {
+  const win = (() => {
+    try {
+      return windowState.getMainWindow();
+    } catch (_) {
+      return null;
+    }
+  })();
+  if (!win || win.isDestroyed())
+    return { success: false, error: _t("new.noWindow") };
+
+  const safeDir = JSON.stringify(String(dir));
+  const script =
+    "(async () => { try {" +
+    "  const store = (window.__cuckooSessionStore || null);" +
+    "  if (window.electronAPI && typeof window.electronAPI.setProjectDir === 'function') {" +
+    "    const r = await window.electronAPI.setProjectDir(" +
+    safeDir +
+    ");" +
+    "    return r || { success: true };" +
+    "  }" +
+    "  if (store && store.state) { store.state.selectedProjectDir = " +
+    safeDir +
+    "; return { success: true }; }" +
+    "  return { success: false, error: 'setProjectDir недоступен в окне' };" +
+    " } catch (e) { return { success: false, error: e.message }; } })()";
+
+  const res = await _evalInWindow(script);
+  if (!res.success) return { success: false, error: res.error };
+  const inner = res.result || {};
+  if (inner.success === false)
+    return { success: false, error: inner.error || _t("common.error") };
+  return { success: true, dir: String(dir) };
+}
 
 /** Отрисовать страницу списка с навигацией. */
 function _renderPager(type, pager, renderItem, titleFn, hint) {
@@ -1515,9 +1737,33 @@ function _renderPager(type, pager, renderItem, titleFn, hint) {
 }
 
 /** /sessions — список сессий проекта. */
-async function _cmdSessions(chatId, page) {
+async function _cmdSessions(chatId, page, editMessageId) {
+  const key = chatId + ":sessions";
+  const prev = _pagers.get(key);
+  const editId = editMessageId || (prev && prev.editMessageId) || null;
+
+  const reply = async (text, opts) => {
+    const o = opts || {};
+    if (editId) {
+      const res = await telegramBot.editMessageText(editId, text, {
+        parseMode: o.parseMode || "HTML",
+        replyMarkup: o.replyMarkup || { inline_keyboard: [] },
+      });
+      if (res && res.success) return res;
+    }
+    const sent = await telegramBot.sendMessage(text, o);
+    if (sent && sent.success && sent.messageId) {
+      _lastListMsg.set(key, sent.messageId);
+    }
+    return sent;
+  };
+
   const projectDir = _projectDir();
-  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
+  // Проект не выбран: подсказываем, как выбрать его кнопками.
+  if (!projectDir)
+    return reply(escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"), {
+      replyMarkup: _projectKeyboard(),
+    });
   let sessions = [];
   try {
     const ctx = _activeContext();
@@ -1525,12 +1771,14 @@ async function _cmdSessions(chatId, page) {
     const all = store.readSessionStore();
     sessions = Object.keys(all).filter((id) => all[id] === projectDir);
   } catch (err) {
-    return telegramBot.sendMessage("⚠ " + escapeHtml(err.message));
+    return reply("⚠ " + escapeHtml(err.message));
   }
-  if (sessions.length === 0)
-    return telegramBot.sendMessage(_t("sessions.empty"));
+  if (sessions.length === 0) return reply(_t("sessions.empty"));
+
   const pager = { items: sessions, page: page || 1, pageSize: 10 };
-  _pagers.set(chatId + ":sessions", pager);
+  pager.editMessageId = editId;
+  _pagers.set(key, pager);
+
   const rendered = _renderPager(
     "sessions",
     pager,
@@ -1538,10 +1786,24 @@ async function _cmdSessions(chatId, page) {
     (p, pages) => _t("sessions.title", { page: p, pages: pages }),
     _t("sessions.hint"),
   );
-  return telegramBot.sendMessage(rendered.text, {
+
+  if (editId) {
+    const res = await telegramBot.editMessageText(editId, rendered.text, {
+      parseMode: "HTML",
+      replyMarkup: rendered.keyboard,
+    });
+    if (res && res.success) return res;
+  }
+
+  const sent = await telegramBot.sendMessage(rendered.text, {
     parseMode: "HTML",
     replyMarkup: rendered.keyboard,
   });
+  if (sent && sent.success && sent.messageId) {
+    pager.editMessageId = sent.messageId;
+    _pagers.set(key, pager);
+  }
+  return sent;
 }
 
 /** /switch <id> — переключиться на сессию. */
@@ -1570,22 +1832,59 @@ async function _cmdSwitch(chatId, id) {
   );
 }
 
-/** /log — история коммитов. */
-async function _cmdLog(chatId, page) {
+/**
+ * /log — история коммитов.
+ *
+ * Сообщение одно: при повторном вызове и при пагинации редактируем уже
+ * отправленное сообщение (editMessageText), а не плодим новые. Id сообщения
+ * хранится в _pagers под ключом `chatId:log`.editMessageId.
+ * editMessageId — id уже отправленного сообщения (из callback пагинации);
+ * если не задан, берётся сохранённый id прошлого вызова /log в этом чате.
+ */
+async function _cmdLog(chatId, page, editMessageId) {
+  const key = chatId + ":log";
+  const prev = _pagers.get(key);
+  // id редактируемого сообщения: явно переданный (пагинация) или сохранённый
+  // от прошлого вызова /log в этом чате.
+  const editId = editMessageId || (prev && prev.editMessageId) || null;
+
+  const reply = async (text, opts) => {
+    const o = opts || {};
+    // Ошибки/пустой список: если сообщение уже есть — редактируем его,
+    // иначе отправляем новое.
+    if (editId) {
+      const res = await telegramBot.editMessageText(editId, text, {
+        parseMode: o.parseMode || "HTML",
+        replyMarkup: o.replyMarkup || { inline_keyboard: [] },
+      });
+      if (res && res.success) return res;
+      // Не удалось отредактировать — отправляем новым сообщением.
+    }
+    return telegramBot.sendMessage(text, o);
+  };
+
   const projectDir = _projectDir();
-  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
+  // Проект не выбран: подсказываем выбрать кнопками.
+  if (!projectDir)
+    return reply(escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"), {
+      replyMarkup: _projectKeyboard(),
+    });
   const gitDiff = require("../src/main/git-diff");
   const r = await gitDiff.getLog(projectDir, 100);
   if (!r.success)
-    return telegramBot.sendMessage(
+    return reply(
       _t("diff.gitUnavailable", {
         reason: escapeHtml(r.reason || _t("diff.gitDefault")),
       }),
     );
   const commits = r.commits || [];
-  if (commits.length === 0) return telegramBot.sendMessage(_t("log.empty"));
+  if (commits.length === 0) return reply(_t("log.empty"));
+
   const pager = { items: commits, page: page || 1, pageSize: 10 };
-  _pagers.set(chatId + ":log", pager);
+  // Сохраняем id существующего сообщения, чтобы продолжать его редактировать.
+  pager.editMessageId = editId;
+  _pagers.set(key, pager);
+
   const rendered = _renderPager(
     "log",
     pager,
@@ -1598,10 +1897,25 @@ async function _cmdLog(chatId, page) {
     (p, pages) => _t("log.title", { page: p, pages: pages }),
     _t("log.hint"),
   );
-  return telegramBot.sendMessage(rendered.text, {
+  // eslint-disable-next-line no-unused-vars
+
+  if (editId) {
+    const res = await telegramBot.editMessageText(editId, rendered.text, {
+      parseMode: "HTML",
+      replyMarkup: rendered.keyboard,
+    });
+    if (res && res.success) return res;
+  }
+
+  const sent = await telegramBot.sendMessage(rendered.text, {
     parseMode: "HTML",
     replyMarkup: rendered.keyboard,
   });
+  if (sent && sent.success && sent.messageId) {
+    pager.editMessageId = sent.messageId;
+    _pagers.set(key, pager);
+  }
+  return sent;
 }
 
 /** /show <hash> — diff коммита. */
@@ -2017,6 +2331,14 @@ async function _handleIncoming(chatId, text, msg) {
     await _cmdNew();
     return;
   }
+  if (cmd === "/projects" || cmd === "/project" || cmd === "/proj") {
+    const view = _projectView(_projectPage.get(chatId) || 1);
+    await telegramBot.sendMessage(view.text, {
+      parseMode: "HTML",
+      replyMarkup: view.keyboard,
+    });
+    return;
+  }
   if (cmd === "/diff") {
     await _cmdDiff(chatId, 1);
     return;
@@ -2026,7 +2348,7 @@ async function _handleIncoming(chatId, text, msg) {
     return;
   }
   if (cmd === "/sessions") {
-    await _cmdSessions(chatId, 1);
+    await _cmdSessions(chatId, 1, _lastListMsg.get(chatId + ":sessions"));
     return;
   }
   if (cmd === "/switch") {
@@ -2034,7 +2356,7 @@ async function _handleIncoming(chatId, text, msg) {
     return;
   }
   if (cmd === "/log") {
-    await _cmdLog(chatId, 1);
+    await _cmdLog(chatId, 1, _lastListMsg.get(chatId + ":log"));
     return;
   }
   if (cmd === "/show") {
@@ -2071,6 +2393,28 @@ async function _handleIncoming(chatId, text, msg) {
   if (_settingsWaiting.has(chatId)) {
     const handled = await _handleSettingsInput(chatId, raw);
     if (handled) return;
+  }
+
+  // ---- Ожидание ручного ввода пути к проекту ----
+  if (_projectWaiting.has(chatId)) {
+    _projectWaiting.delete(chatId);
+    const dir = String(raw || "").trim().replace(/^["']|["']$/g, "");
+    if (!dir) {
+      await telegramBot.sendMessage(_t("project.cancelled"));
+      return;
+    }
+    const r = await _setProject(chatId, dir);
+    if (r.success)
+      await telegramBot.sendMessage(
+        _t("project.set", { dir: escapeHtml(r.dir || dir) }),
+        { parseMode: "HTML" },
+      );
+    else
+      await telegramBot.sendMessage(
+        _t("project.setFailed", { err: escapeHtml(r.error || "") }),
+        { parseMode: "HTML" },
+      );
+    return;
   }
 
   // ---- Обычное сообщение ----
@@ -2180,76 +2524,205 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;");
 }
 
-/** Уведомление о результате tool. */
+// ==================== Компактные уведомления (стиль «Tech») ====================
+//
+// Формат одного действия:
+//   🔧 Editing D:/code/ICE/crulh/cuckoo-code-master/...  (×3)
+//   💻 terminal
+//   cd "D:/code/ICE/crulh/cuckoo-code-mas...
+//
+// Несколько однотипных действий подряд схлопываются в (×N).
+// Стиль задан пользователем как эталон — не менять без его просьбы.
+
+// Время (мс), в течение которого подряд идущие уведомления того же типа
+// можно склеить в одно сообщение с пометкой (×N).
+const TECH_BATCH_MS = 1200;
+// Максимальная длина строки пути/команды (обрезаем многоточием).
+const TECH_LINE_MAX = 48;
+
+let _techBatchTimer = null;
+let _techBatch = null; // { emoji, label, detail, count }
+
+/** Обрезать длинную строку до TECH_LINE_MAX с «...» в конце. */
+function _techTrunc(s) {
+  const str = String(s == null ? "" : s);
+  if (str.length <= TECH_LINE_MAX) return str;
+  return str.slice(0, TECH_LINE_MAX - 3) + "...";
+}
+
+/**
+ * Иконка + короткая подпись действия по имени инструмента.
+ * @returns {{emoji:string, label:string}}
+ */
+function _techIcon(toolName) {
+  switch (String(toolName || "").toLowerCase()) {
+    case "edit":
+      return { emoji: "🔧", label: "Editing" };
+    case "write":
+      return { emoji: "📝", label: "Writing" };
+    case "read":
+    case "readlines":
+    case "read_lines":
+    case "readfile":
+    case "read_file":
+      return { emoji: "📖", label: "Reading" };
+    case "bash":
+      return { emoji: "💻", label: "terminal" };
+    case "pwsh":
+      return { emoji: "💻", label: "pwsh" };
+    case "grep":
+      return { emoji: "🔎", label: "Grep" };
+    case "glob":
+      return { emoji: "🔎", label: "Glob" };
+    case "todoWrite":
+    case "todowrite":
+      return { emoji: "☑", label: "Todos" };
+    case "webFetch":
+    case "webfetch":
+      return { emoji: "🌐", label: "Fetch" };
+    default:
+      return { emoji: "🔧", label: String(toolName || "tool") };
+  }
+}
+
+/**
+ * Короткая деталь действия — путь файла или текст команды.
+ * Для bash/pwsh берём первую строку команды (обычно это и есть суть).
+ */
+function _techDetail(toolName, args) {
+  if (!args || typeof args !== "object") return "";
+  const a = args;
+  const name = String(toolName || "").toLowerCase();
+  if (name === "bash" || name === "pwsh") {
+    const cmd = String(a.command || "");
+    return cmd.split("\n")[0];
+  }
+  // read/readLines/read_lines и прочие «читающие» — путь в file_path/filePath.
+  return String(a.file_path || a.filePath || a.path || a.pattern || "");
+}
+
+// Максимальная длина результата в уведомлении.
+const TECH_RESULT_MAX = 600;
+
+/** Отправить накопленное уведомление (или ничего, если пусто). */
+function _techFlush() {
+  const b = _techBatch;
+  _techBatch = null;
+  if (_techBatchTimer) {
+    clearTimeout(_techBatchTimer);
+    _techBatchTimer = null;
+  }
+  if (!b) return null;
+
+  const suffix = b.count > 1 ? " (×" + b.count + ")" : "";
+  // Заголовок: «🔧 Editing path (×N)» либо «💻 terminal (×N)» без детали.
+  const header = b.command
+    ? b.emoji + " " + b.label + suffix
+    : b.emoji + " " + b.label + " " + _techTrunc(b.detail) + suffix;
+
+  // Тело: 1) команда/путь, 2) результат — каждый блок своей цитатой.
+  let msg = header;
+  let body = "";
+  if (b.command) body = _techTrunc(b.command);
+  else if (b.detail && _techTrunc(b.detail) !== b.detail) body = b.detail;
+  if (body) msg += "\n<blockquote>" + escapeHtml(body) + "</blockquote>";
+
+  // Результат выполнения — второй цитатой (если есть и не пустой).
+  const result = String(b.preview || "").replace(/\n{3,}/g, "\n\n").trim();
+  if (result) {
+    const shown =
+      result.length > TECH_RESULT_MAX
+        ? result.slice(0, TECH_RESULT_MAX) + "\n…(обрезано)"
+        : result;
+    msg += "\n<blockquote>" + escapeHtml(shown) + "</blockquote>";
+  }
+  return telegramBot.sendMessage(msg, { parseMode: "HTML" });
+}
+
+// Служебные tool-вызовы, которые не являются «работой» и не должны попадать
+// в компактные уведомления: вопрос к пользователю, выход из режима плана и т.п.
+// Они и так приходят отдельными сообщениями («❓ Вопрос от ИИ», approval и пр.).
+const TECH_SERVICE_TOOLS = new Set([
+  "ask_user_question",
+  "askuserquestion",
+  "exit_plan_mode",
+  "exitplanmode",
+]);
+
+/**
+ * Поставить уведомление в батч: если пришло такое же действие в течение
+ * TECH_BATCH_MS — увеличиваем счётчик (×N), иначе шлём предыдущее и начинаем новое.
+ */
+function _techQueue(toolName, args, preview) {
+  const icon = _techIcon(toolName);
+  const detail = _techDetail(toolName, args);
+  const name = String(toolName || "").toLowerCase();
+  const command = name === "bash" || name === "pwsh"
+    ? String((args && args.command) || "")
+    : "";
+  const result = String(preview || "");
+
+  if (
+    _techBatch &&
+    _techBatch.emoji === icon.emoji &&
+    _techBatch.label === icon.label &&
+    _techBatch.detail === detail &&
+    _techBatch.command === command
+  ) {
+    _techBatch.count++;
+    // Результат последнего вызова в серии — показываем его.
+    if (result) _techBatch.preview = result;
+  } else {
+    const prev = _techBatch;
+    _techBatch = {
+      emoji: icon.emoji,
+      label: icon.label,
+      detail,
+      command,
+      preview: result,
+      count: 1,
+    };
+    if (prev) _techFlush();
+    if (_techBatchTimer) clearTimeout(_techBatchTimer);
+    _techBatchTimer = setTimeout(() => _techFlush(), TECH_BATCH_MS);
+    return null;
+  }
+  if (_techBatchTimer) clearTimeout(_techBatchTimer);
+  _techBatchTimer = setTimeout(() => _techFlush(), TECH_BATCH_MS);
+  return null;
+}
+
+/** Уведомление о результате tool (компактный стиль «Tech»). */
 async function notifyToolResult(toolName, ok, detail) {
   const cfg = _read();
   if (!cfg.enabled || !cfg.notifyTools)
     return { success: false, skipped: true };
-  // Умные уведомления: пропускаем инструменты из списка исключений.
-  if (
-    cfg.notifyIgnore.length > 0 &&
-    cfg.notifyIgnore.includes(String(toolName || "").toLowerCase())
-  ) {
+  // Служебные вызовы (вопрос к пользователю и т.п.) в уведомления не шлём —
+  // у них есть собственное сообщение.
+  const _toolLower = String(toolName || "").toLowerCase();
+  if (TECH_SERVICE_TOOLS.has(_toolLower)) {
     return { success: false, skipped: true };
   }
-  const emoji = ok ? "✅" : "❌";
-  const header = emoji + " " + escapeHtml(toolName);
-
-  // detail может быть строкой (ошибка) или объектом { args, preview }.
-  if (detail && typeof detail === "object") {
-    const { args, preview } = detail;
-    const argsText = formatToolArgs(toolName, args);
-    const parts = [];
-
-    if (toolName === "edit") {
-      // Красивый diff-стиль: старый код как -, новый как +.
-      const file = (args && (args.file_path || args.path)) || "";
-      const oldS =
-        args && args.old_string != null ? String(args.old_string) : "";
-      const newS =
-        args && args.new_string != null ? String(args.new_string) : "";
-      const lines = [];
-      const addLines = (prefix, s) => {
-        for (const ln of s.split("\n")) lines.push(prefix + escapeHtml(ln));
-      };
-      if (oldS) addLines("➖ ", oldS.slice(0, 1000));
-      if (newS) addLines("➕ ", newS.slice(0, 2000));
-      const body = lines.join("\n") || _t("tool.editEmpty");
-      const title = file ? " " + escapeHtml(file) : "";
-      const msg =
-        emoji +
-        " <b>edit</b>" +
-        title +
-        "\n<blockquote expandable>" +
-        body +
-        "</blockquote>";
-      return telegramBot.sendMessage(msg, { parseMode: "HTML" });
-    }
-
-    // Остальные инструменты: аргументы + результат в цитате <blockquote>.
-    const bodyParts = [];
-    if (argsText) bodyParts.push(argsText);
-    if (preview)
-      bodyParts.push(
-        _t("tool.result") +
-          String(preview)
-            .replace(/\n{3,}/g, "\n\n")
-            .slice(0, 600),
-      );
-    const bodyHtml = escapeHtml(bodyParts.join("\n"));
-    const msg =
-      header + (bodyHtml ? "\n<blockquote>" + bodyHtml + "</blockquote>" : "");
-    return telegramBot.sendMessage(msg, { parseMode: "HTML" });
+  // Умные уведомления: пропускаем инструменты из списка исключений.
+  if (cfg.notifyIgnore.length > 0 && cfg.notifyIgnore.includes(_toolLower)) {
+    return { success: false, skipped: true };
   }
 
-  // detail — строка.
-  let msg = header;
-  if (detail)
-    msg +=
-      "\n<blockquote>" +
-      escapeHtml(String(detail).slice(0, 600)) +
-      "</blockquote>";
-  return telegramBot.sendMessage(msg, { parseMode: "HTML" });
+  const args = detail && typeof detail === "object" ? detail.args : null;
+  const preview = detail && typeof detail === "object" ? detail.preview : detail;
+
+  // Ошибка — шлём сразу, отдельным сообщением, с обрезанным текстом ошибки.
+  if (!ok) {
+    const icon = _techIcon(toolName);
+    let msg = "❌ " + icon.emoji + " " + icon.label + " " + _techTrunc(_techDetail(toolName, args));
+    if (preview)
+      msg += "\n" + _techTrunc(String(preview).replace(/\n{3,}/g, "\n\n"));
+    return telegramBot.sendMessage(escapeHtml(msg), { parseMode: "HTML" });
+  }
+
+  // Успех — в батч (одинаковые подряд схлопываются в ×N).
+  _techQueue(toolName, args, preview);
+  return { success: true, batched: true };
 }
 
 /** Применить настройки: пересоздать конфиг бота и (при необходимости) запустить polling. */

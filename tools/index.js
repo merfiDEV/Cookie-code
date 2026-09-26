@@ -36,6 +36,7 @@ const { AskUserQuestionTool } = require("./AskUserQuestionTool");
 const { ReadPhotoTool } = require("./ReadPhotoTool");
 const { ExitPlanModeTool } = require("./ExitPlanModeTool");
 const { AttachFileTool } = require("./AttachFileTool");
+const { AttachTelegramTool } = require("./AttachTelegramTool");
 
 // 创建全局工具注册表
 const registry = new ToolRegistry();
@@ -74,6 +75,7 @@ registry.register(new AskUserQuestionTool());
 registry.register(new ReadPhotoTool());
 registry.register(new ExitPlanModeTool());
 registry.register(new AttachFileTool());
+registry.register(new AttachTelegramTool());
 
 // 导出
 module.exports = {
@@ -108,7 +110,8 @@ module.exports = {
   ReadPhotoTool,
   ExitPlanModeTool,
   AttachFileTool,
-  InjectPageJSTool,
+    AttachTelegramTool,
+    InjectPageJSTool,
   // 便捷方法
   getAllTools: () => registry,
   getToolDescriptions: () => registry.getDescriptions(),
