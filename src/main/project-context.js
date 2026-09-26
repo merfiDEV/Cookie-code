@@ -206,7 +206,6 @@ async function setProjectByDir(selectedDir, windowContext = null) {
   const ctx = windowContext || windowState.getMainContext();
   const mainWindow = ctx ? ctx.win : windowState.getMainWindow();
   const sessionStore = ctx ? ctx.sessionStore : null;
-  const providerId = (ctx && ctx.providerId) || "";
 
   if (!selectedDir || typeof selectedDir !== "string") {
     return { success: false, error: "路径 не задан" };
@@ -222,14 +221,50 @@ async function setProjectByDir(selectedDir, windowContext = null) {
     return { success: false, error: "Каталог не найден: " + dir };
   }
 
-  if (sessionStore) {
-    sessionStore.state.selectedProjectDir = dir;
+  // Ищем существующую сессию этого проекта: переключаемся на неё, а не
+  // создаём новый чат (новый чат = переход на homeUrl, контекст теряется).
+  let existingSessionId = null;
+  if (sessionStore && typeof sessionStore.readSessionStore === "function") {
+    try {
+      const all = sessionStore.readSessionStore();
+      for (const [sid, sdir] of Object.entries(all || {})) {
+        if (sdir === dir) {
+          existingSessionId = sid;
+          break;
+        }
+      }
+    } catch (_) {}
+  }
 
-    if (sessionStore.state.currentSessionId) {
-      sessionStore.saveSessionDirMapping(
-        sessionStore.state.currentSessionId,
-        dir,
-      );
+  // Переключаем окно на найденную сессию (та же навигация, что и /switch).
+    if (existingSessionId && mainWindow && !mainWindow.isDestroyed()) {
+      let url = null;
+      try {
+        const { getProviderByUrl } = require("../providers");
+        const provider = getProviderByUrl(mainWindow.webContents.getURL());
+        if (provider && typeof provider.getSessionUrl === "function") {
+          url = provider.getSessionUrl(existingSessionId);
+        } else if (provider && provider.sessionUrlBase) {
+          url = provider.sessionUrlBase + existingSessionId;
+        }
+      } catch (_) {}
+      if (!url) url = "https://chat.deepseek.com/a/chat/s/" + existingSessionId;
+      try {
+        await mainWindow.webContents.loadURL(url);
+      } catch (err) {
+        console.error("[Cookie Code] setProjectByDir: loadURL failed:", err.message);
+      }
+    }
+
+  if (sessionStore) {
+    // Если нашли сессию — она и станет текущей; иначе запоминаем проект как
+    // pending (привяжется, когда появится sessionId).
+    sessionStore.state.selectedProjectDir = dir;
+    if (existingSessionId) {
+      sessionStore.state.currentSessionId = existingSessionId;
+      sessionStore.saveSessionDirMapping(existingSessionId, dir);
+    } else if (sessionStore.state.currentSessionId) {
+      sessionStore.saveSessionDirMapping(sessionStore.state.currentSessionId, dir);
     } else {
       let sessionId = null;
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -247,36 +282,14 @@ async function setProjectByDir(selectedDir, windowContext = null) {
     }
   }
 
-  // Уведомляем renderer тем же событием, что и обычный выбор каталога,
-  // чтобы обновился display пути и список сессий.
+  // Обновляем display пути и список сессий в renderer.
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
       mainWindow.webContents.send("project-dir-updated", dir);
     } catch (_) {}
   }
 
-  // Ключевое: собрать и отправить initial-prompt нового проекта, иначе AI
-  // продолжит работать со старым проектом (переключение в приложении не
-  // применится). Как в initProject(), но без диалога выбора папки.
-  try {
-    await Promise.race([
-      mcpClient.connectEnabledServers(),
-      new Promise((resolve) => setTimeout(resolve, 8000)),
-    ]);
-  } catch (err) {
-    console.error("[MCP] setProjectByDir: connect failed:", err.message);
-  }
-
-  try {
-    const combined = await buildInitPrompt(dir, providerId);
-    if (combined && mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("initial-prompt", combined);
-    }
-  } catch (err) {
-    console.error("[Cookie Code] setProjectByDir: buildInitPrompt failed:", err.message);
-  }
-
-  return { success: true, dir };
+  return { success: true, dir, sessionId: existingSessionId || null };
 }
 
 /**
