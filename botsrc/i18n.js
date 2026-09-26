@@ -152,6 +152,8 @@ const STRINGS = {
 
     // ===== /new =====
     "new.done": "🆕 Новый чат открыт.",
+    "new.noWindow": "⚠️ Нет активного окна — не удалось открыть новый чат.",
+    "new.failed": "❌ Не удалось открыть новый чат: {err}",
 
     // ===== /diff =====
     "diff.noProject": "⚠️ Проект не выбран.",
@@ -167,6 +169,17 @@ const STRINGS = {
     // ===== /todos =====
     "todos.empty": "☑ Список задач пуст.",
     "todos.header": "☑ Задачи ({done}/{total}):",
+
+    // ===== Выбор проекта кнопками =====
+    "project.pickHint": "<i>Выбери проект кнопкой ниже.</i>",
+    "project.title": "📁 <b>Выбор проекта</b>",
+    "project.set": "✅ Проект выбран: <code>{dir}</code>",
+    "project.setFailed": "⚠️ Не удалось выбрать проект: {err}",
+    "project.current": "📁 Текущий проект: <code>{dir}</code>",
+    "project.none": "📁 Проект пока не выбран.",
+    "project.manual": "⌨️ Ввести путь вручную",
+    "project.manualHint": "⌨️ Отправь абсолютный путь к папке проекта следующим сообщением.",
+    "project.cancelled": "Отменено.",
 
     // ===== /sessions и /switch =====
     "sessions.empty": "📭 Сессий не найдено.",
@@ -398,6 +411,8 @@ const STRINGS = {
 
     // ===== /new =====
     "new.done": "🆕 New chat opened.",
+    "new.noWindow": "⚠️ No active window — cannot open a new chat.",
+    "new.failed": "❌ Failed to open a new chat: {err}",
 
     // ===== /diff =====
     "diff.noProject": "⚠️ Project not selected.",
@@ -413,6 +428,17 @@ const STRINGS = {
     // ===== /todos =====
     "todos.empty": "☑ Task list is empty.",
     "todos.header": "☑ Tasks ({done}/{total}):",
+
+    // ===== Project picker =====
+    "project.pickHint": "<i>Pick a project with the button below.</i>",
+    "project.title": "📁 <b>Project selection</b>",
+    "project.set": "✅ Project selected: <code>{dir}</code>",
+    "project.setFailed": "⚠️ Failed to select project: {err}",
+    "project.current": "📁 Current project: <code>{dir}</code>",
+    "project.none": "📁 No project selected yet.",
+    "project.manual": "⌨️ Enter path manually",
+    "project.manualHint": "⌨️ Send the absolute path to the project folder as your next message.",
+    "project.cancelled": "Cancelled.",
 
     // ===== /sessions and /switch =====
     "sessions.empty": "📭 No sessions found.",

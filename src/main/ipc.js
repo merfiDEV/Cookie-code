@@ -401,24 +401,32 @@ function registerIpcHandlers() {
   });
 
   // 初始化项目
-  ipcMain.handle("init-project", async (event, { skipPrompt = false } = {}) => {
-    const ctx = windowState.getContextByWebContents(event.sender);
-    return initProject(skipPrompt, ctx);
-  });
+    ipcMain.handle("init-project", async (event, { skipPrompt = false } = {}) => {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      return initProject(skipPrompt, ctx);
+    });
 
-  // 列出会话
-  ipcMain.handle("list-sessions", async (event) => {
-    const ctx = windowState.getContextByWebContents(event.sender);
-    const store = ctx ? ctx.sessionStore : null;
-    if (!store || !store.state.selectedProjectDir) {
-      return { success: true, sessions: [] };
-    }
-    const all = store.readSessionStore();
-    const sessions = Object.keys(all).filter(
-      (id) => all[id] === store.state.selectedProjectDir,
-    );
-    return { success: true, sessions };
-  });
+    // Установить проект по уже известному пути (без диалога выбора папки).
+    // Используется Telegram-ботом при выборе проекта кнопкой.
+    ipcMain.handle("set-project-dir", async (event, { dir } = {}) => {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const { setProjectByDir } = require("./project-context");
+      return setProjectByDir(dir, ctx);
+    });
+
+    // 列出会话
+    ipcMain.handle("list-sessions", async (event) => {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const store = ctx ? ctx.sessionStore : null;
+      if (!store || !store.state.selectedProjectDir) {
+        return { success: true, sessions: [] };
+      }
+      const all = store.readSessionStore();
+      const sessions = Object.keys(all).filter(
+        (id) => all[id] === store.state.selectedProjectDir,
+      );
+      return { success: true, sessions };
+    });
 
   // 列出项目文件（用于 @ 文件提及自动补全）
   // 返回 { success, files: [{ rel, abs }] }，rel 为相对 projectDir 的路径，abs 为绝对路径。

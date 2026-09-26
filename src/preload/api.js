@@ -20,14 +20,18 @@ let electronAPI = {
     return ipcRenderer.invoke("get-file-icons");
   },
   updateProjectDir: () => {
-    return ipcRenderer.invoke("init-project", { skipPrompt: true });
-  },
-  executeTool: (toolName, params, callId) => {
-    return ipcRenderer.invoke("execute-tool", { toolName, params, callId });
-  },
-  executeJs: (code, callId) => {
-    return ipcRenderer.invoke("execute-js", { code, callId });
-  },
+      return ipcRenderer.invoke("init-project", { skipPrompt: true });
+    },
+    // Установить проект по известному пути (без диалога). Используется TG-ботом.
+    setProjectDir: (dir) => {
+      return ipcRenderer.invoke("set-project-dir", { dir });
+    },
+    executeTool: (toolName, params, callId) => {
+      return ipcRenderer.invoke("execute-tool", { toolName, params, callId });
+    },
+    executeJs: (code, callId) => {
+      return ipcRenderer.invoke("execute-js", { code, callId });
+    },
   setPlanMode: (enabled) => {
     return ipcRenderer.invoke("set-plan-mode", { enabled });
   },

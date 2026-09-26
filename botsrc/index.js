@@ -305,6 +305,66 @@ async function _handleCallback(chatId, data, cbq) {
   const token = String(data || "");
 
   // Меню настроек /settings — обрабатываем раньше других, т.к. префикс 'st_'.
+  // Выбор проекта кнопкой / ручной ввод — обрабатываем до settings.
+  if (token.startsWith("st_proj_")) {
+    const arg = token.slice("st_proj_".length);
+    await telegramBot.answerCallbackQuery(cbq.id);
+
+    // Навигация по страницам выбора проекта.
+    if (arg.startsWith("pg_")) {
+      const page = parseInt(arg.slice(3), 10) || 1;
+      _projectPage.set(chatId, page);
+      const view = _projectView(page);
+      if (msgId) {
+        await telegramBot.editMessageText(msgId, view.text, {
+          parseMode: "HTML",
+          replyMarkup: view.keyboard,
+        });
+      } else {
+        await telegramBot.sendMessage(view.text, {
+          parseMode: "HTML",
+          replyMarkup: view.keyboard,
+        });
+      }
+      return;
+    }
+    if (arg === "noop") return;
+
+    if (arg === "manual") {
+      _projectWaiting.add(chatId);
+      await telegramBot.sendMessage(_t("project.manualHint"));
+      return;
+    }
+
+    // Выбор проекта: формат 'p<page>_<idx>' (idx — глобальный индекс в списке).
+    let idx = NaN;
+    const m = arg.match(/^p\d+_(\d+)$/);
+    if (m) {
+      idx = parseInt(m[1], 10);
+    } else {
+      // Обратная совместимость со старым форматом 'st_proj_<idx>'.
+      idx = parseInt(arg, 10);
+    }
+    const projects = _knownProjects();
+    const dir = projects[idx];
+    if (!dir) {
+      await telegramBot.sendMessage(_t("project.none"));
+      return;
+    }
+    const r = await _setProject(chatId, dir);
+    if (r.success)
+      await telegramBot.sendMessage(
+        _t("project.set", { dir: escapeHtml(r.dir || dir) }),
+        { parseMode: "HTML" },
+      );
+    else
+      await telegramBot.sendMessage(
+        _t("project.setFailed", { err: escapeHtml(r.error || "") }),
+        { parseMode: "HTML" },
+      );
+    return;
+  }
+
   if (token.startsWith("st_")) {
     try {
       await _handleSettingsCallback(token, cbq);
@@ -1095,9 +1155,9 @@ async function _handleSettingsCallback(data, cbq) {
     if (!pager) return;
     pager.page = page;
     if (type === "sessions") {
-      await _cmdSessions(chatId, page);
+      await _cmdSessions(chatId, page, msgId);
     } else if (type === "log") {
-      await _cmdLog(chatId, page);
+      await _cmdLog(chatId, page, msgId);
     } else if (type === "todos") {
       await _cmdTodos(chatId, page);
     } else if (type === "diff") {
@@ -1343,15 +1403,25 @@ async function _cmdStatus() {
 
 /** /new — новый чат (очистка контекста текущей сессии). */
 async function _cmdNew() {
+  const win = (() => {
+    try {
+      return windowState.getMainWindow();
+    } catch (_) {
+      return null;
+    }
+  })();
+  if (!win || win.isDestroyed())
+    return telegramBot.sendMessage(_t("new.noWindow"));
+
   const res = await _evalInWindow(
     "(async () => { try { const r = await window.electronAPI.newChat(); return r; } catch (e) { return { success: false, error: e.message }; } })()",
   );
   if (!res.success)
-    return telegramBot.sendMessage("⚠️ " + escapeHtml(res.error));
+    return telegramBot.sendMessage(_t("new.failed", { err: res.error }));
   const inner = res.result || {};
   if (inner.success === false)
     return telegramBot.sendMessage(
-      "⚠️ " + escapeHtml(inner.error || _t("common.error")),
+      _t("new.failed", { err: inner.error || _t("common.error") }),
     );
   return telegramBot.sendMessage(_t("new.done"));
 }
@@ -1359,7 +1429,12 @@ async function _cmdNew() {
 /** /diff [page] — показать текущие изменения (git diff) в проекте (с пагинацией). */
 async function _cmdDiff(chatId, page) {
   const projectDir = _projectDir();
-  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
+  // Проект не выбран: предлагаем выбрать кнопками.
+  if (!projectDir)
+    return telegramBot.sendMessage(
+      escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"),
+      { parseMode: "HTML", replyMarkup: _projectKeyboard() },
+    );
 
   const gitDiff = require("../src/main/git-diff");
   const status = await gitDiff.getStatus(projectDir);
@@ -1483,8 +1558,145 @@ function _projectDir() {
   );
 }
 
-// Пагинация: key = `${chatId}:${type}` → { items, page, pageSize }
+// Пагинация: key = `${chatId}:${type}` → { items, page, pageSize, editMessageId }
 const _pagers = new Map();
+
+// Последнее отправленное сообщение списка: key = `${chatId}:${type}` → messageId.
+// Нужно, чтобы повторная команда (/log, /sessions) редактировала то же сообщение,
+// а не отправляла новое.
+const _lastListMsg = new Map();
+
+// Режим ручного ввода пути к проекту: chatId → true (ждём абсолютный путь).
+const _projectWaiting = new Set();
+
+// Известные проекты: берём из session-dir-map активного профиля + текущий.
+function _knownProjects() {
+  const dirs = new Set();
+  try {
+    const ctx = _activeContext();
+    const store = ctx && ctx.sessionStore;
+    // 1) Сессии активного профиля: sessionId → projectDir.
+    if (store && typeof store.readSessionStore === "function") {
+      const all = store.readSessionStore();
+      for (const dir of Object.values(all || {})) {
+        if (dir && typeof dir === "string") dirs.add(dir);
+      }
+    }
+    // 2) Плюс текущий выбранный проект.
+    const cur = _projectDir();
+    if (cur) dirs.add(cur);
+    // 3) Плюс недавние из настроек, если есть (telegramRecentProjects).
+    try {
+      const s = settingsStore.readSettings();
+      const rec = s && s.telegramRecentProjects;
+      if (Array.isArray(rec)) {
+        for (const d of rec) if (d && typeof d === "string") dirs.add(d);
+      }
+    } catch (_) {}
+    // Сортируем по алфавиту (без обрезки — пагинация ниже).
+    return Array.from(dirs).sort((a, b) => a.localeCompare(b));
+  } catch (_) {
+    return [];
+  }
+}
+
+// Текущая страница выбора проекта: chatId → номер страницы.
+const _projectPage = new Map();
+const PROJECT_PAGE_SIZE = 8;
+
+/**
+ * Отрисовать страницу выбора проекта: текст + inline-клавиатура.
+ * Кнопки: по одной на проект (st_proj_p<page>_<idx>), навигация ‹/›,
+ * и «ввести путь вручную» (st_proj_manual).
+ * @param {number} page  номер страницы (1-based)
+ */
+function _projectView(page) {
+  const projects = _knownProjects();
+  const size = PROJECT_PAGE_SIZE;
+  const pages = Math.max(1, Math.ceil(projects.length / size));
+  let cur = Math.min(Math.max(1, page || 1), pages);
+  const slice = projects.slice((cur - 1) * size, cur * size);
+  const offset = (cur - 1) * size;
+
+  const rows = [];
+  slice.forEach((dir, i) => {
+    const base = dir.split(/[\\/]/).filter(Boolean).pop() || dir;
+    rows.push([
+      { text: "📁 " + base, callback_data: "st_proj_p" + cur + "_" + (offset + i) },
+    ]);
+  });
+
+  // Навигация ‹/› (если страниц больше одной).
+  if (pages > 1) {
+    const nav = [];
+    if (cur > 1)
+      nav.push({ text: _t("page.prev"), callback_data: "st_proj_pg_" + (cur - 1) });
+    nav.push({ text: cur + "/" + pages, callback_data: "st_proj_noop" });
+    if (cur < pages)
+      nav.push({ text: _t("page.next"), callback_data: "st_proj_pg_" + (cur + 1) });
+    rows.push(nav);
+  }
+
+  rows.push([{ text: _t("project.manual"), callback_data: "st_proj_manual" }]);
+
+  const title = _t("project.title");
+  const hint = _t("project.pickHint");
+  const list = slice.length
+    ? slice.map((d) => "• " + escapeHtml(d)).join("\n")
+    : _t("project.none");
+  const text = title + "\n" + hint + "\n\n" + list;
+
+  return {
+    text,
+    keyboard: { inline_keyboard: rows },
+    page: cur,
+    pages,
+  };
+}
+
+/** Клавиатура выбора проекта (первая страница). Оставлено для совместимости. */
+function _projectKeyboard() {
+  return _projectView(1).keyboard;
+}
+
+/**
+ * Установить проект в активном окне (через electronAPI того же окна).
+ * Пишем selectedProjectDir в session-store активного профиля и уведомляем renderer.
+ */
+async function _setProject(chatId, dir) {
+  const win = (() => {
+    try {
+      return windowState.getMainWindow();
+    } catch (_) {
+      return null;
+    }
+  })();
+  if (!win || win.isDestroyed())
+    return { success: false, error: _t("new.noWindow") };
+
+  const safeDir = JSON.stringify(String(dir));
+  const script =
+    "(async () => { try {" +
+    "  const store = (window.__cuckooSessionStore || null);" +
+    "  if (window.electronAPI && typeof window.electronAPI.setProjectDir === 'function') {" +
+    "    const r = await window.electronAPI.setProjectDir(" +
+    safeDir +
+    ");" +
+    "    return r || { success: true };" +
+    "  }" +
+    "  if (store && store.state) { store.state.selectedProjectDir = " +
+    safeDir +
+    "; return { success: true }; }" +
+    "  return { success: false, error: 'setProjectDir недоступен в окне' };" +
+    " } catch (e) { return { success: false, error: e.message }; } })()";
+
+  const res = await _evalInWindow(script);
+  if (!res.success) return { success: false, error: res.error };
+  const inner = res.result || {};
+  if (inner.success === false)
+    return { success: false, error: inner.error || _t("common.error") };
+  return { success: true, dir: String(dir) };
+}
 
 /** Отрисовать страницу списка с навигацией. */
 function _renderPager(type, pager, renderItem, titleFn, hint) {
@@ -1515,9 +1727,33 @@ function _renderPager(type, pager, renderItem, titleFn, hint) {
 }
 
 /** /sessions — список сессий проекта. */
-async function _cmdSessions(chatId, page) {
+async function _cmdSessions(chatId, page, editMessageId) {
+  const key = chatId + ":sessions";
+  const prev = _pagers.get(key);
+  const editId = editMessageId || (prev && prev.editMessageId) || null;
+
+  const reply = async (text, opts) => {
+    const o = opts || {};
+    if (editId) {
+      const res = await telegramBot.editMessageText(editId, text, {
+        parseMode: o.parseMode || "HTML",
+        replyMarkup: o.replyMarkup || { inline_keyboard: [] },
+      });
+      if (res && res.success) return res;
+    }
+    const sent = await telegramBot.sendMessage(text, o);
+    if (sent && sent.success && sent.messageId) {
+      _lastListMsg.set(key, sent.messageId);
+    }
+    return sent;
+  };
+
   const projectDir = _projectDir();
-  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
+  // Проект не выбран: подсказываем, как выбрать его кнопками.
+  if (!projectDir)
+    return reply(escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"), {
+      replyMarkup: _projectKeyboard(),
+    });
   let sessions = [];
   try {
     const ctx = _activeContext();
@@ -1525,12 +1761,14 @@ async function _cmdSessions(chatId, page) {
     const all = store.readSessionStore();
     sessions = Object.keys(all).filter((id) => all[id] === projectDir);
   } catch (err) {
-    return telegramBot.sendMessage("⚠ " + escapeHtml(err.message));
+    return reply("⚠ " + escapeHtml(err.message));
   }
-  if (sessions.length === 0)
-    return telegramBot.sendMessage(_t("sessions.empty"));
+  if (sessions.length === 0) return reply(_t("sessions.empty"));
+
   const pager = { items: sessions, page: page || 1, pageSize: 10 };
-  _pagers.set(chatId + ":sessions", pager);
+  pager.editMessageId = editId;
+  _pagers.set(key, pager);
+
   const rendered = _renderPager(
     "sessions",
     pager,
@@ -1538,10 +1776,24 @@ async function _cmdSessions(chatId, page) {
     (p, pages) => _t("sessions.title", { page: p, pages: pages }),
     _t("sessions.hint"),
   );
-  return telegramBot.sendMessage(rendered.text, {
+
+  if (editId) {
+    const res = await telegramBot.editMessageText(editId, rendered.text, {
+      parseMode: "HTML",
+      replyMarkup: rendered.keyboard,
+    });
+    if (res && res.success) return res;
+  }
+
+  const sent = await telegramBot.sendMessage(rendered.text, {
     parseMode: "HTML",
     replyMarkup: rendered.keyboard,
   });
+  if (sent && sent.success && sent.messageId) {
+    pager.editMessageId = sent.messageId;
+    _pagers.set(key, pager);
+  }
+  return sent;
 }
 
 /** /switch <id> — переключиться на сессию. */
@@ -1570,22 +1822,59 @@ async function _cmdSwitch(chatId, id) {
   );
 }
 
-/** /log — история коммитов. */
-async function _cmdLog(chatId, page) {
+/**
+ * /log — история коммитов.
+ *
+ * Сообщение одно: при повторном вызове и при пагинации редактируем уже
+ * отправленное сообщение (editMessageText), а не плодим новые. Id сообщения
+ * хранится в _pagers под ключом `chatId:log`.editMessageId.
+ * editMessageId — id уже отправленного сообщения (из callback пагинации);
+ * если не задан, берётся сохранённый id прошлого вызова /log в этом чате.
+ */
+async function _cmdLog(chatId, page, editMessageId) {
+  const key = chatId + ":log";
+  const prev = _pagers.get(key);
+  // id редактируемого сообщения: явно переданный (пагинация) или сохранённый
+  // от прошлого вызова /log в этом чате.
+  const editId = editMessageId || (prev && prev.editMessageId) || null;
+
+  const reply = async (text, opts) => {
+    const o = opts || {};
+    // Ошибки/пустой список: если сообщение уже есть — редактируем его,
+    // иначе отправляем новое.
+    if (editId) {
+      const res = await telegramBot.editMessageText(editId, text, {
+        parseMode: o.parseMode || "HTML",
+        replyMarkup: o.replyMarkup || { inline_keyboard: [] },
+      });
+      if (res && res.success) return res;
+      // Не удалось отредактировать — отправляем новым сообщением.
+    }
+    return telegramBot.sendMessage(text, o);
+  };
+
   const projectDir = _projectDir();
-  if (!projectDir) return telegramBot.sendMessage(_t("diff.noProject"));
+  // Проект не выбран: подсказываем выбрать кнопками.
+  if (!projectDir)
+    return reply(escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"), {
+      replyMarkup: _projectKeyboard(),
+    });
   const gitDiff = require("../src/main/git-diff");
   const r = await gitDiff.getLog(projectDir, 100);
   if (!r.success)
-    return telegramBot.sendMessage(
+    return reply(
       _t("diff.gitUnavailable", {
         reason: escapeHtml(r.reason || _t("diff.gitDefault")),
       }),
     );
   const commits = r.commits || [];
-  if (commits.length === 0) return telegramBot.sendMessage(_t("log.empty"));
+  if (commits.length === 0) return reply(_t("log.empty"));
+
   const pager = { items: commits, page: page || 1, pageSize: 10 };
-  _pagers.set(chatId + ":log", pager);
+  // Сохраняем id существующего сообщения, чтобы продолжать его редактировать.
+  pager.editMessageId = editId;
+  _pagers.set(key, pager);
+
   const rendered = _renderPager(
     "log",
     pager,
@@ -1598,10 +1887,25 @@ async function _cmdLog(chatId, page) {
     (p, pages) => _t("log.title", { page: p, pages: pages }),
     _t("log.hint"),
   );
-  return telegramBot.sendMessage(rendered.text, {
+  // eslint-disable-next-line no-unused-vars
+
+  if (editId) {
+    const res = await telegramBot.editMessageText(editId, rendered.text, {
+      parseMode: "HTML",
+      replyMarkup: rendered.keyboard,
+    });
+    if (res && res.success) return res;
+  }
+
+  const sent = await telegramBot.sendMessage(rendered.text, {
     parseMode: "HTML",
     replyMarkup: rendered.keyboard,
   });
+  if (sent && sent.success && sent.messageId) {
+    pager.editMessageId = sent.messageId;
+    _pagers.set(key, pager);
+  }
+  return sent;
 }
 
 /** /show <hash> — diff коммита. */
@@ -2017,6 +2321,14 @@ async function _handleIncoming(chatId, text, msg) {
     await _cmdNew();
     return;
   }
+  if (cmd === "/projects" || cmd === "/project" || cmd === "/proj") {
+    const view = _projectView(_projectPage.get(chatId) || 1);
+    await telegramBot.sendMessage(view.text, {
+      parseMode: "HTML",
+      replyMarkup: view.keyboard,
+    });
+    return;
+  }
   if (cmd === "/diff") {
     await _cmdDiff(chatId, 1);
     return;
@@ -2026,7 +2338,7 @@ async function _handleIncoming(chatId, text, msg) {
     return;
   }
   if (cmd === "/sessions") {
-    await _cmdSessions(chatId, 1);
+    await _cmdSessions(chatId, 1, _lastListMsg.get(chatId + ":sessions"));
     return;
   }
   if (cmd === "/switch") {
@@ -2034,7 +2346,7 @@ async function _handleIncoming(chatId, text, msg) {
     return;
   }
   if (cmd === "/log") {
-    await _cmdLog(chatId, 1);
+    await _cmdLog(chatId, 1, _lastListMsg.get(chatId + ":log"));
     return;
   }
   if (cmd === "/show") {
@@ -2071,6 +2383,28 @@ async function _handleIncoming(chatId, text, msg) {
   if (_settingsWaiting.has(chatId)) {
     const handled = await _handleSettingsInput(chatId, raw);
     if (handled) return;
+  }
+
+  // ---- Ожидание ручного ввода пути к проекту ----
+  if (_projectWaiting.has(chatId)) {
+    _projectWaiting.delete(chatId);
+    const dir = String(raw || "").trim().replace(/^["']|["']$/g, "");
+    if (!dir) {
+      await telegramBot.sendMessage(_t("project.cancelled"));
+      return;
+    }
+    const r = await _setProject(chatId, dir);
+    if (r.success)
+      await telegramBot.sendMessage(
+        _t("project.set", { dir: escapeHtml(r.dir || dir) }),
+        { parseMode: "HTML" },
+      );
+    else
+      await telegramBot.sendMessage(
+        _t("project.setFailed", { err: escapeHtml(r.error || "") }),
+        { parseMode: "HTML" },
+      );
+    return;
   }
 
   // ---- Обычное сообщение ----

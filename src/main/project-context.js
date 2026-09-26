@@ -196,6 +196,67 @@ async function initProject(skipPrompt = false, windowContext = null) {
 }
 
 /**
+ * Установить проект по уже известному пути (без диалога выбора папки).
+ * Используется Telegram-ботом: выбор проекта кнопкой.
+ * @param {string} selectedDir  абсолютный путь к каталогу проекта
+ * @param {object|null} windowContext  контекст окна (win + sessionStore)
+ * @returns {{success: boolean, dir?: string, error?: string}}
+ */
+function setProjectByDir(selectedDir, windowContext = null) {
+  const ctx = windowContext || windowState.getMainContext();
+  const mainWindow = ctx ? ctx.win : windowState.getMainWindow();
+  const sessionStore = ctx ? ctx.sessionStore : null;
+
+  if (!selectedDir || typeof selectedDir !== "string") {
+    return { success: false, error: "路径 не задан" };
+  }
+  const dir = selectedDir.trim();
+  if (!dir) return { success: false, error: "路径 не задан" };
+
+  // Проверяем, что каталог существует.
+  try {
+    const st = fs.statSync(dir);
+    if (!st.isDirectory()) return { success: false, error: "Не каталог: " + dir };
+  } catch (_) {
+    return { success: false, error: "Каталог не найден: " + dir };
+  }
+
+  if (sessionStore) {
+    sessionStore.state.selectedProjectDir = dir;
+
+    if (sessionStore.state.currentSessionId) {
+      sessionStore.saveSessionDirMapping(
+        sessionStore.state.currentSessionId,
+        dir,
+      );
+    } else {
+      let sessionId = null;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          const url = mainWindow.webContents.getURL();
+          sessionId = sessionStore.extractSessionIdFromUrl(url);
+        } catch (_) {}
+      }
+      if (sessionId) {
+        sessionStore.state.currentSessionId = sessionId;
+        sessionStore.saveSessionDirMapping(sessionId, dir);
+      } else {
+        sessionStore.state.pendingProjectDir = dir;
+      }
+    }
+  }
+
+  // Уведомляем renderer тем же событием, что и обычный выбор каталога.
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send("project-dir-updated", dir);
+    } catch (_) {}
+  }
+
+  return { success: true, dir };
+}
+
+/**
  * Собрать текст промпта инициализации проекта (без диалога и без отправки).
  * Используется и в initProject(), и при переносе контекста в новый чат.
  * @param {string} selectedDir  каталог проекта
@@ -354,5 +415,6 @@ module.exports = {
   IGNORED_DIRS,
   getDirectoryTree,
   initProject,
+  setProjectByDir,
   buildInitPrompt,
 };
