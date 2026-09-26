@@ -303,6 +303,8 @@ async function askQuestion(requestId, questions) {
 /** Обработать нажатие inline-кнопки с ответом на вопрос. */
 async function _handleCallback(chatId, data, cbq) {
   const token = String(data || "");
+  // id сообщения, к которому привязана нажатая кнопка (для editMessageText).
+  const msgId = cbq && cbq.message && cbq.message.message_id;
 
   // Меню настроек /settings — обрабатываем раньше других, т.к. префикс 'st_'.
   // Выбор проекта кнопкой / ручной ввод — обрабатываем до settings.
@@ -316,16 +318,16 @@ async function _handleCallback(chatId, data, cbq) {
       _projectPage.set(chatId, page);
       const view = _projectView(page);
       if (msgId) {
-        await telegramBot.editMessageText(msgId, view.text, {
+        const res = await telegramBot.editMessageText(msgId, view.text, {
           parseMode: "HTML",
           replyMarkup: view.keyboard,
         });
-      } else {
-        await telegramBot.sendMessage(view.text, {
-          parseMode: "HTML",
-          replyMarkup: view.keyboard,
-        });
+        if (res && res.success) return;
       }
+      await telegramBot.sendMessage(view.text, {
+        parseMode: "HTML",
+        replyMarkup: view.keyboard,
+      });
       return;
     }
     if (arg === "noop") return;

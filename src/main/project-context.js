@@ -202,10 +202,11 @@ async function initProject(skipPrompt = false, windowContext = null) {
  * @param {object|null} windowContext  контекст окна (win + sessionStore)
  * @returns {{success: boolean, dir?: string, error?: string}}
  */
-function setProjectByDir(selectedDir, windowContext = null) {
+async function setProjectByDir(selectedDir, windowContext = null) {
   const ctx = windowContext || windowState.getMainContext();
   const mainWindow = ctx ? ctx.win : windowState.getMainWindow();
   const sessionStore = ctx ? ctx.sessionStore : null;
+  const providerId = (ctx && ctx.providerId) || "";
 
   if (!selectedDir || typeof selectedDir !== "string") {
     return { success: false, error: "路径 не задан" };
@@ -246,11 +247,33 @@ function setProjectByDir(selectedDir, windowContext = null) {
     }
   }
 
-  // Уведомляем renderer тем же событием, что и обычный выбор каталога.
+  // Уведомляем renderer тем же событием, что и обычный выбор каталога,
+  // чтобы обновился display пути и список сессий.
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
       mainWindow.webContents.send("project-dir-updated", dir);
     } catch (_) {}
+  }
+
+  // Ключевое: собрать и отправить initial-prompt нового проекта, иначе AI
+  // продолжит работать со старым проектом (переключение в приложении не
+  // применится). Как в initProject(), но без диалога выбора папки.
+  try {
+    await Promise.race([
+      mcpClient.connectEnabledServers(),
+      new Promise((resolve) => setTimeout(resolve, 8000)),
+    ]);
+  } catch (err) {
+    console.error("[MCP] setProjectByDir: connect failed:", err.message);
+  }
+
+  try {
+    const combined = await buildInitPrompt(dir, providerId);
+    if (combined && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("initial-prompt", combined);
+    }
+  } catch (err) {
+    console.error("[Cookie Code] setProjectByDir: buildInitPrompt failed:", err.message);
   }
 
   return { success: true, dir };

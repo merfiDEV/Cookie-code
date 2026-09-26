@@ -409,10 +409,10 @@ function registerIpcHandlers() {
     // Установить проект по уже известному пути (без диалога выбора папки).
     // Используется Telegram-ботом при выборе проекта кнопкой.
     ipcMain.handle("set-project-dir", async (event, { dir } = {}) => {
-      const ctx = windowState.getContextByWebContents(event.sender);
-      const { setProjectByDir } = require("./project-context");
-      return setProjectByDir(dir, ctx);
-    });
+          const ctx = windowState.getContextByWebContents(event.sender);
+          const { setProjectByDir } = require("./project-context");
+          return await setProjectByDir(dir, ctx);
+        });
 
     // 列出会话
     ipcMain.handle("list-sessions", async (event) => {
