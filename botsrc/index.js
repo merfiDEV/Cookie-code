@@ -2180,76 +2180,205 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;");
 }
 
-/** Уведомление о результате tool. */
+// ==================== Компактные уведомления (стиль «Tech») ====================
+//
+// Формат одного действия:
+//   🔧 Editing D:/code/ICE/crulh/cuckoo-code-master/...  (×3)
+//   💻 terminal
+//   cd "D:/code/ICE/crulh/cuckoo-code-mas...
+//
+// Несколько однотипных действий подряд схлопываются в (×N).
+// Стиль задан пользователем как эталон — не менять без его просьбы.
+
+// Время (мс), в течение которого подряд идущие уведомления того же типа
+// можно склеить в одно сообщение с пометкой (×N).
+const TECH_BATCH_MS = 1200;
+// Максимальная длина строки пути/команды (обрезаем многоточием).
+const TECH_LINE_MAX = 48;
+
+let _techBatchTimer = null;
+let _techBatch = null; // { emoji, label, detail, count }
+
+/** Обрезать длинную строку до TECH_LINE_MAX с «...» в конце. */
+function _techTrunc(s) {
+  const str = String(s == null ? "" : s);
+  if (str.length <= TECH_LINE_MAX) return str;
+  return str.slice(0, TECH_LINE_MAX - 3) + "...";
+}
+
+/**
+ * Иконка + короткая подпись действия по имени инструмента.
+ * @returns {{emoji:string, label:string}}
+ */
+function _techIcon(toolName) {
+  switch (String(toolName || "").toLowerCase()) {
+    case "edit":
+      return { emoji: "🔧", label: "Editing" };
+    case "write":
+      return { emoji: "📝", label: "Writing" };
+    case "read":
+    case "readlines":
+    case "read_lines":
+    case "readfile":
+    case "read_file":
+      return { emoji: "📖", label: "Reading" };
+    case "bash":
+      return { emoji: "💻", label: "terminal" };
+    case "pwsh":
+      return { emoji: "💻", label: "pwsh" };
+    case "grep":
+      return { emoji: "🔎", label: "Grep" };
+    case "glob":
+      return { emoji: "🔎", label: "Glob" };
+    case "todoWrite":
+    case "todowrite":
+      return { emoji: "☑", label: "Todos" };
+    case "webFetch":
+    case "webfetch":
+      return { emoji: "🌐", label: "Fetch" };
+    default:
+      return { emoji: "🔧", label: String(toolName || "tool") };
+  }
+}
+
+/**
+ * Короткая деталь действия — путь файла или текст команды.
+ * Для bash/pwsh берём первую строку команды (обычно это и есть суть).
+ */
+function _techDetail(toolName, args) {
+  if (!args || typeof args !== "object") return "";
+  const a = args;
+  const name = String(toolName || "").toLowerCase();
+  if (name === "bash" || name === "pwsh") {
+    const cmd = String(a.command || "");
+    return cmd.split("\n")[0];
+  }
+  // read/readLines/read_lines и прочие «читающие» — путь в file_path/filePath.
+  return String(a.file_path || a.filePath || a.path || a.pattern || "");
+}
+
+// Максимальная длина результата в уведомлении.
+const TECH_RESULT_MAX = 600;
+
+/** Отправить накопленное уведомление (или ничего, если пусто). */
+function _techFlush() {
+  const b = _techBatch;
+  _techBatch = null;
+  if (_techBatchTimer) {
+    clearTimeout(_techBatchTimer);
+    _techBatchTimer = null;
+  }
+  if (!b) return null;
+
+  const suffix = b.count > 1 ? " (×" + b.count + ")" : "";
+  // Заголовок: «🔧 Editing path (×N)» либо «💻 terminal (×N)» без детали.
+  const header = b.command
+    ? b.emoji + " " + b.label + suffix
+    : b.emoji + " " + b.label + " " + _techTrunc(b.detail) + suffix;
+
+  // Тело: 1) команда/путь, 2) результат — каждый блок своей цитатой.
+  let msg = header;
+  let body = "";
+  if (b.command) body = _techTrunc(b.command);
+  else if (b.detail && _techTrunc(b.detail) !== b.detail) body = b.detail;
+  if (body) msg += "\n<blockquote>" + escapeHtml(body) + "</blockquote>";
+
+  // Результат выполнения — второй цитатой (если есть и не пустой).
+  const result = String(b.preview || "").replace(/\n{3,}/g, "\n\n").trim();
+  if (result) {
+    const shown =
+      result.length > TECH_RESULT_MAX
+        ? result.slice(0, TECH_RESULT_MAX) + "\n…(обрезано)"
+        : result;
+    msg += "\n<blockquote>" + escapeHtml(shown) + "</blockquote>";
+  }
+  return telegramBot.sendMessage(msg, { parseMode: "HTML" });
+}
+
+// Служебные tool-вызовы, которые не являются «работой» и не должны попадать
+// в компактные уведомления: вопрос к пользователю, выход из режима плана и т.п.
+// Они и так приходят отдельными сообщениями («❓ Вопрос от ИИ», approval и пр.).
+const TECH_SERVICE_TOOLS = new Set([
+  "ask_user_question",
+  "askuserquestion",
+  "exit_plan_mode",
+  "exitplanmode",
+]);
+
+/**
+ * Поставить уведомление в батч: если пришло такое же действие в течение
+ * TECH_BATCH_MS — увеличиваем счётчик (×N), иначе шлём предыдущее и начинаем новое.
+ */
+function _techQueue(toolName, args, preview) {
+  const icon = _techIcon(toolName);
+  const detail = _techDetail(toolName, args);
+  const name = String(toolName || "").toLowerCase();
+  const command = name === "bash" || name === "pwsh"
+    ? String((args && args.command) || "")
+    : "";
+  const result = String(preview || "");
+
+  if (
+    _techBatch &&
+    _techBatch.emoji === icon.emoji &&
+    _techBatch.label === icon.label &&
+    _techBatch.detail === detail &&
+    _techBatch.command === command
+  ) {
+    _techBatch.count++;
+    // Результат последнего вызова в серии — показываем его.
+    if (result) _techBatch.preview = result;
+  } else {
+    const prev = _techBatch;
+    _techBatch = {
+      emoji: icon.emoji,
+      label: icon.label,
+      detail,
+      command,
+      preview: result,
+      count: 1,
+    };
+    if (prev) _techFlush();
+    if (_techBatchTimer) clearTimeout(_techBatchTimer);
+    _techBatchTimer = setTimeout(() => _techFlush(), TECH_BATCH_MS);
+    return null;
+  }
+  if (_techBatchTimer) clearTimeout(_techBatchTimer);
+  _techBatchTimer = setTimeout(() => _techFlush(), TECH_BATCH_MS);
+  return null;
+}
+
+/** Уведомление о результате tool (компактный стиль «Tech»). */
 async function notifyToolResult(toolName, ok, detail) {
   const cfg = _read();
   if (!cfg.enabled || !cfg.notifyTools)
     return { success: false, skipped: true };
-  // Умные уведомления: пропускаем инструменты из списка исключений.
-  if (
-    cfg.notifyIgnore.length > 0 &&
-    cfg.notifyIgnore.includes(String(toolName || "").toLowerCase())
-  ) {
+  // Служебные вызовы (вопрос к пользователю и т.п.) в уведомления не шлём —
+  // у них есть собственное сообщение.
+  const _toolLower = String(toolName || "").toLowerCase();
+  if (TECH_SERVICE_TOOLS.has(_toolLower)) {
     return { success: false, skipped: true };
   }
-  const emoji = ok ? "✅" : "❌";
-  const header = emoji + " " + escapeHtml(toolName);
-
-  // detail может быть строкой (ошибка) или объектом { args, preview }.
-  if (detail && typeof detail === "object") {
-    const { args, preview } = detail;
-    const argsText = formatToolArgs(toolName, args);
-    const parts = [];
-
-    if (toolName === "edit") {
-      // Красивый diff-стиль: старый код как -, новый как +.
-      const file = (args && (args.file_path || args.path)) || "";
-      const oldS =
-        args && args.old_string != null ? String(args.old_string) : "";
-      const newS =
-        args && args.new_string != null ? String(args.new_string) : "";
-      const lines = [];
-      const addLines = (prefix, s) => {
-        for (const ln of s.split("\n")) lines.push(prefix + escapeHtml(ln));
-      };
-      if (oldS) addLines("➖ ", oldS.slice(0, 1000));
-      if (newS) addLines("➕ ", newS.slice(0, 2000));
-      const body = lines.join("\n") || _t("tool.editEmpty");
-      const title = file ? " " + escapeHtml(file) : "";
-      const msg =
-        emoji +
-        " <b>edit</b>" +
-        title +
-        "\n<blockquote expandable>" +
-        body +
-        "</blockquote>";
-      return telegramBot.sendMessage(msg, { parseMode: "HTML" });
-    }
-
-    // Остальные инструменты: аргументы + результат в цитате <blockquote>.
-    const bodyParts = [];
-    if (argsText) bodyParts.push(argsText);
-    if (preview)
-      bodyParts.push(
-        _t("tool.result") +
-          String(preview)
-            .replace(/\n{3,}/g, "\n\n")
-            .slice(0, 600),
-      );
-    const bodyHtml = escapeHtml(bodyParts.join("\n"));
-    const msg =
-      header + (bodyHtml ? "\n<blockquote>" + bodyHtml + "</blockquote>" : "");
-    return telegramBot.sendMessage(msg, { parseMode: "HTML" });
+  // Умные уведомления: пропускаем инструменты из списка исключений.
+  if (cfg.notifyIgnore.length > 0 && cfg.notifyIgnore.includes(_toolLower)) {
+    return { success: false, skipped: true };
   }
 
-  // detail — строка.
-  let msg = header;
-  if (detail)
-    msg +=
-      "\n<blockquote>" +
-      escapeHtml(String(detail).slice(0, 600)) +
-      "</blockquote>";
-  return telegramBot.sendMessage(msg, { parseMode: "HTML" });
+  const args = detail && typeof detail === "object" ? detail.args : null;
+  const preview = detail && typeof detail === "object" ? detail.preview : detail;
+
+  // Ошибка — шлём сразу, отдельным сообщением, с обрезанным текстом ошибки.
+  if (!ok) {
+    const icon = _techIcon(toolName);
+    let msg = "❌ " + icon.emoji + " " + icon.label + " " + _techTrunc(_techDetail(toolName, args));
+    if (preview)
+      msg += "\n" + _techTrunc(String(preview).replace(/\n{3,}/g, "\n\n"));
+    return telegramBot.sendMessage(escapeHtml(msg), { parseMode: "HTML" });
+  }
+
+  // Успех — в батч (одинаковые подряд схлопываются в ×N).
+  _techQueue(toolName, args, preview);
+  return { success: true, batched: true };
 }
 
 /** Применить настройки: пересоздать конфиг бота и (при необходимости) запустить polling. */
