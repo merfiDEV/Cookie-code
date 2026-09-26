@@ -1403,7 +1403,14 @@ async function _cmdStatus() {
   return telegramBot.sendMessage(lines.join("\n"), { parseMode: "HTML" });
 }
 
-/** /new — новый чат (очистка контекста текущей сессии). */
+/**
+ * /new — новый чат (переход на домашнюю страницу провайдера).
+ *
+ * Важно: newChat() делает loadURL на homeUrl и тем самым ВЫГРУЖАЕТ JS-контекст
+ * окна. Поэтому executeJavaScript с ожиданием результата зависает навсегда
+ * (промис не резолвится при навигации) — раньше из-за этого бот молчал.
+ * Здесь мы вызываем newChat «выстрелил-и-забыл» и сразу отвечаем.
+ */
 async function _cmdNew() {
   const win = (() => {
     try {
@@ -1415,16 +1422,17 @@ async function _cmdNew() {
   if (!win || win.isDestroyed())
     return telegramBot.sendMessage(_t("new.noWindow"));
 
-  const res = await _evalInWindow(
-    "(async () => { try { const r = await window.electronAPI.newChat(); return r; } catch (e) { return { success: false, error: e.message }; } })()",
-  );
-  if (!res.success)
-    return telegramBot.sendMessage(_t("new.failed", { err: res.error }));
-  const inner = res.result || {};
-  if (inner.success === false)
-    return telegramBot.sendMessage(
-      _t("new.failed", { err: inner.error || _t("common.error") }),
-    );
+  // Fire-and-forget: не await-им executeJavaScript, т.к. loadURL внутри
+  // newChat() выгружает контекст и промис не вернётся.
+  try {
+    win.webContents.executeJavaScript(
+      "try { window.electronAPI.newChat(); } catch (e) {} true",
+      true,
+    ).catch(() => {});
+  } catch (_) {}
+
+  // Небольшая пауза, чтобы окно успело начать навигацию, и сразу отвечаем.
+  await new Promise((r) => setTimeout(r, 300));
   return telegramBot.sendMessage(_t("new.done"));
 }
 
