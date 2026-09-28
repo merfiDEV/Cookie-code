@@ -1425,10 +1425,12 @@ async function _cmdNew() {
   // Fire-and-forget: не await-им executeJavaScript, т.к. loadURL внутри
   // newChat() выгружает контекст и промис не вернётся.
   try {
-    win.webContents.executeJavaScript(
-      "try { window.electronAPI.newChat(); } catch (e) {} true",
-      true,
-    ).catch(() => {});
+    win.webContents
+      .executeJavaScript(
+        "try { window.electronAPI.newChat(); } catch (e) {} true",
+        true,
+      )
+      .catch(() => {});
   } catch (_) {}
 
   // Небольшая пауза, чтобы окно успело начать навигацию, и сразу отвечаем.
@@ -1632,7 +1634,10 @@ function _projectView(page) {
   slice.forEach((dir, i) => {
     const base = dir.split(/[\\/]/).filter(Boolean).pop() || dir;
     rows.push([
-      { text: "📁 " + base, callback_data: "st_proj_p" + cur + "_" + (offset + i) },
+      {
+        text: "📁 " + base,
+        callback_data: "st_proj_p" + cur + "_" + (offset + i),
+      },
     ]);
   });
 
@@ -1640,10 +1645,16 @@ function _projectView(page) {
   if (pages > 1) {
     const nav = [];
     if (cur > 1)
-      nav.push({ text: _t("page.prev"), callback_data: "st_proj_pg_" + (cur - 1) });
+      nav.push({
+        text: _t("page.prev"),
+        callback_data: "st_proj_pg_" + (cur - 1),
+      });
     nav.push({ text: cur + "/" + pages, callback_data: "st_proj_noop" });
     if (cur < pages)
-      nav.push({ text: _t("page.next"), callback_data: "st_proj_pg_" + (cur + 1) });
+      nav.push({
+        text: _t("page.next"),
+        callback_data: "st_proj_pg_" + (cur + 1),
+      });
     rows.push(nav);
   }
 
@@ -1761,9 +1772,12 @@ async function _cmdSessions(chatId, page, editMessageId) {
   const projectDir = _projectDir();
   // Проект не выбран: подсказываем, как выбрать его кнопками.
   if (!projectDir)
-    return reply(escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"), {
-      replyMarkup: _projectKeyboard(),
-    });
+    return reply(
+      escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"),
+      {
+        replyMarkup: _projectKeyboard(),
+      },
+    );
   let sessions = [];
   try {
     const ctx = _activeContext();
@@ -1866,9 +1880,12 @@ async function _cmdLog(chatId, page, editMessageId) {
   const projectDir = _projectDir();
   // Проект не выбран: подсказываем выбрать кнопками.
   if (!projectDir)
-    return reply(escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"), {
-      replyMarkup: _projectKeyboard(),
-    });
+    return reply(
+      escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"),
+      {
+        replyMarkup: _projectKeyboard(),
+      },
+    );
   const gitDiff = require("../src/main/git-diff");
   const r = await gitDiff.getLog(projectDir, 100);
   if (!r.success)
@@ -2398,7 +2415,9 @@ async function _handleIncoming(chatId, text, msg) {
   // ---- Ожидание ручного ввода пути к проекту ----
   if (_projectWaiting.has(chatId)) {
     _projectWaiting.delete(chatId);
-    const dir = String(raw || "").trim().replace(/^["']|["']$/g, "");
+    const dir = String(raw || "")
+      .trim()
+      .replace(/^["']|["']$/g, "");
     if (!dir) {
       await telegramBot.sendMessage(_t("project.cancelled"));
       return;
@@ -2604,6 +2623,28 @@ function _techDetail(toolName, args) {
 // Максимальная длина результата в уведомлении.
 const TECH_RESULT_MAX = 600;
 
+/**
+ * Убрать служебную XML-обёртку результата инструмента (<path>/<type>/<content>),
+ * которую возвращают WriteTool/ReadTool. В Telegram она выглядит как мусорный
+ * псевдо-XML; нам нужен только полезный текст (verb «Created file» или контент).
+ */
+function _stripResultWrapper(preview) {
+  let s = String(preview == null ? "" : preview).trim();
+  if (!s) return "";
+  // Формат: <path>..</path>\n<type>file</type>\n<content>\n..\n</content>
+  const contentMatch = s.match(/<content>([\s\S]*?)<\/content>/i);
+  if (contentMatch) {
+    s = contentMatch[1].trim();
+  } else {
+    // Нет <content>, но есть <path>/<type> — вырезаем их построчно.
+    s = s
+      .replace(/<path>[\s\S]*?<\/path>/gi, "")
+      .replace(/<type>[\s\S]*?<\/type>/gi, "")
+      .trim();
+  }
+  return s;
+}
+
 /** Отправить накопленное уведомление (или ничего, если пусто). */
 function _techFlush() {
   const b = _techBatch;
@@ -2625,16 +2666,27 @@ function _techFlush() {
   let body = "";
   if (b.command) body = _techTrunc(b.command);
   else if (b.detail && _techTrunc(b.detail) !== b.detail) body = b.detail;
-  if (body) msg += "\n<blockquote>" + escapeHtml(body) + "</blockquote>";
+  if (body)
+    msg += "\n<blockquote expandable>" + escapeHtml(body) + "</blockquote>";
 
-  // Результат выполнения — второй цитатой (если есть и не пустой).
-  const result = String(b.preview || "").replace(/\n{3,}/g, "\n\n").trim();
+  // Результат выполнения — второй, сворачиваемой цитатой (если есть и не пустой).
+  // Предварительно убираем служебную XML-обёртку Write/Read (<path>/<type>/<content>).
+  let result = _stripResultWrapper(b.preview)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  // write/read возвращают в результате только verb («Created file»/«Updated file»)
+  // или усечённый текст. Если тело файла есть в аргументах вызова — показываем
+  // фрагмент содержимого вместо служебного verb.
+  if (/^(Created|Updated) file$/.test(result)) {
+    const content = String((b.args && b.args.content) || "");
+    if (content) result = content;
+  }
   if (result) {
     const shown =
       result.length > TECH_RESULT_MAX
         ? result.slice(0, TECH_RESULT_MAX) + "\n…(обрезано)"
         : result;
-    msg += "\n<blockquote>" + escapeHtml(shown) + "</blockquote>";
+    msg += "\n<blockquote expandable>" + escapeHtml(shown) + "</blockquote>";
   }
   return telegramBot.sendMessage(msg, { parseMode: "HTML" });
 }
@@ -2657,9 +2709,10 @@ function _techQueue(toolName, args, preview) {
   const icon = _techIcon(toolName);
   const detail = _techDetail(toolName, args);
   const name = String(toolName || "").toLowerCase();
-  const command = name === "bash" || name === "pwsh"
-    ? String((args && args.command) || "")
-    : "";
+  const command =
+    name === "bash" || name === "pwsh"
+      ? String((args && args.command) || "")
+      : "";
   const result = String(preview || "");
 
   if (
@@ -2680,6 +2733,7 @@ function _techQueue(toolName, args, preview) {
       detail,
       command,
       preview: result,
+      args,
       count: 1,
     };
     if (prev) _techFlush();
@@ -2709,12 +2763,19 @@ async function notifyToolResult(toolName, ok, detail) {
   }
 
   const args = detail && typeof detail === "object" ? detail.args : null;
-  const preview = detail && typeof detail === "object" ? detail.preview : detail;
+  const preview =
+    detail && typeof detail === "object" ? detail.preview : detail;
 
   // Ошибка — шлём сразу, отдельным сообщением, с обрезанным текстом ошибки.
   if (!ok) {
     const icon = _techIcon(toolName);
-    let msg = "❌ " + icon.emoji + " " + icon.label + " " + _techTrunc(_techDetail(toolName, args));
+    let msg =
+      "❌ " +
+      icon.emoji +
+      " " +
+      icon.label +
+      " " +
+      _techTrunc(_techDetail(toolName, args));
     if (preview)
       msg += "\n" + _techTrunc(String(preview).replace(/\n{3,}/g, "\n\n"));
     return telegramBot.sendMessage(escapeHtml(msg), { parseMode: "HTML" });
