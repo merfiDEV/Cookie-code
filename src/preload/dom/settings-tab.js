@@ -694,6 +694,73 @@ function buildContentHTML() {
     t("tg.btn.test") +
     "</button>" +
     "  </div>" +
+    // ===== Распознавание голоса (Whisper) =====
+    '  <div class="cuckoo-section-title" style="margin-top:14px;">' +
+    t("tg.voice.title") +
+    "</div>" +
+    '  <div class="ck-row-hint" style="margin-bottom:8px;">' +
+    t("tg.voice.hint") +
+    "</div>" +
+    '  <label class="cuckoo-checkbox-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;padding:4px 0;"><span style="font-size:13px;color:#cfd3ff;">' +
+    t("tg.voice.enabled") +
+    '</span><input type="checkbox" id="cuckoo-tg-voice-enabled"></label>' +
+    '  <div class="cuckoo-blur-row">' +
+    '    <div class="cuckoo-blur-label"><span>' +
+    t("tg.voice.model") +
+    "</span></div>" +
+    '    <select id="cuckoo-tg-voice-model" class="ck-input">' +
+    '      <option value="light">' +
+    t("tg.voice.model.light") +
+    "</option>" +
+    '      <option value="medium">' +
+    t("tg.voice.model.medium") +
+    "</option>" +
+    '      <option value="heavy">' +
+    t("tg.voice.model.heavy") +
+    "</option>" +
+    "    </select>" +
+    "  </div>" +
+    '  <div class="cuckoo-blur-row">' +
+    '    <div class="cuckoo-blur-label"><span>' +
+    t("tg.voice.lang") +
+    "</span></div>" +
+    '    <select id="cuckoo-tg-voice-lang" class="ck-input">' +
+    '      <option value="auto">' +
+    t("tg.voice.lang.auto") +
+    "</option>" +
+    '      <option value="ru">Русский</option>' +
+    '      <option value="en">English</option>' +
+    '      <option value="uk">Українська</option>' +
+    '      <option value="de">Deutsch</option>' +
+    '      <option value="fr">Français</option>' +
+    '      <option value="es">Español</option>' +
+    '      <option value="zh">中文</option>' +
+    "    </select>" +
+    "  </div>" +
+    '  <div class="cuckoo-blur-row">' +
+    '    <div class="cuckoo-blur-label"><span>' +
+    t("tg.voice.exePath") +
+    "</span></div>" +
+    '    <input type="text" id="cuckoo-tg-voice-exe" class="ck-input" placeholder="C:\\whisper\\whisper-cli.exe" />' +
+    "  </div>" +
+    '  <div class="cuckoo-blur-row">' +
+    '    <div class="cuckoo-blur-label"><span>' +
+    t("tg.voice.ffmpegPath") +
+    "</span></div>" +
+    '    <input type="text" id="cuckoo-tg-voice-ffmpeg" class="ck-input" placeholder="C:\\ffmpeg\\bin\\ffmpeg.exe" />' +
+    "  </div>" +
+    '  <div class="ck-row-hint" id="cuckoo-tg-voice-status" style="margin-top:6px;"></div>' +
+    '  <div class="ck-btn-row" style="margin-top:8px;">' +
+    '    <button id="cuckoo-tg-voice-dl-exe" class="ck-btn">' +
+    t("tg.voice.dlExe") +
+    "</button>" +
+    '    <button id="cuckoo-tg-voice-dl-model" class="ck-btn">' +
+    t("tg.voice.dlModel") +
+    "</button>" +
+    '    <button id="cuckoo-tg-voice-remove" class="ck-btn ck-btn-danger">' +
+    t("tg.voice.remove") +
+    "</button>" +
+    "  </div>" +
     "</div>" +
     // ===== Статистика использования =====
     '<div data-cat="system">' +
@@ -2208,6 +2275,19 @@ async function refreshTelegramSettings() {
     if (enabledEl) enabledEl.checked = !!s.telegramEnabled;
     if (notifyEl) notifyEl.checked = !!s.telegramNotifyTools;
     if (feedEl) feedEl.checked = !!s.telegramChatFeed;
+
+    // ===== Whisper (голосовые) =====
+    const voiceEnabledEl = document.getElementById("cuckoo-tg-voice-enabled");
+    const voiceModelEl = document.getElementById("cuckoo-tg-voice-model");
+    const voiceLangEl = document.getElementById("cuckoo-tg-voice-lang");
+    const voiceExeEl = document.getElementById("cuckoo-tg-voice-exe");
+    const voiceFfmpegEl = document.getElementById("cuckoo-tg-voice-ffmpeg");
+    if (voiceEnabledEl) voiceEnabledEl.checked = !!s.telegramVoiceEnabled;
+    if (voiceModelEl) voiceModelEl.value = s.telegramVoiceModel || "light";
+    if (voiceLangEl) voiceLangEl.value = s.telegramWhisperLang || "auto";
+    if (voiceExeEl) voiceExeEl.value = s.telegramWhisperExePath || "";
+    if (voiceFfmpegEl) voiceFfmpegEl.value = s.telegramWhisperFfmpegPath || "";
+    refreshWhisperStatus();
   } catch (err) {
     console.error(
       "[Cookie Code] Не удалось загрузить настройки Telegram:",
@@ -2234,6 +2314,16 @@ function bindTelegramSettings() {
     enabled: !!(document.getElementById("cuckoo-tg-enabled") || {}).checked,
     notify: !!(document.getElementById("cuckoo-tg-notify") || {}).checked,
     feed: !!(document.getElementById("cuckoo-tg-feed") || {}).checked,
+    voiceEnabled: !!(document.getElementById("cuckoo-tg-voice-enabled") || {})
+      .checked,
+    voiceModel:
+      (document.getElementById("cuckoo-tg-voice-model") || {}).value || "light",
+    voiceLang:
+      (document.getElementById("cuckoo-tg-voice-lang") || {}).value || "auto",
+    voiceExe:
+      (document.getElementById("cuckoo-tg-voice-exe") || {}).value || "",
+    voiceFfmpeg:
+      (document.getElementById("cuckoo-tg-voice-ffmpeg") || {}).value || "",
   });
 
   const save = async () => {
@@ -2264,6 +2354,26 @@ function bindTelegramSettings() {
         v.notify,
       );
       await window.electronAPI.setCuckooSetting("telegramChatFeed", v.feed);
+      await window.electronAPI.setCuckooSetting(
+        "telegramVoiceEnabled",
+        v.voiceEnabled,
+      );
+      await window.electronAPI.setCuckooSetting(
+        "telegramVoiceModel",
+        v.voiceModel,
+      );
+      await window.electronAPI.setCuckooSetting(
+        "telegramWhisperLang",
+        v.voiceLang,
+      );
+      await window.electronAPI.setCuckooSetting(
+        "telegramWhisperExePath",
+        v.voiceExe.trim(),
+      );
+      await window.electronAPI.setCuckooSetting(
+        "telegramWhisperFfmpegPath",
+        v.voiceFfmpeg.trim(),
+      );
       const res = await window.electronAPI.telegramApply();
       return res && res.success;
     } catch (err) {
@@ -2311,6 +2421,105 @@ function bindTelegramSettings() {
       testBtn.textContent = t("tg.btn.test");
     }, 2500);
   });
+
+  // ===== Whisper: скачивание exe/модели =====
+  const dlExeBtn = document.getElementById("cuckoo-tg-voice-dl-exe");
+  const dlModelBtn = document.getElementById("cuckoo-tg-voice-dl-model");
+
+  dlExeBtn?.addEventListener("click", async () => {
+    await save();
+    dlExeBtn.disabled = true;
+    dlExeBtn.textContent = "...";
+    const res = await window.electronAPI.telegramWhisperDownload("exe");
+    dlExeBtn.disabled = false;
+    dlExeBtn.textContent =
+      res && res.success
+        ? "✅ " + t("tg.voice.dlExe")
+        : "❌ " + ((res && res.error) || "error");
+    await refreshWhisperStatus();
+    setTimeout(() => {
+      dlExeBtn.textContent = t("tg.voice.dlExe");
+    }, 2500);
+  });
+
+  dlModelBtn?.addEventListener("click", async () => {
+    await save();
+    const model =
+      (document.getElementById("cuckoo-tg-voice-model") || {}).value || "light";
+    dlModelBtn.disabled = true;
+    dlModelBtn.textContent = "...";
+    const res = await window.electronAPI.telegramWhisperDownload(
+      "model",
+      model,
+    );
+    dlModelBtn.disabled = false;
+    dlModelBtn.textContent =
+      res && res.success
+        ? "✅ " + t("tg.voice.dlModel")
+        : "❌ " + ((res && res.error) || "error");
+    await refreshWhisperStatus();
+    setTimeout(() => {
+      dlModelBtn.textContent = t("tg.voice.dlModel");
+    }, 2500);
+  });
+
+  const removeBtn = document.getElementById("cuckoo-tg-voice-remove");
+  removeBtn?.addEventListener("click", async () => {
+    const ok = window.confirm(t("tg.voice.removeConfirm"));
+    if (!ok) return;
+    removeBtn.disabled = true;
+    removeBtn.textContent = "...";
+    // Удаляем и бинарник, и все модели (полный сброс Whisper).
+    const res = await window.electronAPI.telegramWhisperRemove("all");
+    removeBtn.disabled = false;
+    removeBtn.textContent =
+      res && res.success
+        ? "✅ " + t("tg.voice.remove")
+        : "❌ " + ((res && res.error) || "error");
+    await refreshWhisperStatus();
+    setTimeout(() => {
+      removeBtn.textContent = t("tg.voice.remove");
+    }, 2500);
+  });
+}
+
+/**
+ * Обновить строку статуса Whisper (exe/модель/ffmpeg) под настройками.
+ */
+async function refreshWhisperStatus() {
+  const el = document.getElementById("cuckoo-tg-voice-status");
+  if (!el) return;
+  try {
+    const exePath = (document.getElementById("cuckoo-tg-voice-exe") || {})
+      .value;
+    const ffmpegPath = (document.getElementById("cuckoo-tg-voice-ffmpeg") || {})
+      .value;
+    const model =
+      (document.getElementById("cuckoo-tg-voice-model") || {}).value || "light";
+    const res = await window.electronAPI.telegramWhisperStatus({
+      exe: exePath,
+      ffmpeg: ffmpegPath,
+    });
+    if (!res || !res.success) {
+      el.textContent = "❌ " + ((res && res.error) || "error");
+      return;
+    }
+    const st = res.status || {};
+    const m = (st.models && st.models[model]) || {};
+    const parts = [
+      (st.exeInstalled ? "✅" : "❌") + " " + t("tg.voice.stExe"),
+      (m.installed ? "✅" : "❌") +
+        " " +
+        t("tg.voice.stModel") +
+        " (" +
+        model +
+        (m.size ? ", " + Math.round(m.size / 1048576) + " MB" : "") +
+        ")",
+    ];
+    el.textContent = parts.join("   ");
+  } catch (err) {
+    el.textContent = "❌ " + err.message;
+  }
 }
 
 function bindResetButton() {

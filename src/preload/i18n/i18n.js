@@ -79,6 +79,75 @@ const KEYS = {
   "tg.btn.test": { ru: "Тестовое сообщение", en: "Test message" },
   "tg.status.off": { ru: "Выключен", en: "Disabled" },
   "tg.status.on": { ru: "Работает", en: "Running" },
+  // ===== Распознавание голоса (Whisper) =====
+  "tg.voice.title": {
+    ru: "🎤 Распознавание голоса (Whisper)",
+    en: "🎤 Voice recognition (Whisper)",
+  },
+  "tg.voice.hint": {
+    ru: "Голосовые из Telegram распознаются локально и вставляются в поле ввода чата.",
+    en: "Telegram voice messages are transcribed locally and inserted into the chat input.",
+  },
+  "tg.voice.enabled": {
+    ru: "Включить распознавание голосовых",
+    en: "Enable voice recognition",
+  },
+  "tg.voice.model": {
+    ru: "Размер модели",
+    en: "Model size",
+  },
+  "tg.voice.model.light": {
+    ru: "Лёгкая (base, ~148 МБ)",
+    en: "Light (base, ~148 MB)",
+  },
+  "tg.voice.model.medium": {
+    ru: "Средняя (small, ~488 МБ)",
+    en: "Medium (small, ~488 MB)",
+  },
+  "tg.voice.model.heavy": {
+    ru: "Тяжёлая (medium, ~1.5 ГБ)",
+    en: "Heavy (medium, ~1.5 GB)",
+  },
+  "tg.voice.lang": {
+    ru: "Язык распознавания",
+    en: "Recognition language",
+  },
+  "tg.voice.lang.auto": {
+    ru: "Авто-определение",
+    en: "Auto-detect",
+  },
+  "tg.voice.exePath": {
+    ru: "Путь к whisper-cli.exe (пусто — авто)",
+    en: "whisper-cli.exe path (empty — auto)",
+  },
+  "tg.voice.ffmpegPath": {
+    ru: "Путь к ffmpeg (пусто — из PATH)",
+    en: "ffmpeg path (empty — from PATH)",
+  },
+  "tg.voice.dlExe": {
+    ru: "Скачать whisper-cli",
+    en: "Download whisper-cli",
+  },
+  "tg.voice.dlModel": {
+    ru: "Скачать модель",
+    en: "Download model",
+  },
+  "tg.voice.remove": {
+    ru: "Удалить Whisper",
+    en: "Remove Whisper",
+  },
+  "tg.voice.removeConfirm": {
+    ru: "Удалить whisper-cli и все скачанные модели? Это освободит место на диске.",
+    en: "Delete whisper-cli and all downloaded models? This frees up disk space.",
+  },
+  "tg.voice.stExe": {
+    ru: "whisper-cli",
+    en: "whisper-cli",
+  },
+  "tg.voice.stModel": {
+    ru: "модель",
+    en: "model",
+  },
   "overlay.btn.genDoc": { ru: "Создать описание", en: "Generate docs" },
   "overlay.btn.genDoc.title": {
     ru: "Попросить AI сгенерировать описание проекта (CUCKOO.md)",

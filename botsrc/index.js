@@ -56,6 +56,11 @@ function _read() {
       : [],
     allowedUserId: String(s.telegramAllowedUserId || "").trim(),
     chatFeed: !!s.telegramChatFeed,
+    voiceEnabled: !!s.telegramVoiceEnabled,
+    voiceModel: s.telegramVoiceModel || "light",
+    whisperLang: s.telegramWhisperLang || "auto",
+    whisperExePath: String(s.telegramWhisperExePath || "").trim(),
+    whisperFfmpegPath: String(s.telegramWhisperFfmpegPath || "").trim(),
     approvalMode: s.toolApprovalMode || "off",
     lang: i18n.normalizeLang(s.telegramLanguage),
   };
@@ -2016,6 +2021,7 @@ async function _cmdHelp() {
     _t("help.features"),
     _t("help.feat.notify"),
     _t("help.feat.feed"),
+    _t("help.feat.voice"),
     _t("help.feat.approval"),
     _t("help.feat.questions"),
     "",
@@ -2297,6 +2303,87 @@ async function _handleAttachment(chatId, msg) {
   } catch (_) {}
 }
 
+/** Скачать голосовое из TG, распознать локальным Whisper → в чат. */
+async function _handleVoice(chatId, msg) {
+  const cfg = _read();
+  const fs = require("fs");
+  const path = require("path");
+  const whisper = require("./whisper");
+
+  if (!cfg.voiceEnabled) {
+    await telegramBot.sendMessage(_t("voice.disabled"));
+    return;
+  }
+
+  const v = msg.voice || msg.audio || {};
+  const fileId = v.file_id;
+  if (!fileId) {
+    await telegramBot.sendMessage(_t("voice.failed", { err: "no file_id" }));
+    return;
+  }
+
+  await telegramBot.sendMessage(_t("voice.downloading"));
+  const name = "voice_" + Date.now() + ".oga";
+  const dest = path.join(_tgTempDir(), name);
+  const dl = await telegramBot.downloadFile(fileId, dest);
+  if (!dl.success) {
+    await telegramBot.sendMessage(
+      _t("voice.failed", { err: escapeHtml(dl.error) }),
+    );
+    return;
+  }
+
+  await telegramBot.sendChatAction("typing");
+  await telegramBot.sendMessage(_t("voice.recognizing"));
+
+  let res;
+  try {
+    res = await whisper.transcribe(dest, {
+      model: cfg.voiceModel,
+      lang: cfg.whisperLang,
+      exe: cfg.whisperExePath,
+      ffmpeg: cfg.whisperFfmpegPath,
+    });
+  } catch (err) {
+    res = { success: false, error: err.message };
+  } finally {
+    try {
+      fs.unlinkSync(dest);
+    } catch (_) {}
+  }
+
+  if (!res.success) {
+    // Понятные подсказки для типовых ошибок.
+    let hint = res.error;
+    if (res.error === "needExe") hint = _t("voice.needExe");
+    else if (res.error === "needModel") hint = _t("voice.needModel");
+    else if (res.error === "needFfmpeg") hint = _t("voice.needFfmpeg");
+    await telegramBot.sendMessage(_t("voice.failed", { err: hint }));
+    return;
+  }
+
+  const text = String(res.text || "").trim();
+  if (!text) {
+    await telegramBot.sendMessage(_t("voice.empty"));
+    return;
+  }
+
+  await telegramBot.sendMessage(_t("voice.done", { text: escapeHtml(text) }), {
+    parseMode: "HTML",
+  });
+
+  if (!cfg.chatFeed) {
+    _log("info", "voice: chatFeed выключен, текст не отправлен в чат");
+    return;
+  }
+  // Пометка о возможных неточностях распознавания (перед текстом).
+  const chatText = _t("voice.disclaimer") + "\n" + text;
+  const sent = await _sendToChat(chatText);
+  if (!sent.success) {
+    await telegramBot.sendMessage("⚠ " + (sent.error || "unknown"));
+  }
+}
+
 /** Входящее из TG → в чат DeepSeek (или команда). */
 async function _handleIncoming(chatId, text, msg) {
   const cfg = _read();
@@ -2309,6 +2396,12 @@ async function _handleIncoming(chatId, text, msg) {
     .replace(/@[a-z0-9_]+$/, "");
   // Аргументы команды (всё после первого слова).
   const cmdArgs = trimmed.split(/\s+/).slice(1).join(" ").trim();
+
+  // ---- Голосовые/аудио → локальный Whisper ----
+  if (msg && (msg.voice || msg.audio)) {
+    await _handleVoice(chatId, msg);
+    return;
+  }
 
   // ---- Вложения (фото/документы) ----
   // Подпись (caption) обрабатывается внутри _handleAttachment, поэтому

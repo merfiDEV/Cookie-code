@@ -63,6 +63,12 @@ const DEFAULTS = {
   // и в компактных уведомлениях оно показывается как «📖 Reading <path>».
   telegramToolNotifyIgnore: ["glob", "grep", "todoWrite"],
   telegramChatFeed: false, // принимать сообщения из TG в чат DeepSeek
+  // ===== Распознавание голосовых (локальный Whisper, botsrc/whisper.js) =====
+  telegramVoiceEnabled: false, // распознавать голосовые из TG локальным Whisper
+  telegramVoiceModel: "light", // размер модели: 'light' | 'medium' | 'heavy'
+  telegramWhisperLang: "auto", // язык для whisper (-l): 'auto' | 'ru' | 'en' | ...
+  telegramWhisperExePath: "", // путь к whisper-cli.exe (пусто — авто, <userData>/whisper/bin)
+  telegramWhisperFfmpegPath: "", // путь к ffmpeg (пусто — искать в PATH)
   // ===== Подтверждение tool-вызовов (approval gate) =====
   // 'off'    — выполнять всё автоматически (прежнее поведение)
   // 'risky'  — спрашивать подтверждение только для рискованных инструментов

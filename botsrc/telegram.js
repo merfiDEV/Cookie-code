@@ -437,7 +437,13 @@ class TelegramBot {
               continue;
             }
           }
-          const hasContent = !!(msg.text || msg.photo || msg.document);
+          const hasContent = !!(
+            msg.text ||
+            msg.photo ||
+            msg.document ||
+            msg.voice ||
+            msg.audio
+          );
           if (!hasContent) continue;
           if (this.onMessage) {
             try {

@@ -401,32 +401,32 @@ function registerIpcHandlers() {
   });
 
   // 初始化项目
-    ipcMain.handle("init-project", async (event, { skipPrompt = false } = {}) => {
-      const ctx = windowState.getContextByWebContents(event.sender);
-      return initProject(skipPrompt, ctx);
-    });
+  ipcMain.handle("init-project", async (event, { skipPrompt = false } = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    return initProject(skipPrompt, ctx);
+  });
 
-    // Установить проект по уже известному пути (без диалога выбора папки).
-    // Используется Telegram-ботом при выборе проекта кнопкой.
-    ipcMain.handle("set-project-dir", async (event, { dir } = {}) => {
-          const ctx = windowState.getContextByWebContents(event.sender);
-          const { setProjectByDir } = require("./project-context");
-          return await setProjectByDir(dir, ctx);
-        });
+  // Установить проект по уже известному пути (без диалога выбора папки).
+  // Используется Telegram-ботом при выборе проекта кнопкой.
+  ipcMain.handle("set-project-dir", async (event, { dir } = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const { setProjectByDir } = require("./project-context");
+    return await setProjectByDir(dir, ctx);
+  });
 
-    // 列出会话
-    ipcMain.handle("list-sessions", async (event) => {
-      const ctx = windowState.getContextByWebContents(event.sender);
-      const store = ctx ? ctx.sessionStore : null;
-      if (!store || !store.state.selectedProjectDir) {
-        return { success: true, sessions: [] };
-      }
-      const all = store.readSessionStore();
-      const sessions = Object.keys(all).filter(
-        (id) => all[id] === store.state.selectedProjectDir,
-      );
-      return { success: true, sessions };
-    });
+  // 列出会话
+  ipcMain.handle("list-sessions", async (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const store = ctx ? ctx.sessionStore : null;
+    if (!store || !store.state.selectedProjectDir) {
+      return { success: true, sessions: [] };
+    }
+    const all = store.readSessionStore();
+    const sessions = Object.keys(all).filter(
+      (id) => all[id] === store.state.selectedProjectDir,
+    );
+    return { success: true, sessions };
+  });
 
   // 列出项目文件（用于 @ 文件提及自动补全）
   // 返回 { success, files: [{ rel, abs }] }，rel 为相对 projectDir 的路径，abs 为绝对路径。
@@ -1072,6 +1072,63 @@ function registerIpcHandlers() {
       return { success: false, error: err.message };
     }
   });
+
+  // ===== Локальный Whisper (распознавание голосовых) =====
+  ipcMain.handle("telegram-whisper-status", async (_event, opts = {}) => {
+    try {
+      const whisper = require("../../botsrc/whisper");
+      return { success: true, status: whisper.getStatus(opts || {}) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle(
+    "telegram-whisper-download",
+    async (_event, { target, model, onProgress } = {}) => {
+      try {
+        const whisper = require("../../botsrc/whisper");
+        const report = (p) => {
+          try {
+            if (_event.sender && !_event.sender.isDestroyed()) {
+              _event.sender.send("telegram-whisper-progress", {
+                target,
+                model,
+                ...p,
+              });
+            }
+          } catch (_) {}
+        };
+        if (target === "model") {
+          const res = await whisper.downloadModel(model || "light", report);
+          return { success: true, result: res };
+        }
+        const res = await whisper.downloadBinary(report);
+        return { success: true, result: res };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "telegram-whisper-remove",
+    async (_event, { target, model } = {}) => {
+      try {
+        const whisper = require("../../botsrc/whisper");
+        if (target === "all")
+          return { success: true, result: whisper.removeAll() };
+        if (target === "model")
+          return {
+            success: true,
+            result: whisper.removeModel(model || "light"),
+          };
+        return { success: true, result: whisper.removeBinary() };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+  );
 
   ipcMain.handle(
     "telegram-approval-request",
