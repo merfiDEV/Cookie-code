@@ -20,18 +20,18 @@ let electronAPI = {
     return ipcRenderer.invoke("get-file-icons");
   },
   updateProjectDir: () => {
-      return ipcRenderer.invoke("init-project", { skipPrompt: true });
-    },
-    // Установить проект по известному пути (без диалога). Используется TG-ботом.
-    setProjectDir: (dir) => {
-      return ipcRenderer.invoke("set-project-dir", { dir });
-    },
-    executeTool: (toolName, params, callId) => {
-      return ipcRenderer.invoke("execute-tool", { toolName, params, callId });
-    },
-    executeJs: (code, callId) => {
-      return ipcRenderer.invoke("execute-js", { code, callId });
-    },
+    return ipcRenderer.invoke("init-project", { skipPrompt: true });
+  },
+  // Установить проект по известному пути (без диалога). Используется TG-ботом.
+  setProjectDir: (dir) => {
+    return ipcRenderer.invoke("set-project-dir", { dir });
+  },
+  executeTool: (toolName, params, callId) => {
+    return ipcRenderer.invoke("execute-tool", { toolName, params, callId });
+  },
+  executeJs: (code, callId) => {
+    return ipcRenderer.invoke("execute-js", { code, callId });
+  },
   setPlanMode: (enabled) => {
     return ipcRenderer.invoke("set-plan-mode", { enabled });
   },
@@ -50,6 +50,18 @@ let electronAPI = {
     ipcRenderer.invoke("telegram-notify-ai", { text }),
   telegramTypingStart: () => ipcRenderer.invoke("telegram-typing-start"),
   telegramTypingStop: () => ipcRenderer.invoke("telegram-typing-stop"),
+  telegramWhisperStatus: (opts) =>
+    ipcRenderer.invoke("telegram-whisper-status", opts || {}),
+  telegramWhisperDownload: (target, model) =>
+    ipcRenderer.invoke("telegram-whisper-download", { target, model }),
+  telegramWhisperRemove: (target, model) =>
+    ipcRenderer.invoke("telegram-whisper-remove", { target, model }),
+  onTelegramWhisperProgress: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on("telegram-whisper-progress", listener);
+    return () =>
+      ipcRenderer.removeListener("telegram-whisper-progress", listener);
+  },
   telegramApprovalRequest: (requestId, info) =>
     ipcRenderer.invoke("telegram-approval-request", { requestId, info }),
   telegramApprovalCancel: (requestId) =>

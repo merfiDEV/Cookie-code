@@ -49,6 +49,7 @@ const STRINGS = {
     "help.features": "<b>Возможности</b>",
     "help.feat.notify": "• Уведомления о вызовах инструментов",
     "help.feat.feed": "• Приём входящих сообщений в чат DeepSeek",
+    "help.feat.voice": "• Распознавание голосовых (локальный Whisper)",
     "help.feat.approval":
       "• Подтверждение команд — кнопки «Разрешить / Отклонить»",
     "help.feat.questions": "• Вопросы от AI с вариантами ответа",
@@ -178,7 +179,8 @@ const STRINGS = {
     "project.current": "📁 Текущий проект: <code>{dir}</code>",
     "project.none": "📁 Проект пока не выбран.",
     "project.manual": "⌨️ Ввести путь вручную",
-    "project.manualHint": "⌨️ Отправь абсолютный путь к папке проекта следующим сообщением.",
+    "project.manualHint":
+      "⌨️ Отправь абсолютный путь к папке проекта следующим сообщением.",
     "project.cancelled": "Отменено.",
 
     // ===== /sessions и /switch =====
@@ -214,6 +216,22 @@ const STRINGS = {
     "attach.downloading": "⏳ Скачиваю вложение…",
     "attach.tooBig": "⚠️ Файл слишком большой (макс. {max}MB).",
     "attach.unsupported": "⚠️ Пока поддерживаются только фото и документы.",
+
+    // ===== Голосовые сообщения (Whisper) =====
+    "voice.disabled": "🎤 Распознавание голоса выключено в настройках.",
+    "voice.downloading": "⏳ Скачиваю голосовое…",
+    "voice.recognizing": "🎧 Распознаю речь…",
+    "voice.done": "📝 <b>Распознано:</b>\n<blockquote>{text}</blockquote>",
+    "voice.disclaimer":
+      "**[Распознано локальным Whisper — в тексте возможны неточности.]**",
+    "voice.empty": "🤷 Речь не распознана (тишина или неразборчиво).",
+    "voice.failed": "⚠️ Ошибка распознавания: {err}",
+    "voice.needExe":
+      "⚠️ whisper-cli.exe не установлен. Скачайте его в настройках Cookie Code (вкладка Telegram).",
+    "voice.needModel":
+      "⚠️ Модель Whisper не скачана. Выберите размер и скачайте модель в настройках Cookie Code.",
+    "voice.needFfmpeg":
+      "⚠️ ffmpeg не найден. Установите ffmpeg или укажите путь в настройках Cookie Code.",
 
     // ===== Пагинация =====
     "page.prev": "◀️ Назад",
@@ -307,6 +325,7 @@ const STRINGS = {
     "help.features": "<b>Features</b>",
     "help.feat.notify": "• Notifications about tool calls",
     "help.feat.feed": "• Receive incoming messages into DeepSeek chat",
+    "help.feat.voice": "• Voice message transcription (local Whisper)",
     "help.feat.approval": "• Command approval — “Allow / Deny” buttons",
     "help.feat.questions": "• AI questions with answer options",
     "help.sync": "Settings are synced with the desktop app.",
@@ -437,7 +456,8 @@ const STRINGS = {
     "project.current": "📁 Current project: <code>{dir}</code>",
     "project.none": "📁 No project selected yet.",
     "project.manual": "⌨️ Enter path manually",
-    "project.manualHint": "⌨️ Send the absolute path to the project folder as your next message.",
+    "project.manualHint":
+      "⌨️ Send the absolute path to the project folder as your next message.",
     "project.cancelled": "Cancelled.",
 
     // ===== /sessions and /switch =====
@@ -473,6 +493,22 @@ const STRINGS = {
     "attach.downloading": "⏳ Downloading attachment…",
     "attach.tooBig": "⚠️ File too large (max {max}MB).",
     "attach.unsupported": "⚠️ Only photos and documents are supported yet.",
+
+    // ===== Voice messages (Whisper) =====
+    "voice.disabled": "🎤 Voice recognition is disabled in settings.",
+    "voice.downloading": "⏳ Downloading voice message…",
+    "voice.recognizing": "🎧 Recognizing speech…",
+    "voice.done": "📝 <b>Transcribed:</b>\n<blockquote>{text}</blockquote>",
+    "voice.disclaimer":
+      "**[Transcribed by local Whisper — the text may contain inaccuracies.]**",
+    "voice.empty": "🤷 No speech recognized (silence or unintelligible).",
+    "voice.failed": "⚠️ Recognition error: {err}",
+    "voice.needExe":
+      "⚠️ whisper-cli.exe is not installed. Download it in Cookie Code settings (Telegram tab).",
+    "voice.needModel":
+      "⚠️ Whisper model is not downloaded. Pick a size and download it in Cookie Code settings.",
+    "voice.needFfmpeg":
+      "⚠️ ffmpeg not found. Install ffmpeg or set its path in Cookie Code settings.",
 
     // ===== Pagination =====
     "page.prev": "◀️ Back",
