@@ -3142,6 +3142,7 @@ async function _registerCommands() {
       switch: "переключить сессию",
       diagnostics: "диагностика",
       todos: "список задач",
+      screen: "скриншот окна",
       cancel: "отменить ввод",
     },
     en: {
@@ -3159,6 +3160,7 @@ async function _registerCommands() {
       switch: "switch session",
       diagnostics: "diagnostics",
       todos: "todo list",
+      screen: "window screenshot",
       cancel: "cancel",
     },
   }[lang];
