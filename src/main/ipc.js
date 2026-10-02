@@ -103,7 +103,50 @@ function requestExitPlanMode(sender, plan) {
     try {
       sender.send("exit-plan-mode", { requestId, plan: String(plan || "") });
     } catch (_) {}
+    // Дублируем план в Telegram (если бот включён). Кто ответит первым —
+    // окно или TG — тот и резолвит promise.
+    try {
+      const bot = require("../../botsrc");
+      if (bot && typeof bot.requestPlanApproval === "function") {
+        bot.requestPlanApproval(requestId, String(plan || "")).catch(() => {});
+      }
+    } catch (_) {}
   });
+}
+
+/**
+ * Резолв плана, утверждённого в Telegram (вызывается из botsrc).
+ * @returns {boolean} true, если нашли ожидающий план.
+ */
+function resolvePlanApprovalFromTelegram(requestId, approved) {
+  for (const [key, pending] of pendingPlanApprovals) {
+    if (key.endsWith(":" + requestId)) {
+      pendingPlanApprovals.delete(key);
+      try {
+        const senderId = Number(key.split(":")[0]);
+        const wc = require("electron").webContents.fromId(senderId);
+        if (wc && !wc.isDestroyed()) {
+          // Просим окно закрыть диалог.
+          wc.send("exit-plan-mode-resolved", {
+            requestId,
+            approved: !!approved,
+          });
+          // Если согласовано — снимаем режим плана для сессии окна.
+          if (approved && wc.session) {
+            const ctx = windowState.getContextByWebContents(wc);
+            const sessionId =
+              ctx && ctx.sessionStore
+                ? ctx.sessionStore.state.currentSessionId || null
+                : null;
+            planMode.clearPlanMode(senderId, sessionId);
+          }
+        }
+      } catch (_) {}
+      pending.resolve({ approved: !!approved });
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -306,6 +349,13 @@ function registerIpcHandlers() {
       pendingPlanApprovals.delete(key);
       if (approved) planMode.clearPlanMode(event.sender.id, sessionIdOf(event));
       pending.resolve({ approved: !!approved });
+      // Убираем кнопки в Telegram — решение уже принято в окне.
+      try {
+        const bot = require("../../botsrc");
+        if (bot && typeof bot.cancelPlanApproval === "function") {
+          bot.cancelPlanApproval(requestId);
+        }
+      } catch (_) {}
     },
   );
 
@@ -1626,4 +1676,8 @@ function registerIpcHandlers() {
   });
 }
 
-module.exports = { registerIpcHandlers, resolveUserQuestionFromTelegram };
+module.exports = {
+  registerIpcHandlers,
+  resolveUserQuestionFromTelegram,
+  resolvePlanApprovalFromTelegram,
+};

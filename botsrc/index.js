@@ -198,6 +198,58 @@ function _activeSenderId() {
   return null;
 }
 
+/**
+ * Жёстко сфокусировать активное окно, сделать скриншот и отпустить.
+ * Возвращает путь к временному PNG или { error }.
+ */
+async function _captureActiveWindow() {
+  const win = windowState.getMainWindow();
+  if (!win || win.isDestroyed()) return { error: "noWindow" };
+  const { app } = require("electron");
+  const fs = require("fs");
+  const path = require("path");
+
+  // Запоминаем прежнее состояние, чтобы вернуть его после снимка.
+  const wasMinimized = win.isMinimized();
+  const wasAlwaysOnTop = win.isAlwaysOnTop();
+  const wasVisible = win.isVisible();
+
+  try {
+    if (wasMinimized) win.restore();
+    if (!wasVisible) win.show();
+    // «Жёстко» держим окно поверх и в фокусе, пока идёт захват.
+    win.setAlwaysOnTop(true, "screen-saver");
+    win.show();
+    win.focus();
+    if (typeof win.moveTop === "function") win.moveTop();
+    try {
+      win.webContents.focus();
+    } catch (_) {}
+
+    // Даём окну отрисоваться/подняться.
+    await new Promise((r) => setTimeout(r, 350));
+
+    const image = await win.webContents.capturePage();
+    const png = image.toPNG();
+    const outPath = path.join(
+      app.getPath("temp"),
+      "cuckoo-screen-" + Date.now() + ".png",
+    );
+    fs.writeFileSync(outPath, png);
+    return { path: outPath };
+  } catch (err) {
+    return { error: err.message };
+  } finally {
+    // Отпускаем: снимаем always-on-top и возвращаем прежнее состояние.
+    try {
+      win.setAlwaysOnTop(wasAlwaysOnTop);
+    } catch (_) {}
+    try {
+      if (wasMinimized) win.minimize();
+    } catch (_) {}
+  }
+}
+
 /** Текст со списком задач (для /todos и уведомления о завершении). */
 function formatTodos(todos) {
   const items = Array.isArray(todos) ? todos : [];
@@ -226,6 +278,8 @@ const _pendingQuestions = new Map();
 const _callbackTokens = new Map();
 const _pendingApprovals = new Map();
 const _approvalCallbackTokens = new Map();
+const _pendingPlanApprovals = new Map();
+const _planCallbackTokens = new Map();
 /**
  * Реестр уведомлений о долгих процессах.
  * key = token ('k<number>') → { pid, messageId }
@@ -381,6 +435,11 @@ async function _handleCallback(chatId, data, cbq) {
     return;
   }
 
+  const planRef = _planCallbackTokens.get(token);
+  if (planRef) {
+    await _handlePlanCallback(planRef, cbq);
+    return;
+  }
   const approvalRef = _approvalCallbackTokens.get(token);
   if (approvalRef) {
     await _handleApprovalCallback(approvalRef, cbq);
@@ -540,6 +599,105 @@ function cancelApproval(requestId) {
   _pendingApprovals.delete(id);
   _approvalCallbackTokens.delete(entry.token);
   _approvalCallbackTokens.delete(entry.token + "d");
+  if (typeof entry.resolve === "function")
+    entry.resolve({ success: false, skipped: true });
+  return { success: true };
+}
+
+/**
+ * Отправить план на утверждение в Telegram.
+ * Кнопки «Согласовать» / «Отказать». Кто ответит первым (окно или TG) — тот резолвит.
+ * @param {string} requestId
+ * @param {string} plan — markdown плана
+ * @returns {Promise<{success:boolean, approved?:boolean, skipped?:boolean, error?:string}>}
+ */
+async function requestPlanApproval(requestId, plan) {
+  const cfg = _read();
+  if (!cfg.enabled || !cfg.token || !cfg.chatId) {
+    return { success: false, skipped: true };
+  }
+  const id = String(requestId || "");
+  if (!id) return { success: false, error: "requestId не задан" };
+
+  const body = escapeHtml(String(plan || "").slice(0, 3500));
+  const token = "p" + ++_cbTokenCounter;
+  const entry = { messageId: null, token, resolve: null };
+  const promise = new Promise((resolve) => {
+    entry.resolve = resolve;
+  });
+  _pendingPlanApprovals.set(id, entry);
+  _planCallbackTokens.set(token, { requestId: id, approved: true });
+
+  const msg =
+    _t("plan.title") +
+    (body ? "\n<pre>" + body + "</pre>" : "") +
+    "\n" +
+    _t("plan.ask");
+  const res = await telegramBot.sendMessage(msg, {
+    parseMode: "HTML",
+    replyMarkup: {
+      inline_keyboard: [
+        [
+          { text: _t("plan.approve"), callback_data: token },
+          { text: _t("plan.deny"), callback_data: token + "d" },
+        ],
+      ],
+    },
+  });
+  if (!res.success) {
+    _pendingPlanApprovals.delete(id);
+    _planCallbackTokens.delete(token);
+    return res;
+  }
+  entry.messageId = res.messageId || null;
+  _planCallbackTokens.set(token + "d", { requestId: id, approved: false });
+  return promise;
+}
+
+async function _handlePlanCallback(ref, cbq) {
+  const entry = _pendingPlanApprovals.get(ref.requestId);
+  if (!entry) {
+    await telegramBot.answerCallbackQuery(cbq.id, {
+      text: _t("plan.closed"),
+    });
+    return;
+  }
+  _pendingPlanApprovals.delete(ref.requestId);
+  _planCallbackTokens.delete(entry.token);
+  _planCallbackTokens.delete(entry.token + "d");
+  await telegramBot.answerCallbackQuery(cbq.id, {
+    text: ref.approved ? _t("plan.approved") : _t("plan.denied"),
+  });
+  if (entry.messageId) {
+    const status = ref.approved
+      ? _t("plan.approvedShort")
+      : _t("plan.deniedShort");
+    await telegramBot.editMessageText(
+      entry.messageId,
+      _t("plan.title") + "\n" + status,
+      { parseMode: "HTML", replyMarkup: { inline_keyboard: [] } },
+    );
+  }
+  // Уведомляем main, чтобы окно закрыло диалог и сняло/не снимало режим плана.
+  try {
+    const { resolvePlanApprovalFromTelegram } = require("../src/main/ipc");
+    if (typeof resolvePlanApprovalFromTelegram === "function") {
+      resolvePlanApprovalFromTelegram(ref.requestId, ref.approved);
+    }
+  } catch (_) {}
+  if (typeof entry.resolve === "function") {
+    entry.resolve({ success: true, approved: ref.approved });
+  }
+}
+
+/** Отменить запрос плана, если решение уже принято в окне приложения. */
+function cancelPlanApproval(requestId) {
+  const id = String(requestId || "");
+  const entry = _pendingPlanApprovals.get(id);
+  if (!entry) return { success: true, skipped: true };
+  _pendingPlanApprovals.delete(id);
+  _planCallbackTokens.delete(entry.token);
+  _planCallbackTokens.delete(entry.token + "d");
   if (typeof entry.resolve === "function")
     entry.resolve({ success: false, skipped: true });
   return { success: true };
@@ -1341,6 +1499,43 @@ async function _cmdStop() {
 }
 
 /** /status — окно, проект, процессы, версия, polling. */
+
+/** /screen — жёстко сфокусировать активное окно, сделать скриншот и отправить в TG. */
+async function _cmdScreen() {
+  const cfg = _read();
+  if (!cfg.enabled || !cfg.token || !cfg.chatId)
+    return { success: false, skipped: true };
+
+  const win = windowState.getMainWindow();
+  if (!win || win.isDestroyed()) {
+    await telegramBot.sendMessage(_t("screen.noWindow"));
+    return { success: false, error: "noWindow" };
+  }
+
+  await telegramBot.sendMessage(_t("screen.capturing"));
+  const res = await _captureActiveWindow();
+  if (res.error === "noWindow") {
+    await telegramBot.sendMessage(_t("screen.noWindow"));
+    return { success: false, error: "noWindow" };
+  }
+  if (res.error || !res.path) {
+    await telegramBot.sendMessage(
+      _t("screen.error", { err: escapeHtml(res.error || "unknown") }),
+      { parseMode: "HTML" },
+    );
+    return { success: false, error: res.error };
+  }
+
+  const send = await telegramBot.sendPhoto(res.path, {
+    caption: _t("screen.caption"),
+  });
+  // Удаляем временный файл.
+  try {
+    require("fs").unlinkSync(res.path);
+  } catch (_) {}
+  return send;
+}
+
 async function _cmdStatus() {
   const cfg = _read();
   const lines = [_t("status.title"), ""];
@@ -2015,6 +2210,7 @@ async function _cmdHelp() {
     _t("help.cmd.show"),
     _t("help.cmd.files"),
     _t("help.cmd.todos"),
+    _t("help.cmd.screen"),
     _t("help.cmd.cancel"),
     _t("help.cmd.help"),
     "",
@@ -2496,6 +2692,10 @@ async function _handleIncoming(chatId, text, msg) {
   // Команда /todos — показать список задач активного окна.
   if (cmd === "/todos" || cmd === "/todo") {
     await _cmdTodos(chatId, 1);
+    return;
+  }
+  if (cmd === "/screen" || cmd === "/screenshot") {
+    await _cmdScreen();
     return;
   }
 
@@ -3044,6 +3244,8 @@ module.exports = {
   notifyAllDone,
   requestApproval,
   cancelApproval,
+  requestPlanApproval,
+  cancelPlanApproval,
   notifyLongProcess,
   askQuestion,
   setOnQuestionAnswered,
