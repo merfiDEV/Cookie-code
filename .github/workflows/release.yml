@@ -3,7 +3,7 @@ name: "Release: Build & Publish"
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -26,8 +26,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Sync version from tag
         run: node scripts/sync-version.js
@@ -36,6 +36,16 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Кэш бинарников electron-builder (winCodeSign, nsis и пр.).
+      # Защита от 503 при скачивании вспомогательных тулов с GitHub Releases.
+      - name: Cache electron-builder binaries
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.os == 'Windows' && 'C:\\Users\\runneradmin\\AppData\\Local\\electron-builder\\Cache' || '~/Library/Caches/electron-builder' }}
+          key: electron-builder-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            electron-builder-${{ runner.os }}-
 
       - name: Build and Publish (stable)
         if: ${{ !contains(github.ref_name, '-beta') }}
