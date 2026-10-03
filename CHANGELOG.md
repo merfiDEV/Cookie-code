@@ -1,5 +1,65 @@
 # Changelog
 
+## [4.0.36] - 2026-10-04
+
+### Added
+
+- 📸 **Команда `/screen` в Telegram — скриншот активного окна** — бот делает снимок текущего окна и присылает его в чат:
+  - новая команда `/screen` (+ подсказка в `/help`), зарегистрирована в меню команд для RU/EN;
+  - если активного окна нет — понятное сообщение «Нет активного окна»;
+  - при ошибке захвата бот возвращает причину (`screen.error`).
+- ✅ **Утверждение плана через Telegram** — план из режима плана теперь можно согласовать или отклонить прямо из бота:
+  - сообщение «📋 План на утверждение» с inline-кнопками «✅ Согласовать» / «❌ Отказать»;
+  - решение синхронизируется между ботом и окном приложения (состояние диалога плана общее);
+  - повторное нажатие по закрытому запросу отвечает «Запрос уже закрыт».
+- 🧹 **Перенос контекста: удаление промежуточного чата-суммаризатора** — чат, в котором модель сжимала историю, больше не остаётся висеть:
+  - sessionId промежуточного чата запоминается и удаляется уже из финального чата после переноса;
+  - удаление идёт через DOM сайдбара и **не зависит от языка интерфейса** (пункт меню и кнопка определяются по структурным признакам, а не по тексту).
+
+### Changed
+
+- 🌐 **Локализация списка MCP в оверлее** — статусы («Подключён» / «Не подключён» / «Отключён»), пустой список и тосты действий переведены через i18n (RU/EN) вместо захардкоженных строк.
+- 💬 **Диалоги вопросов и режима плана** — улучшена обработка закрытия/отмены (`ask-user-question`, `exit-plan-mode`), обновлён рендеринг markdown для новых сценариев утверждения.
+
+### Fixed
+
+- 🎨 **Кастомизация: фон и покраска не применяются при выключенной кастомизации** — если кастомизация отключена, фон/blur/эффекты не навязываются, а inline-стили `background-image` снимаются с `<html>`/`<body>`:
+  - добавлен флаг состояния, синхронизируемый при загрузке настроек и по изменению из другого окна/бота — фон больше не «возвращается» обратно;
+  - при выключении сбрасываются blur, RGB-ник и стекло ввода.
+- 🖼️ **Экспорт в PDF/DOCX: чистка SVG и служебных элементов** — перед выгрузкой ответа удаляются декоративные SVG-иконки и сервисные узлы, чтобы в документ попадал только полезный контент.
+- 🔗 **Привязка перенесённого чата к проекту** — после переноса контекста новый чат автоматически привязывается к тому же проекту:
+  - `projectDir` переносится через контекст-порт и устанавливается как `pendingProjectDir` нового чата;
+  - добавлен fallback `lastProjectDir` в session-store и чтение персистентного маппинга, чтобы системный промпт проекта собирался даже при сброшенном `selectedProjectDir`.
+
+### Added (EN)
+
+- 📸 **Telegram `/screen` command — screenshot of the active window** — the bot captures the current window and sends it to the chat:
+  - new `/screen` command (+ hint in `/help`), registered in the command menu for RU/EN;
+  - if there is no active window, a clear "No active window" message is returned;
+  - on capture failure the bot reports the reason (`screen.error`).
+- ✅ **Plan approval via Telegram** — a plan from plan mode can now be approved or denied straight from the bot:
+  - a "📋 Plan for approval" message with inline "✅ Approve" / "❌ Deny" buttons;
+  - the decision is synchronized between the bot and the app window (shared plan dialog state);
+  - pressing a button on an already-closed request answers "Request already closed".
+- 🧹 **Context transfer: removing the intermediate summarizer chat** — the chat where the model compressed the history no longer lingers:
+  - the summarizer chat's sessionId is remembered and deleted from the final chat after the transfer;
+  - deletion goes through the sidebar DOM and **does not depend on the UI language** (menu item and button are matched by structural traits, not by text).
+
+### Changed (EN)
+
+- 🌐 **Localized MCP list in the overlay** — statuses ("Connected" / "Disconnected" / "Disabled"), the empty state, and action toasts now go through i18n (RU/EN) instead of hardcoded strings.
+- 💬 **Question and plan-mode dialogs** — improved close/cancel handling (`ask-user-question`, `exit-plan-mode`) and markdown rendering for the new approval scenarios.
+
+### Fixed (EN)
+
+- 🎨 **Customization: background and styling are not applied when customization is off** — when customization is disabled, background/blur/effects are not forced, and inline `background-image` styles are removed from `<html>`/`<body>`:
+  - a state flag is synchronized on settings load and on changes from another window/bot — the background no longer snaps back;
+  - disabling resets blur, RGB username, and input glass.
+- 🖼️ **PDF/DOCX export: stripping SVG and service elements** — before exporting a response, decorative SVG icons and service nodes are removed so only useful content lands in the document.
+- 🔗 **Binding a transferred chat to the project** — after a context transfer, the new chat is automatically bound to the same project:
+  - `projectDir` is carried through the context port and set as the new chat's `pendingProjectDir`;
+  - added a `lastProjectDir` fallback in session-store and reading of the persistent mapping, so the project system prompt is built even when `selectedProjectDir` is reset.
+
 ## [4.0.35] - 2026-09-29
 
 ### Added

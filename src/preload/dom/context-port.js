@@ -35,6 +35,15 @@ function provider() {
 }
 
 /**
+ * sessionId текущего чата из URL (DeepSeek: /a/chat/s/<uuid>).
+ * @returns {string|null}
+ */
+function currentSessionId() {
+  const m = window.location.href.match(/\/chat\/s\/([a-f0-9-]+)/i);
+  return m ? m[1] : null;
+}
+
+/**
  * Прочитать историю текущего чата из DOM в виде markdown.
  * Возвращает строку вида:
  *   Пользователь: ...
@@ -205,10 +214,12 @@ async function startTransfer() {
   // Берём его из main (пересобирается из projectDir), т.к. состояние
   // renderer теряется при reload и не всегда содержит промпт.
   let initPrompt = "";
+  let transferProjectDir = "";
   try {
     if (typeof window.electronAPI.contextPortGetInitPrompt === "function") {
       const r = await window.electronAPI.contextPortGetInitPrompt();
       if (r && r.success && r.prompt) initPrompt = r.prompt;
+      if (r && r.success && r.projectDir) transferProjectDir = r.projectDir;
     }
   } catch (err) {
     console.warn(
@@ -225,9 +236,16 @@ async function startTransfer() {
     history.length,
     "initPrompt =",
     initPrompt.length,
+    "projectDir =",
+    transferProjectDir,
   );
   try {
-    await window.electronAPI.contextPortStart(history, "history", initPrompt);
+    await window.electronAPI.contextPortStart(
+      history,
+      "history",
+      initPrompt,
+      transferProjectDir,
+    );
     // После reload preload сам выполнит шаг 2 (суммаризация).
     await window.electronAPI.newChat();
     return { success: true };
@@ -285,7 +303,9 @@ async function runSummarizeStage(history) {
     return;
   }
   try {
-    await window.electronAPI.contextPortSummary(answer);
+    // sessionId промежуточного чата — удалим его после переноса в целевой.
+    const intermediateSessionId = currentSessionId();
+    await window.electronAPI.contextPortSummary(answer, intermediateSessionId);
     await window.electronAPI.newChat();
   } catch (err) {
     console.error(
@@ -346,6 +366,8 @@ async function resume() {
         hasHistory: !!(res && res.data && res.data.history),
         hasSummary: !!(res && res.data && res.data.summary),
         hasInitPrompt: !!(res && res.data && res.data.initPrompt),
+        hasProjectDir: !!(res && res.data && res.data.projectDir),
+        projectDir: res && res.data && res.data.projectDir,
       }),
     );
     if (!res || !res.success || !res.data) return;
@@ -364,7 +386,47 @@ async function resume() {
     if (data.stage === "history" && data.history) {
       await runSummarizeStage(data.history);
     } else if (data.stage === "summary" && data.summary) {
+      // Финальная стадия — привязываем целевой чат к проекту, из которого
+      // переносим контекст. pendingProjectDir сработает, когда появится
+      // sessionId нового чата (после отправки сообщения).
+      if (data.projectDir) {
+        try {
+          if (typeof window.electronAPI.contextPortBindProject === "function") {
+            await window.electronAPI.contextPortBindProject(data.projectDir);
+            console.log(
+              "[Cookie Code][context-port] resume: проект привязан =",
+              data.projectDir,
+            );
+          }
+        } catch (err) {
+          console.warn(
+            "[Cookie Code][context-port] resume: bind-project error:",
+            err.message,
+          );
+        }
+      }
       await runInjectStage(data.summary, data.initPrompt);
+      // Удаляем промежуточный чат-суммаризатор: он уже не нужен,
+      // а мы находимся в финальном чате (можно удалять чужой чат из списка).
+      if (data.intermediateSessionId) {
+        try {
+          if (typeof window.electronAPI.deleteChat === "function") {
+            const del = await window.electronAPI.deleteChat(
+              data.intermediateSessionId,
+            );
+            console.log(
+              "[Cookie Code][context-port] промежуточный чат удалён:",
+              data.intermediateSessionId,
+              JSON.stringify(del),
+            );
+          }
+        } catch (err) {
+          console.warn(
+            "[Cookie Code][context-port] не удалось удалить промежуточный чат:",
+            err.message,
+          );
+        }
+      }
     }
   } catch (err) {
     console.error("[Cookie Code][context-port] resume error:", err.message);

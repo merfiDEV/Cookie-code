@@ -81,6 +81,9 @@ let electronAPI = {
   newChat: () => {
     return ipcRenderer.invoke("new-chat");
   },
+  deleteChat: (sessionId) => {
+    return ipcRenderer.invoke("chat-delete", { sessionId });
+  },
   // ========== Статистика использования ==========
   statsGetSummary: (days) => {
     return ipcRenderer.invoke("stats-get-summary", { days });
@@ -101,18 +104,25 @@ let electronAPI = {
   contextPortGetInitPrompt: () => {
     return ipcRenderer.invoke("context-port:get-init-prompt");
   },
-  contextPortStart: (history, stage, initPrompt) => {
+  contextPortStart: (history, stage, initPrompt, projectDir) => {
     return ipcRenderer.invoke("context-port:start", {
       history,
       stage,
       initPrompt,
+      projectDir,
     });
   },
-  contextPortSummary: (summary) => {
-    return ipcRenderer.invoke("context-port:summary", { summary });
+  contextPortSummary: (summary, intermediateSessionId) => {
+    return ipcRenderer.invoke("context-port:summary", {
+      summary,
+      intermediateSessionId,
+    });
   },
   contextPortTake: () => {
     return ipcRenderer.invoke("context-port:take");
+  },
+  contextPortBindProject: (dir) => {
+    return ipcRenderer.invoke("context-port:bind-project", { dir });
   },
   contextPortClear: () => {
     return ipcRenderer.invoke("context-port:clear");

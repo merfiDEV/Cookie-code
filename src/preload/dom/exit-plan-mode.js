@@ -7,17 +7,17 @@
  * плана для ТЕКУЩЕЙ СЕССИИ и подставляем в поле ввода «Работай в соответствии
  * с планом» (без автоотправки — пользователь отправляет сам).
  */
-const { ipcRenderer } = require('electron');
-const state = require('./state');
-const chatInput = require('./chat-input');
-const { t } = require('../i18n/i18n');
+const { ipcRenderer } = require("electron");
+const state = require("./state");
+const chatInput = require("./chat-input");
+const { t } = require("../i18n/i18n");
 
-const STYLE_ID = 'cuckoo-exit-plan-style';
-const DIALOG_ID = 'cuckoo-exit-plan-dialog';
+const STYLE_ID = "cuckoo-exit-plan-style";
+const DIALOG_ID = "cuckoo-exit-plan-dialog";
 
 function escapeHtml(value) {
-  const div = document.createElement('div');
-  div.textContent = String(value || '');
+  const div = document.createElement("div");
+  div.textContent = String(value || "");
   return div.innerHTML;
 }
 
@@ -27,7 +27,9 @@ function escapeHtml(value) {
  * @returns {string}
  */
 function renderMarkdown(md) {
-  const lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+  const lines = String(md || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n");
   const out = [];
   let inCode = false;
   let inUl = false;
@@ -35,61 +37,96 @@ function renderMarkdown(md) {
 
   const inline = (text) => {
     let s = escapeHtml(text);
-    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
-    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
-    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>");
+    s = s.replace(
+      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener">$1</a>',
+    );
     return s;
   };
   const closeLists = () => {
-    if (inUl) { out.push('</ul>'); inUl = false; }
-    if (inOl) { out.push('</ol>'); inOl = false; }
+    if (inUl) {
+      out.push("</ul>");
+      inUl = false;
+    }
+    if (inOl) {
+      out.push("</ol>");
+      inOl = false;
+    }
   };
 
   for (const line of lines) {
     if (/^```/.test(line)) {
       closeLists();
-      if (!inCode) { out.push('<pre class="cuckoo-plan-pre"><code>'); inCode = true; }
-      else { out.push('</code></pre>'); inCode = false; }
+      if (!inCode) {
+        out.push('<pre class="cuckoo-plan-pre"><code>');
+        inCode = true;
+      } else {
+        out.push("</code></pre>");
+        inCode = false;
+      }
       continue;
     }
-    if (inCode) { out.push(escapeHtml(line)); continue; }
+    if (inCode) {
+      out.push(escapeHtml(line));
+      continue;
+    }
 
     const h = line.match(/^(#{1,6})\s+(.*)$/);
     if (h) {
       closeLists();
       const lv = h[1].length;
-      out.push('<h' + lv + ' class="cuckoo-plan-h">' + inline(h[2]) + '</h' + lv + '>');
+      out.push(
+        "<h" + lv + ' class="cuckoo-plan-h">' + inline(h[2]) + "</h" + lv + ">",
+      );
       continue;
     }
-    if (/^\s*([-*_])\1{2,}\s*$/.test(line)) { closeLists(); out.push('<hr class="cuckoo-plan-hr">'); continue; }
+    if (/^\s*([-*_])\1{2,}\s*$/.test(line)) {
+      closeLists();
+      out.push('<hr class="cuckoo-plan-hr">');
+      continue;
+    }
 
     const ul = line.match(/^\s*[-*+]\s+(.*)$/);
     const ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
     if (ul) {
-      if (inOl) { out.push('</ol>'); inOl = false; }
-      if (!inUl) { out.push('<ul class="cuckoo-plan-ul">'); inUl = true; }
-      out.push('<li>' + inline(ul[1]) + '</li>');
+      if (inOl) {
+        out.push("</ol>");
+        inOl = false;
+      }
+      if (!inUl) {
+        out.push('<ul class="cuckoo-plan-ul">');
+        inUl = true;
+      }
+      out.push("<li>" + inline(ul[1]) + "</li>");
       continue;
     }
     if (ol) {
-      if (inUl) { out.push('</ul>'); inUl = false; }
-      if (!inOl) { out.push('<ol class="cuckoo-plan-ol">'); inOl = true; }
-      out.push('<li>' + inline(ol[1]) + '</li>');
+      if (inUl) {
+        out.push("</ul>");
+        inUl = false;
+      }
+      if (!inOl) {
+        out.push('<ol class="cuckoo-plan-ol">');
+        inOl = true;
+      }
+      out.push("<li>" + inline(ol[1]) + "</li>");
       continue;
     }
     closeLists();
     if (!line.trim()) continue;
-    out.push('<p class="cuckoo-plan-p">' + inline(line) + '</p>');
+    out.push('<p class="cuckoo-plan-p">' + inline(line) + "</p>");
   }
   closeLists();
-  if (inCode) out.push('</code></pre>');
-  return out.join('\n');
+  if (inCode) out.push("</code></pre>");
+  return out.join("\n");
 }
 
 function ensureStyles() {
   if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
+  const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
     #${DIALOG_ID} { position:fixed; inset:0; z-index:2147483647; display:flex; align-items:center; justify-content:center; background:rgba(5,8,18,.62); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
@@ -131,34 +168,40 @@ function showExitPlanDialog(plan) {
   if (old) old.remove();
 
   return new Promise((resolve) => {
-    const dialog = document.createElement('div');
+    const dialog = document.createElement("div");
     dialog.id = DIALOG_ID;
     dialog.innerHTML =
       '<div class="cuckoo-plan-card" role="dialog" aria-modal="true">' +
       '<div class="cuckoo-plan-head">' +
-      '<h2>' + escapeHtml(t('plan.dialog.title')) + '</h2>' +
+      "<h2>" +
+      escapeHtml(t("plan.dialog.title")) +
+      "</h2>" +
       '<button type="button" class="cuckoo-plan-close" aria-label="close">×</button>' +
-      '</div>' +
+      "</div>" +
       '<div class="cuckoo-plan-body"></div>' +
       '<div class="cuckoo-plan-foot">' +
-      '<button type="button" class="cuckoo-plan-btn cuckoo-plan-deny">' + escapeHtml(t('plan.dialog.deny')) + '</button>' +
-      '<button type="button" class="cuckoo-plan-btn cuckoo-plan-approve">' + escapeHtml(t('plan.dialog.approve')) + '</button>' +
-      '</div>' +
-      '</div>';
+      '<button type="button" class="cuckoo-plan-btn cuckoo-plan-deny">' +
+      escapeHtml(t("plan.dialog.deny")) +
+      "</button>" +
+      '<button type="button" class="cuckoo-plan-btn cuckoo-plan-approve">' +
+      escapeHtml(t("plan.dialog.approve")) +
+      "</button>" +
+      "</div>" +
+      "</div>";
     document.body.appendChild(dialog);
 
-    dialog.querySelector('.cuckoo-plan-body').innerHTML = renderMarkdown(plan);
+    dialog.querySelector(".cuckoo-plan-body").innerHTML = renderMarkdown(plan);
 
     // ===== Перетаскивание окна за заголовок =====
     (function enableDrag() {
-      const card = dialog.querySelector('.cuckoo-plan-card');
-      const head = dialog.querySelector('.cuckoo-plan-head');
+      const card = dialog.querySelector(".cuckoo-plan-card");
+      const head = dialog.querySelector(".cuckoo-plan-head");
       if (!card || !head) return;
-      head.style.cursor = 'move';
+      head.style.cursor = "move";
       let offsetX = 0;
       let offsetY = 0;
-      head.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.cuckoo-plan-close')) return;
+      head.addEventListener("mousedown", (e) => {
+        if (e.target.closest(".cuckoo-plan-close")) return;
         const startX = e.clientX;
         const startY = e.clientY;
         const baseX = offsetX;
@@ -166,14 +209,15 @@ function showExitPlanDialog(plan) {
         const onMove = (ev) => {
           offsetX = baseX + (ev.clientX - startX);
           offsetY = baseY + (ev.clientY - startY);
-          card.style.transform = 'translate(' + offsetX + 'px,' + offsetY + 'px)';
+          card.style.transform =
+            "translate(" + offsetX + "px," + offsetY + "px)";
         };
         const onUp = () => {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
         };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
         e.preventDefault();
       });
     })();
@@ -182,20 +226,31 @@ function showExitPlanDialog(plan) {
     const finish = (approved) => {
       if (settled) return;
       settled = true;
-      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener("keydown", onKey, true);
       dialog.remove();
       resolve(approved);
     };
     const onKey = (event) => {
-      if (event.key === 'Escape') { event.preventDefault(); finish(false); }
-      else if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        finish(false);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        finish(true);
+      }
     };
-    document.addEventListener('keydown', onKey, true);
+    document.addEventListener("keydown", onKey, true);
 
-    dialog.querySelector('.cuckoo-plan-approve').addEventListener('click', () => finish(true));
-    dialog.querySelector('.cuckoo-plan-deny').addEventListener('click', () => finish(false));
-    dialog.querySelector('.cuckoo-plan-close').addEventListener('click', () => finish(false));
-    dialog.querySelector('.cuckoo-plan-approve').focus();
+    dialog
+      .querySelector(".cuckoo-plan-approve")
+      .addEventListener("click", () => finish(true));
+    dialog
+      .querySelector(".cuckoo-plan-deny")
+      .addEventListener("click", () => finish(false));
+    dialog
+      .querySelector(".cuckoo-plan-close")
+      .addEventListener("click", () => finish(false));
+    dialog.querySelector(".cuckoo-plan-approve").focus();
   });
 }
 
@@ -204,25 +259,41 @@ function showExitPlanDialog(plan) {
  */
 function applyApproval() {
   state.planMode = false;
-  try { window.electronAPI.setPlanMode(false).catch(() => {}); } catch (_) {}
-  try { require('./plan-mode-toggle').syncState(); } catch (_) {}
+  try {
+    window.electronAPI.setPlanMode(false).catch(() => {});
+  } catch (_) {}
+  try {
+    require("./plan-mode-toggle").syncState();
+  } catch (_) {}
   // Вставляем запрос на работу в поле ввода, но НЕ отправляем автоматически —
   // пользователь отправит сам.
   try {
     const input = chatInput.findInputArea();
-    if (input) chatInput.setInputContent(input, t('plan.approve.prompt'));
+    if (input) chatInput.setInputContent(input, t("plan.approve.prompt"));
   } catch (_) {}
 }
 
 /** Слушатель события exit-plan-mode от главного процесса. */
 function registerExitPlanModeListener() {
-  ipcRenderer.on('exit-plan-mode', (_event, payload = {}) => {
+  ipcRenderer.on("exit-plan-mode", (_event, payload = {}) => {
     const { requestId, plan } = payload;
     showExitPlanDialog(plan).then((approved) => {
-      try { window.electronAPI.exitPlanModeResponse(requestId, approved); } catch (_) {}
+      try {
+        window.electronAPI.exitPlanModeResponse(requestId, approved);
+      } catch (_) {}
       if (approved) applyApproval();
     });
   });
+  // План утверждён/отклонён в Telegram — закрываем диалог в окне.
+  ipcRenderer.on("exit-plan-mode-resolved", (_event, payload = {}) => {
+    const dialog = document.getElementById(DIALOG_ID);
+    if (dialog) dialog.remove();
+    if (payload.approved) applyApproval();
+  });
 }
 
-module.exports = { registerExitPlanModeListener, showExitPlanDialog, renderMarkdown };
+module.exports = {
+  registerExitPlanModeListener,
+  showExitPlanDialog,
+  renderMarkdown,
+};

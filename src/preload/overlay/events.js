@@ -184,12 +184,16 @@ async function renderMcpList() {
     const servers = res && res.success ? res.servers : [];
     if (!servers || servers.length === 0) {
       list.innerHTML =
-        '<div class="cuckoo-session-empty">暂无 MCP Server</div>';
+        '<div class="cuckoo-session-empty">' + t("mcp.list.empty") + "</div>";
       return;
     }
     list.innerHTML = servers
       .map((s) => {
-        const status = s.connected ? "已连接" : s.enabled ? "未连接" : "已禁用";
+        const status = s.connected
+          ? t("mcp.status.connected")
+          : s.enabled
+            ? t("mcp.status.disconnected")
+            : t("mcp.status.disabled");
         const statusColor = s.connected
           ? "#4ade80"
           : s.enabled
@@ -227,16 +231,16 @@ async function renderMcpList() {
           if (server.connected || server.enabled) {
             // 已连接或已启用 → 断开/禁用
             await window.electronAPI.disableMcpServer(name);
-            showToast("已断开 " + name, 2000);
+            showToast(t("mcp.toast.disconnected") + name, 2000);
           } else {
             // 未启用 → 连接
             await window.electronAPI.enableMcpServer(name);
-            showToast("已连接 " + name, 2000);
+            showToast(t("mcp.toast.connected") + name, 2000);
           }
           await renderMcpList();
           await loadMcpConfigToJson();
         } catch (err) {
-          showToast("操作失败: " + (err.message || err), 3000);
+          showToast(t("mcp.toast.actionFailed") + (err.message || err), 3000);
           await renderMcpList();
         }
       });

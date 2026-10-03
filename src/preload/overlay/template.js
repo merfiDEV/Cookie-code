@@ -650,7 +650,8 @@ const OVERLAY_CSS = [
   // ========== 页面背景：базовый цвет + стили (картинка ставится через JS) ==========
   // При выключенной кастомизации (класс cuckoo-customization-off на <html>)
   // правила не применяются, и фон остаётся родным фоном страницы DeepSeek.
-  "html:not(.cuckoo-customization-off), body:not(.cuckoo-customization-off) {",
+  "html:not(.cuckoo-customization-off),",
+  "html:not(.cuckoo-customization-off) body {",
   "  background-color: #0f1220 !important;",
   "  background-size: cover !important;",
   "  background-position: center center !important;",
@@ -675,7 +676,7 @@ const OVERLAY_CSS = [
   "}",
   // ========== 页面顶部标题栏毛玻璃（DeepSeek） ==========
   // Прозрачность управляется переменной --cuckoo-header-opacity (0% — полностью прозрачно).
-  ".the-header {",
+  "html:not(.cuckoo-customization-off) .the-header {",
   "  backdrop-filter: blur(var(--cuckoo-header-blur)) saturate(140%) !important;",
   "  -webkit-backdrop-filter: blur(var(--cuckoo-header-blur)) saturate(140%) !important;",
   "  background: rgba(15, 18, 32, var(--cuckoo-header-opacity)) !important;",
@@ -684,33 +685,33 @@ const OVERLAY_CSS = [
   // DeepSeek 在 _871cbca 与其空的子层 d72636e2 上画了从上到下的
   // 线性渐变（底部是不透明的 rgb(21,21,23)），会挡住页面背景图。
   // 用简写 background: transparent !important 一次清掉颜色+渐变。
-  "._871cbca,",
-  "._871cbca > .d72636e2 {",
+  "html:not(.cuckoo-customization-off) ._871cbca,",
+  "html:not(.cuckoo-customization-off) ._871cbca > .d72636e2 {",
   "  background: transparent !important;",
   "}",
   // ========== 左侧边栏毛玻璃（DeepSeek） ==========
   // .b8812f16.a2f3d50e — корень сайдбара. Внутри много слоёв, каждый со своим
   // фоном (шапка _262baab, список _3586175/_6d215eb/_77cdc67, низ _7b40dad).
   // Делаем прозрачными все промежуточные слои, чтобы стекло работало насквозь.
-  ".b8812f16.a2f3d50e,",
-  ".b8812f16.a2f3d50e > div,",
-  ".b8812f16.a2f3d50e > div > div,",
-  ".b8812f16.a2f3d50e ._262baab,",
-  ".b8812f16.a2f3d50e ._3586175,",
-  ".b8812f16.a2f3d50e ._6d215eb,",
-  ".b8812f16.a2f3d50e ._77cdc67,",
-  ".b8812f16.a2f3d50e ._7b40dad,",
-  ".b8812f16.a2f3d50e ._8a693f3,",
-  ".b8812f16.a2f3d50e ._1d72f01,",
-  ".b8812f16.a2f3d50e .f3d18f6a,",
-  ".b8812f16.a2f3d50e ._3098d02 {",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e > div,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e > div > div,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e ._262baab,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e ._3586175,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e ._6d215eb,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e ._77cdc67,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e ._7b40dad,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e ._8a693f3,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e ._1d72f01,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e .f3d18f6a,",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e ._3098d02 {",
   "  background: transparent !important;",
   "  backdrop-filter: none !important;",
   "  -webkit-backdrop-filter: none !important;",
   "}",
   // Стекло применяем один раз — на корень сайдбара.
   // Прозрачность — переменная --cuckoo-sidebar-opacity (0% — полностью прозрачно).
-  ".b8812f16.a2f3d50e {",
+  "html:not(.cuckoo-customization-off) .b8812f16.a2f3d50e {",
   "  background: rgba(15, 18, 32, var(--cuckoo-sidebar-opacity)) !important;",
   "  backdrop-filter: blur(var(--cuckoo-sidebar-blur)) saturate(140%) !important;",
   "  -webkit-backdrop-filter: blur(var(--cuckoo-sidebar-blur)) saturate(140%) !important;",
@@ -733,13 +734,13 @@ const OVERLAY_CSS = [
   "  color: #ff6b7a !important;",
   "}",
   // ========== Модалка «Настройки» (и другие ds-modal) — матовое стекло ==========
-  ".ds-modal-content {",
+  "html:not(.cuckoo-customization-off) .ds-modal-content {",
   "  background: rgba(15, 18, 32, 0.55) !important;",
   "  backdrop-filter: blur(16px) saturate(140%) !important;",
   "  -webkit-backdrop-filter: blur(16px) saturate(140%) !important;",
   "}",
   // Приглушаем фон-маску, чтобы под модалкой просвечивала страница
-  ".ds-modal-mask {",
+  "html:not(.cuckoo-customization-off) .ds-modal-mask {",
   "  background: rgba(0, 0, 0, 0.35) !important;",
   "}",
   // ========== Матовое стекло для поля ввода сообщения DeepSeek ==========
@@ -797,7 +798,7 @@ const OVERLAY_CSS = [
   "  background: transparent !important;",
   "}",
   // ========== Кнопка «Новый чат» в сайдбаре — матовое стекло ==========
-  "._5a8ac7a.a084f19e {",
+  "html:not(.cuckoo-customization-off) ._5a8ac7a.a084f19e {",
   "  background: rgba(15, 18, 32, 0.5) !important;",
   "  backdrop-filter: blur(10px) saturate(140%) !important;",
   "  -webkit-backdrop-filter: blur(10px) saturate(140%) !important;",
@@ -986,8 +987,8 @@ const OVERLAY_CSS = [
   // ========== RGB-переливание кнопки «Повторить» (retry под ошибкой ответа) ==========
   // Класс ds-button--warning стабильный (не хешированный). Ограничение .ds-message
   // гарантирует, что не затронутся warning-кнопки в других местах (например, в настройках).
-  ".ds-message .ds-button--warning .ds-button__background,",
-  ".ds-message .ds-button--warning {",
+  "html:not(.cuckoo-customization-off) .ds-message .ds-button--warning .ds-button__background,",
+  "html:not(.cuckoo-customization-off) .ds-message .ds-button--warning {",
   "  background: linear-gradient(90deg, #ff4d4d, #ffa64d, #ffee4d, #4dff88, #4dd2ff, #8a4dff, #ff4dd2, #ff4d4d) !important;",
   "  background-size: 400% 100% !important;",
   "  animation: cuckoo-rgb-retry 5s linear infinite !important;",
@@ -1001,7 +1002,7 @@ const OVERLAY_CSS = [
   // а виртуализированный список DeepSeek использует transform (ломает fixed-attachment).
   // Поэтому стекло рисуем сами: псевдоэлемент показывает тот же фон, что на странице,
   // размытый и спозиционированный под вьюпорт. Координаты считает reasoning-glass.js.
-  "._5ab5d64 {",
+  "html:not(.cuckoo-customization-off) ._5ab5d64 {",
   "  position: relative !important;",
   "  overflow: hidden !important;",
   "  border-radius: 10px !important;",
@@ -1015,15 +1016,15 @@ const OVERLAY_CSS = [
   // Гасим фоны у прямого предка и у потомков плашки: DeepSeek рисует свои
   // тёмные слои (обёртка _245c867._34a54ec, иконки, span), и они просвечивают
   // через полупрозрачную плашку, давая «чёрную» область слева.
-  "._245c867._34a54ec,",
-  "._74c0879,",
-  "._245c867._34a54ec > *,",
-  "._5ab5d64 * {",
+  "html:not(.cuckoo-customization-off) ._245c867._34a54ec,",
+  "html:not(.cuckoo-customization-off) ._74c0879,",
+  "html:not(.cuckoo-customization-off) ._245c867._34a54ec > *,",
+  "html:not(.cuckoo-customization-off) ._5ab5d64 * {",
   "  background: transparent !important;",
   "  backdrop-filter: none !important;",
   "  -webkit-backdrop-filter: none !important;",
   "}",
-  "._5ab5d64::before {",
+  "html:not(.cuckoo-customization-off) ._5ab5d64::before {",
   '  content: "" !important;',
   "  position: absolute !important;",
   "  inset: calc(-1 * var(--cuckoo-plate-pad, 40px)) !important;",
@@ -1036,7 +1037,7 @@ const OVERLAY_CSS = [
   "  pointer-events: none !important;",
   "  z-index: 0 !important;",
   "}",
-  "._5ab5d64::after {",
+  "html:not(.cuckoo-customization-off) ._5ab5d64::after {",
   '  content: "" !important;',
   "  position: absolute !important;",
   "  inset: 0 !important;",
@@ -1044,7 +1045,7 @@ const OVERLAY_CSS = [
   "  pointer-events: none !important;",
   "  z-index: 0 !important;",
   "}",
-  "._5ab5d64 > * {",
+  "html:not(.cuckoo-customization-off) ._5ab5d64 > * {",
   "  position: relative !important;",
   "  z-index: 1 !important;",
   "}",

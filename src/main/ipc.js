@@ -103,7 +103,50 @@ function requestExitPlanMode(sender, plan) {
     try {
       sender.send("exit-plan-mode", { requestId, plan: String(plan || "") });
     } catch (_) {}
+    // Дублируем план в Telegram (если бот включён). Кто ответит первым —
+    // окно или TG — тот и резолвит promise.
+    try {
+      const bot = require("../../botsrc");
+      if (bot && typeof bot.requestPlanApproval === "function") {
+        bot.requestPlanApproval(requestId, String(plan || "")).catch(() => {});
+      }
+    } catch (_) {}
   });
+}
+
+/**
+ * Резолв плана, утверждённого в Telegram (вызывается из botsrc).
+ * @returns {boolean} true, если нашли ожидающий план.
+ */
+function resolvePlanApprovalFromTelegram(requestId, approved) {
+  for (const [key, pending] of pendingPlanApprovals) {
+    if (key.endsWith(":" + requestId)) {
+      pendingPlanApprovals.delete(key);
+      try {
+        const senderId = Number(key.split(":")[0]);
+        const wc = require("electron").webContents.fromId(senderId);
+        if (wc && !wc.isDestroyed()) {
+          // Просим окно закрыть диалог.
+          wc.send("exit-plan-mode-resolved", {
+            requestId,
+            approved: !!approved,
+          });
+          // Если согласовано — снимаем режим плана для сессии окна.
+          if (approved && wc.session) {
+            const ctx = windowState.getContextByWebContents(wc);
+            const sessionId =
+              ctx && ctx.sessionStore
+                ? ctx.sessionStore.state.currentSessionId || null
+                : null;
+            planMode.clearPlanMode(senderId, sessionId);
+          }
+        }
+      } catch (_) {}
+      pending.resolve({ approved: !!approved });
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -306,6 +349,13 @@ function registerIpcHandlers() {
       pendingPlanApprovals.delete(key);
       if (approved) planMode.clearPlanMode(event.sender.id, sessionIdOf(event));
       pending.resolve({ approved: !!approved });
+      // Убираем кнопки в Telegram — решение уже принято в окне.
+      try {
+        const bot = require("../../botsrc");
+        if (bot && typeof bot.cancelPlanApproval === "function") {
+          bot.cancelPlanApproval(requestId);
+        }
+      } catch (_) {}
     },
   );
 
@@ -537,6 +587,60 @@ function registerIpcHandlers() {
     }
   });
 
+  // Удалить чат из списка (DeepSeek и др. — через DOM сайдбара).
+  // Инжектим скрипт в main world: находим ссылку a[href*="/a/chat/s/<id>"],
+  // открываем её меню (div[role=button]), жмём "Удалить", подтверждаем в модалке.
+  ipcMain.handle("chat-delete", async (event, { sessionId } = {}) => {
+    if (!sessionId) return { success: false, error: "缺少会话ID" };
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const win = ctx ? ctx.win : null;
+    if (!win || win.isDestroyed())
+      return { success: false, error: "窗口已关闭" };
+    const safeId = JSON.stringify(String(sessionId));
+    const script = `(async function(){
+      const sid = ${safeId};
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const link = document.querySelector('a[href*="/a/chat/s/' + sid + '"]');
+      if (!link) return { success: false, error: "chat-link-not-found" };
+      // Открыть контекстное меню чата (кнопка "..." внутри ссылки).
+      const menuBtn = link.querySelector('div[role="button"]');
+      if (!menuBtn) return { success: false, error: "menu-button-not-found" };
+      menuBtn.click();
+      await sleep(500);
+      // Найти пункт "Удалить" в меню. Текст зависит от языка сайта,
+      // поэтому ищем по структурному признаку: единственный пункт --error.
+      const delOpt = document.querySelector(
+        ".ds-dropdown-menu-option--error",
+      );
+      if (!delOpt) return { success: false, error: "delete-option-not-found" };
+      delOpt.click();
+      await sleep(600);
+      // Подтвердить в модалке. Кнопки DeepSeek — это div.ds-button (не
+      // <button>), а нужная кнопка помечена --error (не зависит от языка).
+      const modal = document.querySelector(".ds-modal-content--dialog");
+      if (!modal) return { success: false, error: "confirm-modal-not-found" };
+      const confirm = modal.querySelector('div[class*="ds-button--error"]');
+      if (!confirm) return { success: false, error: "confirm-button-not-found" };
+      confirm.click();
+      await sleep(800);
+      // Проверить, что ссылка исчезла из списка.
+      const gone = !document.querySelector('a[href*="/a/chat/s/' + sid + '"]');
+      return { success: true, removed: gone };
+    })()`;
+    try {
+      const result = await win.webContents.executeJavaScript(script, true);
+      if (!result || result.success !== true) {
+        return {
+          success: false,
+          error: (result && result.error) || "delete-failed",
+        };
+      }
+      return { success: true, removed: !!result.removed };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Открыть новый чат (переход на домашнюю страницу провайдера).
   ipcMain.handle("new-chat", async (event) => {
     const ctx = windowState.getContextByWebContents(event.sender);
@@ -564,12 +668,30 @@ function registerIpcHandlers() {
     try {
       const ctx = windowState.getContextByWebContents(event.sender);
       const store = ctx ? ctx.sessionStore : null;
-      const projectDir = store ? store.state.selectedProjectDir : null;
-      if (!projectDir) return { success: true, prompt: "" };
+      // selectedProjectDir сбрасывается при навигации (например, при переносе
+      // контекста). Fallback на lastProjectDir, чтобы системный промпт проекта
+      // и projectDir всё равно попали в новый чат.
+      let projectDir = store
+        ? store.state.selectedProjectDir || store.state.lastProjectDir
+        : null;
+      // Третий fallback: последний известный каталог из персистентного
+      // маппинга session-dir-map (переживает перезапуск main).
+      if (
+        !projectDir &&
+        store &&
+        typeof store.readSessionStore === "function"
+      ) {
+        try {
+          const map = store.readSessionStore();
+          const dirs = Object.values(map || {}).filter(Boolean);
+          if (dirs.length > 0) projectDir = dirs[dirs.length - 1];
+        } catch (_) {}
+      }
+      if (!projectDir) return { success: true, prompt: "", projectDir: "" };
       const { buildInitPrompt } = require("./project-context");
       const providerId = (ctx && ctx.providerId) || "";
       const prompt = await buildInitPrompt(projectDir, providerId);
-      return { success: true, prompt: prompt || "" };
+      return { success: true, prompt: prompt || "", projectDir: projectDir };
     } catch (err) {
       console.error(
         "[Cookie Code] context-port:get-init-prompt error:",
@@ -624,13 +746,15 @@ function registerIpcHandlers() {
   // Хранилище живёт в main и переживает reload страницы при смене чата.
   ipcMain.handle(
     "context-port:start",
-    async (event, { history, stage, initPrompt }) => {
+    async (event, { history, stage, initPrompt, projectDir }) => {
       try {
         const wcId = event.sender.id;
         contextPort.set(wcId, {
           history: history || "",
           stage: stage || "history",
           initPrompt: initPrompt || "",
+          projectDir: projectDir || "",
+          intermediateSessionId: "",
         });
         return { success: true };
       } catch (err) {
@@ -639,21 +763,27 @@ function registerIpcHandlers() {
     },
   );
 
-  ipcMain.handle("context-port:summary", async (event, { summary }) => {
-    try {
-      const wcId = event.sender.id;
-      const cur = contextPort.get(wcId) || {};
-      contextPort.set(wcId, {
-        stage: "summary",
-        history: cur.history || "",
-        summary: summary || "",
-        initPrompt: cur.initPrompt || "",
-      });
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  });
+  ipcMain.handle(
+    "context-port:summary",
+    async (event, { summary, intermediateSessionId }) => {
+      try {
+        const wcId = event.sender.id;
+        const cur = contextPort.get(wcId) || {};
+        contextPort.set(wcId, {
+          stage: "summary",
+          history: cur.history || "",
+          summary: summary || "",
+          initPrompt: cur.initPrompt || "",
+          projectDir: cur.projectDir || "",
+          intermediateSessionId:
+            intermediateSessionId || cur.intermediateSessionId || "",
+        });
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+  );
 
   ipcMain.handle("context-port:take", async (event) => {
     try {
@@ -668,6 +798,26 @@ function registerIpcHandlers() {
   ipcMain.handle("context-port:clear", async (event) => {
     try {
       contextPort.clear(event.sender.id);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Привязать новый чат к проекту после переноса контекста.
+  // Ставит pendingProjectDir — при появлении sessionId (после отправки
+  // первого сообщения) session-store сам сохранит маппинг session->dir.
+  ipcMain.handle("context-port:bind-project", async (event, { dir } = {}) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const store = ctx ? ctx.sessionStore : null;
+      if (!store || !dir) return { success: false, error: "no-store-or-dir" };
+      store.state.pendingProjectDir = dir;
+      store.state.lastProjectDir = dir;
+      console.log(
+        "[Cookie Code] context-port:bind-project: pendingProjectDir =",
+        dir,
+      );
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -1626,4 +1776,8 @@ function registerIpcHandlers() {
   });
 }
 
-module.exports = { registerIpcHandlers, resolveUserQuestionFromTelegram };
+module.exports = {
+  registerIpcHandlers,
+  resolveUserQuestionFromTelegram,
+  resolvePlanApprovalFromTelegram,
+};

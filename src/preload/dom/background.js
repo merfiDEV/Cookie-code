@@ -102,6 +102,11 @@ let customBackgroundsDir = "";
 // Кэш data-URI: file → data:image/...;base64,...
 const dataUriCache = new Map();
 
+// Текущее состояние кастомизации. Если false — фон/blur/эффекты не применяются,
+// а inline-стили background-image снимаются с <html>/<body>.
+// Синхронизируется в applyCustomizationEnabled() и loadAndApply().
+let customizationEnabledFlag = true;
+
 /**
  * Полный список фонов: встроенные + пользовательские.
  * id пользовательских — 'custom:<имя-файла-без-расширения>'.
@@ -178,6 +183,18 @@ function apply(id) {
   const uri = entry ? getDataUri(entry.file) : "";
   const value = uri ? 'url("' + uri + '")' : "none";
   try {
+    // При выключенной кастомизации фон не ставим: только снимаем inline-стили,
+    // чтобы вернуть родной фон страницы DeepSeek.
+    if (customizationEnabledFlag === false) {
+      document.documentElement.style.removeProperty("background-image");
+      document.body.style.removeProperty("background-image");
+      document.documentElement.style.setProperty(
+        "--cuckoo-bg-image",
+        "none",
+        "important",
+      );
+      return;
+    }
     document.documentElement.style.setProperty(
       "background-image",
       value,
@@ -362,6 +379,25 @@ async function loadAndApply() {
     // нашёлся по id при применении.
     await loadCustomBackgrounds();
     const settings = await window.electronAPI.getCuckooSettings();
+    // Синхронизируем флаг кастомизации: если она выключена, фон/blur/эффекты
+    // не применяем, а снимаем inline-стили (иначе слушатель изменений настроек
+    // из TG-бота/другого окна вернул бы фон обратно).
+    const enabled = !settings || settings.customizationEnabled !== false;
+    applyCustomizationEnabled(enabled);
+    if (!enabled) {
+      applyBlur({
+        backgroundBlur: 0,
+        headerBlur: 0,
+        sidebarBlur: 0,
+        headerOpacity: 0,
+        sidebarOpacity: 0,
+        toolBlockOpacity: 0,
+        toolBlockBlur: 0,
+      });
+      applyRgbUsername(false);
+      applyInputGlassEnabled(true); // класс cuckoo-input-glass-off не нужен
+      return;
+    }
     const bgId = (settings && settings.background) || DEFAULT_ID;
     apply(bgId);
     applyBlur(settings);
@@ -427,8 +463,18 @@ async function resetAll() {
  */
 function applyCustomizationEnabled(enabled) {
   try {
+    customizationEnabledFlag = enabled !== false;
     if (enabled === false) {
       document.documentElement.classList.add("cuckoo-customization-off");
+      // Снимаем inline background-image с <html>/<body>, выставленный apply(),
+      // иначе он перебивает CSS-правило cuckoo-customization-off.
+      document.documentElement.style.removeProperty("background-image");
+      document.body.style.removeProperty("background-image");
+      document.documentElement.style.setProperty(
+        "--cuckoo-bg-image",
+        "none",
+        "important",
+      );
     } else {
       document.documentElement.classList.remove("cuckoo-customization-off");
     }

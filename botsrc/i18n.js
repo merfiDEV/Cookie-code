@@ -44,6 +44,7 @@ const STRINGS = {
     "help.cmd.show": "/show &lt;hash&gt; — diff коммита",
     "help.cmd.files": "/files &lt;hash&gt; — файлы коммита",
     "help.cmd.todos": "/todos       — список задач активного окна",
+    "help.cmd.screen": "/screen      — скриншот активного окна",
     "help.cmd.cancel": "/cancel      — отменить ввод / подтверждение",
     "help.cmd.help": "/help        — эта справка",
     "help.features": "<b>Возможности</b>",
@@ -262,6 +263,23 @@ const STRINGS = {
     "approval.deniedShort": "❌ Отклонено",
     "approval.closed": "Запрос уже закрыт",
 
+    // ===== Утверждение плана =====
+    "plan.title": "📋 <b>План на утверждение</b>",
+    "plan.ask": "<i>Согласовать план?</i>",
+    "plan.approve": "✅ Согласовать",
+    "plan.deny": "❌ Отказать",
+    "plan.approved": "План согласован",
+    "plan.denied": "План отклонён",
+    "plan.approvedShort": "✅ Согласован",
+    "plan.deniedShort": "❌ Отклонён",
+    "plan.closed": "Запрос уже закрыт",
+
+    // ===== Скриншот =====
+    "screen.capturing": "📸 Делаю скриншот окна...",
+    "screen.caption": "📸 Скриншот активного окна",
+    "screen.noWindow": "Нет активного окна",
+    "screen.error": "Не удалось сделать скриншот: {err}",
+
     // ===== Долгий процесс =====
     "longproc.title": "⏳ <b>Долгий процесс</b>",
     "longproc.body": "Команда выполняется более {sec} с:",
@@ -320,6 +338,7 @@ const STRINGS = {
     "help.cmd.show": "/show &lt;hash&gt; — commit diff",
     "help.cmd.files": "/files &lt;hash&gt; — commit files",
     "help.cmd.todos": "/todos       — tasks of the active window",
+    "help.cmd.screen": "/screen      — screenshot of the active window",
     "help.cmd.cancel": "/cancel      — cancel input / approval",
     "help.cmd.help": "/help        — this help",
     "help.features": "<b>Features</b>",
@@ -538,6 +557,23 @@ const STRINGS = {
     "approval.allowedShort": "✅ Allowed",
     "approval.deniedShort": "❌ Denied",
     "approval.closed": "Request already closed",
+
+    // ===== Plan approval =====
+    "plan.title": "📋 <b>Plan for approval</b>",
+    "plan.ask": "<i>Approve this plan?</i>",
+    "plan.approve": "✅ Approve",
+    "plan.deny": "❌ Deny",
+    "plan.approved": "Plan approved",
+    "plan.denied": "Plan denied",
+    "plan.approvedShort": "✅ Approved",
+    "plan.deniedShort": "❌ Denied",
+    "plan.closed": "Request already closed",
+
+    // ===== Screenshot =====
+    "screen.capturing": "📸 Capturing window screenshot...",
+    "screen.caption": "📸 Active window screenshot",
+    "screen.noWindow": "No active window",
+    "screen.error": "Failed to capture screenshot: {err}",
 
     // ===== Long process =====
     "longproc.title": "⏳ <b>Long-running process</b>",

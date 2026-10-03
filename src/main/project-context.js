@@ -124,6 +124,7 @@ async function initProject(skipPrompt = false, windowContext = null) {
   // 保存选中的项目目录（若该窗口有独立的 sessionStore）
   if (sessionStore) {
     sessionStore.state.selectedProjectDir = selectedDir;
+    sessionStore.state.lastProjectDir = selectedDir;
 
     // ========== 持久化存储会话-目录映射 ==========
     // 如果当前有会话ID，保存映射
@@ -216,7 +217,8 @@ async function setProjectByDir(selectedDir, windowContext = null) {
   // Проверяем, что каталог существует.
   try {
     const st = fs.statSync(dir);
-    if (!st.isDirectory()) return { success: false, error: "Не каталог: " + dir };
+    if (!st.isDirectory())
+      return { success: false, error: "Не каталог: " + dir };
   } catch (_) {
     return { success: false, error: "Каталог не найден: " + dir };
   }
@@ -237,34 +239,41 @@ async function setProjectByDir(selectedDir, windowContext = null) {
   }
 
   // Переключаем окно на найденную сессию (та же навигация, что и /switch).
-    if (existingSessionId && mainWindow && !mainWindow.isDestroyed()) {
-      let url = null;
-      try {
-        const { getProviderByUrl } = require("../providers");
-        const provider = getProviderByUrl(mainWindow.webContents.getURL());
-        if (provider && typeof provider.getSessionUrl === "function") {
-          url = provider.getSessionUrl(existingSessionId);
-        } else if (provider && provider.sessionUrlBase) {
-          url = provider.sessionUrlBase + existingSessionId;
-        }
-      } catch (_) {}
-      if (!url) url = "https://chat.deepseek.com/a/chat/s/" + existingSessionId;
-      try {
-        await mainWindow.webContents.loadURL(url);
-      } catch (err) {
-        console.error("[Cookie Code] setProjectByDir: loadURL failed:", err.message);
+  if (existingSessionId && mainWindow && !mainWindow.isDestroyed()) {
+    let url = null;
+    try {
+      const { getProviderByUrl } = require("../providers");
+      const provider = getProviderByUrl(mainWindow.webContents.getURL());
+      if (provider && typeof provider.getSessionUrl === "function") {
+        url = provider.getSessionUrl(existingSessionId);
+      } else if (provider && provider.sessionUrlBase) {
+        url = provider.sessionUrlBase + existingSessionId;
       }
+    } catch (_) {}
+    if (!url) url = "https://chat.deepseek.com/a/chat/s/" + existingSessionId;
+    try {
+      await mainWindow.webContents.loadURL(url);
+    } catch (err) {
+      console.error(
+        "[Cookie Code] setProjectByDir: loadURL failed:",
+        err.message,
+      );
     }
+  }
 
   if (sessionStore) {
     // Если нашли сессию — она и станет текущей; иначе запоминаем проект как
     // pending (привяжется, когда появится sessionId).
     sessionStore.state.selectedProjectDir = dir;
+    sessionStore.state.lastProjectDir = dir;
     if (existingSessionId) {
       sessionStore.state.currentSessionId = existingSessionId;
       sessionStore.saveSessionDirMapping(existingSessionId, dir);
     } else if (sessionStore.state.currentSessionId) {
-      sessionStore.saveSessionDirMapping(sessionStore.state.currentSessionId, dir);
+      sessionStore.saveSessionDirMapping(
+        sessionStore.state.currentSessionId,
+        dir,
+      );
     } else {
       let sessionId = null;
       if (mainWindow && !mainWindow.isDestroyed()) {

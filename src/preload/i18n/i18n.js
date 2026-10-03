@@ -340,6 +340,14 @@ const KEYS = {
   "mcp.label.configured": { ru: "Настроены", en: "Configured" },
   "mcp.empty": { ru: "Нет", en: "None" },
   "mcp.btn.save": { ru: "Сохранить настройки", en: "Save config" },
+  "mcp.status.connected": { ru: "Подключён", en: "Connected" },
+  "mcp.status.disconnected": { ru: "Не подключён", en: "Disconnected" },
+  "mcp.status.disabled": { ru: "Отключён", en: "Disabled" },
+  "mcp.list.empty": { ru: "Нет MCP-серверов", en: "No MCP servers" },
+  "mcp.list.loadError": { ru: "Ошибка загрузки", en: "Failed to load" },
+  "mcp.toast.disconnected": { ru: "Отключён: ", en: "Disconnected: " },
+  "mcp.toast.connected": { ru: "Подключён: ", en: "Connected: " },
+  "mcp.toast.actionFailed": { ru: "Ошибка: ", en: "Error: " },
 
   // ---- Оверлей: бейдж и первый диалог ----
   "badge.title": { ru: "Cookie Code работает", en: "Cookie Code is running" },
