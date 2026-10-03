@@ -587,6 +587,60 @@ function registerIpcHandlers() {
     }
   });
 
+  // Удалить чат из списка (DeepSeek и др. — через DOM сайдбара).
+  // Инжектим скрипт в main world: находим ссылку a[href*="/a/chat/s/<id>"],
+  // открываем её меню (div[role=button]), жмём "Удалить", подтверждаем в модалке.
+  ipcMain.handle("chat-delete", async (event, { sessionId } = {}) => {
+    if (!sessionId) return { success: false, error: "缺少会话ID" };
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const win = ctx ? ctx.win : null;
+    if (!win || win.isDestroyed())
+      return { success: false, error: "窗口已关闭" };
+    const safeId = JSON.stringify(String(sessionId));
+    const script = `(async function(){
+      const sid = ${safeId};
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const link = document.querySelector('a[href*="/a/chat/s/' + sid + '"]');
+      if (!link) return { success: false, error: "chat-link-not-found" };
+      // Открыть контекстное меню чата (кнопка "..." внутри ссылки).
+      const menuBtn = link.querySelector('div[role="button"]');
+      if (!menuBtn) return { success: false, error: "menu-button-not-found" };
+      menuBtn.click();
+      await sleep(500);
+      // Найти пункт "Удалить" в меню. Текст зависит от языка сайта,
+      // поэтому ищем по структурному признаку: единственный пункт --error.
+      const delOpt = document.querySelector(
+        ".ds-dropdown-menu-option--error",
+      );
+      if (!delOpt) return { success: false, error: "delete-option-not-found" };
+      delOpt.click();
+      await sleep(600);
+      // Подтвердить в модалке. Кнопки DeepSeek — это div.ds-button (не
+      // <button>), а нужная кнопка помечена --error (не зависит от языка).
+      const modal = document.querySelector(".ds-modal-content--dialog");
+      if (!modal) return { success: false, error: "confirm-modal-not-found" };
+      const confirm = modal.querySelector('div[class*="ds-button--error"]');
+      if (!confirm) return { success: false, error: "confirm-button-not-found" };
+      confirm.click();
+      await sleep(800);
+      // Проверить, что ссылка исчезла из списка.
+      const gone = !document.querySelector('a[href*="/a/chat/s/' + sid + '"]');
+      return { success: true, removed: gone };
+    })()`;
+    try {
+      const result = await win.webContents.executeJavaScript(script, true);
+      if (!result || result.success !== true) {
+        return {
+          success: false,
+          error: (result && result.error) || "delete-failed",
+        };
+      }
+      return { success: true, removed: !!result.removed };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Открыть новый чат (переход на домашнюю страницу провайдера).
   ipcMain.handle("new-chat", async (event) => {
     const ctx = windowState.getContextByWebContents(event.sender);
@@ -700,6 +754,7 @@ function registerIpcHandlers() {
           stage: stage || "history",
           initPrompt: initPrompt || "",
           projectDir: projectDir || "",
+          intermediateSessionId: "",
         });
         return { success: true };
       } catch (err) {
@@ -708,22 +763,27 @@ function registerIpcHandlers() {
     },
   );
 
-  ipcMain.handle("context-port:summary", async (event, { summary }) => {
-    try {
-      const wcId = event.sender.id;
-      const cur = contextPort.get(wcId) || {};
-      contextPort.set(wcId, {
-        stage: "summary",
-        history: cur.history || "",
-        summary: summary || "",
-        initPrompt: cur.initPrompt || "",
-        projectDir: cur.projectDir || "",
-      });
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  });
+  ipcMain.handle(
+    "context-port:summary",
+    async (event, { summary, intermediateSessionId }) => {
+      try {
+        const wcId = event.sender.id;
+        const cur = contextPort.get(wcId) || {};
+        contextPort.set(wcId, {
+          stage: "summary",
+          history: cur.history || "",
+          summary: summary || "",
+          initPrompt: cur.initPrompt || "",
+          projectDir: cur.projectDir || "",
+          intermediateSessionId:
+            intermediateSessionId || cur.intermediateSessionId || "",
+        });
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+  );
 
   ipcMain.handle("context-port:take", async (event) => {
     try {

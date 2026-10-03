@@ -29,6 +29,8 @@ function set(webContentsId, data) {
     // Каталог проекта — чтобы привязать новый чат к тому же проекту
     // (sessionStore.state.pendingProjectDir) после переноса.
     projectDir: data.projectDir || "",
+    // sessionId промежуточного чата-суммаризатора — удаляется после переноса.
+    intermediateSessionId: data.intermediateSessionId || "",
     createdAt: Date.now(),
   });
 }

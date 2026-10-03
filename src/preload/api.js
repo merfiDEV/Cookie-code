@@ -81,6 +81,9 @@ let electronAPI = {
   newChat: () => {
     return ipcRenderer.invoke("new-chat");
   },
+  deleteChat: (sessionId) => {
+    return ipcRenderer.invoke("chat-delete", { sessionId });
+  },
   // ========== Статистика использования ==========
   statsGetSummary: (days) => {
     return ipcRenderer.invoke("stats-get-summary", { days });
@@ -109,8 +112,11 @@ let electronAPI = {
       projectDir,
     });
   },
-  contextPortSummary: (summary) => {
-    return ipcRenderer.invoke("context-port:summary", { summary });
+  contextPortSummary: (summary, intermediateSessionId) => {
+    return ipcRenderer.invoke("context-port:summary", {
+      summary,
+      intermediateSessionId,
+    });
   },
   contextPortTake: () => {
     return ipcRenderer.invoke("context-port:take");

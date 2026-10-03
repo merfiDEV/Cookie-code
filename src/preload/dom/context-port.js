@@ -35,6 +35,15 @@ function provider() {
 }
 
 /**
+ * sessionId текущего чата из URL (DeepSeek: /a/chat/s/<uuid>).
+ * @returns {string|null}
+ */
+function currentSessionId() {
+  const m = window.location.href.match(/\/chat\/s\/([a-f0-9-]+)/i);
+  return m ? m[1] : null;
+}
+
+/**
  * Прочитать историю текущего чата из DOM в виде markdown.
  * Возвращает строку вида:
  *   Пользователь: ...
@@ -294,7 +303,9 @@ async function runSummarizeStage(history) {
     return;
   }
   try {
-    await window.electronAPI.contextPortSummary(answer);
+    // sessionId промежуточного чата — удалим его после переноса в целевой.
+    const intermediateSessionId = currentSessionId();
+    await window.electronAPI.contextPortSummary(answer, intermediateSessionId);
     await window.electronAPI.newChat();
   } catch (err) {
     console.error(
@@ -394,17 +405,28 @@ async function resume() {
           );
         }
       }
-      if (data.projectDir) {
-        console.log(
-          "[Cookie Code][context-port] resume: bind выполнен, projectDir =",
-          data.projectDir,
-        );
-      } else {
-        console.warn(
-          "[Cookie Code][context-port] resume: projectDir ОТСУТСТВУЕТ в take!",
-        );
-      }
       await runInjectStage(data.summary, data.initPrompt);
+      // Удаляем промежуточный чат-суммаризатор: он уже не нужен,
+      // а мы находимся в финальном чате (можно удалять чужой чат из списка).
+      if (data.intermediateSessionId) {
+        try {
+          if (typeof window.electronAPI.deleteChat === "function") {
+            const del = await window.electronAPI.deleteChat(
+              data.intermediateSessionId,
+            );
+            console.log(
+              "[Cookie Code][context-port] промежуточный чат удалён:",
+              data.intermediateSessionId,
+              JSON.stringify(del),
+            );
+          }
+        } catch (err) {
+          console.warn(
+            "[Cookie Code][context-port] не удалось удалить промежуточный чат:",
+            err.message,
+          );
+        }
+      }
     }
   } catch (err) {
     console.error("[Cookie Code][context-port] resume error:", err.message);
