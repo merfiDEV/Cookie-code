@@ -101,11 +101,12 @@ let electronAPI = {
   contextPortGetInitPrompt: () => {
     return ipcRenderer.invoke("context-port:get-init-prompt");
   },
-  contextPortStart: (history, stage, initPrompt) => {
+  contextPortStart: (history, stage, initPrompt, projectDir) => {
     return ipcRenderer.invoke("context-port:start", {
       history,
       stage,
       initPrompt,
+      projectDir,
     });
   },
   contextPortSummary: (summary) => {
@@ -113,6 +114,9 @@ let electronAPI = {
   },
   contextPortTake: () => {
     return ipcRenderer.invoke("context-port:take");
+  },
+  contextPortBindProject: (dir) => {
+    return ipcRenderer.invoke("context-port:bind-project", { dir });
   },
   contextPortClear: () => {
     return ipcRenderer.invoke("context-port:clear");

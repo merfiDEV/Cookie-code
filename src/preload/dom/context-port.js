@@ -205,10 +205,12 @@ async function startTransfer() {
   // Берём его из main (пересобирается из projectDir), т.к. состояние
   // renderer теряется при reload и не всегда содержит промпт.
   let initPrompt = "";
+  let transferProjectDir = "";
   try {
     if (typeof window.electronAPI.contextPortGetInitPrompt === "function") {
       const r = await window.electronAPI.contextPortGetInitPrompt();
       if (r && r.success && r.prompt) initPrompt = r.prompt;
+      if (r && r.success && r.projectDir) transferProjectDir = r.projectDir;
     }
   } catch (err) {
     console.warn(
@@ -225,9 +227,16 @@ async function startTransfer() {
     history.length,
     "initPrompt =",
     initPrompt.length,
+    "projectDir =",
+    transferProjectDir,
   );
   try {
-    await window.electronAPI.contextPortStart(history, "history", initPrompt);
+    await window.electronAPI.contextPortStart(
+      history,
+      "history",
+      initPrompt,
+      transferProjectDir,
+    );
     // После reload preload сам выполнит шаг 2 (суммаризация).
     await window.electronAPI.newChat();
     return { success: true };
@@ -346,6 +355,8 @@ async function resume() {
         hasHistory: !!(res && res.data && res.data.history),
         hasSummary: !!(res && res.data && res.data.summary),
         hasInitPrompt: !!(res && res.data && res.data.initPrompt),
+        hasProjectDir: !!(res && res.data && res.data.projectDir),
+        projectDir: res && res.data && res.data.projectDir,
       }),
     );
     if (!res || !res.success || !res.data) return;
@@ -364,6 +375,35 @@ async function resume() {
     if (data.stage === "history" && data.history) {
       await runSummarizeStage(data.history);
     } else if (data.stage === "summary" && data.summary) {
+      // Финальная стадия — привязываем целевой чат к проекту, из которого
+      // переносим контекст. pendingProjectDir сработает, когда появится
+      // sessionId нового чата (после отправки сообщения).
+      if (data.projectDir) {
+        try {
+          if (typeof window.electronAPI.contextPortBindProject === "function") {
+            await window.electronAPI.contextPortBindProject(data.projectDir);
+            console.log(
+              "[Cookie Code][context-port] resume: проект привязан =",
+              data.projectDir,
+            );
+          }
+        } catch (err) {
+          console.warn(
+            "[Cookie Code][context-port] resume: bind-project error:",
+            err.message,
+          );
+        }
+      }
+      if (data.projectDir) {
+        console.log(
+          "[Cookie Code][context-port] resume: bind выполнен, projectDir =",
+          data.projectDir,
+        );
+      } else {
+        console.warn(
+          "[Cookie Code][context-port] resume: projectDir ОТСУТСТВУЕТ в take!",
+        );
+      }
       await runInjectStage(data.summary, data.initPrompt);
     }
   } catch (err) {

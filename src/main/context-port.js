@@ -26,6 +26,9 @@ function set(webContentsId, data) {
     // Промпт инициализации проекта (дерево каталога + системный промпт),
     // переносится вместе с контекстом, чтобы новый чат «знал» проект.
     initPrompt: data.initPrompt || "",
+    // Каталог проекта — чтобы привязать новый чат к тому же проекту
+    // (sessionStore.state.pendingProjectDir) после переноса.
+    projectDir: data.projectDir || "",
     createdAt: Date.now(),
   });
 }

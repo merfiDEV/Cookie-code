@@ -614,12 +614,30 @@ function registerIpcHandlers() {
     try {
       const ctx = windowState.getContextByWebContents(event.sender);
       const store = ctx ? ctx.sessionStore : null;
-      const projectDir = store ? store.state.selectedProjectDir : null;
-      if (!projectDir) return { success: true, prompt: "" };
+      // selectedProjectDir сбрасывается при навигации (например, при переносе
+      // контекста). Fallback на lastProjectDir, чтобы системный промпт проекта
+      // и projectDir всё равно попали в новый чат.
+      let projectDir = store
+        ? store.state.selectedProjectDir || store.state.lastProjectDir
+        : null;
+      // Третий fallback: последний известный каталог из персистентного
+      // маппинга session-dir-map (переживает перезапуск main).
+      if (
+        !projectDir &&
+        store &&
+        typeof store.readSessionStore === "function"
+      ) {
+        try {
+          const map = store.readSessionStore();
+          const dirs = Object.values(map || {}).filter(Boolean);
+          if (dirs.length > 0) projectDir = dirs[dirs.length - 1];
+        } catch (_) {}
+      }
+      if (!projectDir) return { success: true, prompt: "", projectDir: "" };
       const { buildInitPrompt } = require("./project-context");
       const providerId = (ctx && ctx.providerId) || "";
       const prompt = await buildInitPrompt(projectDir, providerId);
-      return { success: true, prompt: prompt || "" };
+      return { success: true, prompt: prompt || "", projectDir: projectDir };
     } catch (err) {
       console.error(
         "[Cookie Code] context-port:get-init-prompt error:",
@@ -674,13 +692,14 @@ function registerIpcHandlers() {
   // Хранилище живёт в main и переживает reload страницы при смене чата.
   ipcMain.handle(
     "context-port:start",
-    async (event, { history, stage, initPrompt }) => {
+    async (event, { history, stage, initPrompt, projectDir }) => {
       try {
         const wcId = event.sender.id;
         contextPort.set(wcId, {
           history: history || "",
           stage: stage || "history",
           initPrompt: initPrompt || "",
+          projectDir: projectDir || "",
         });
         return { success: true };
       } catch (err) {
@@ -698,6 +717,7 @@ function registerIpcHandlers() {
         history: cur.history || "",
         summary: summary || "",
         initPrompt: cur.initPrompt || "",
+        projectDir: cur.projectDir || "",
       });
       return { success: true };
     } catch (err) {
@@ -718,6 +738,26 @@ function registerIpcHandlers() {
   ipcMain.handle("context-port:clear", async (event) => {
     try {
       contextPort.clear(event.sender.id);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Привязать новый чат к проекту после переноса контекста.
+  // Ставит pendingProjectDir — при появлении sessionId (после отправки
+  // первого сообщения) session-store сам сохранит маппинг session->dir.
+  ipcMain.handle("context-port:bind-project", async (event, { dir } = {}) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const store = ctx ? ctx.sessionStore : null;
+      if (!store || !dir) return { success: false, error: "no-store-or-dir" };
+      store.state.pendingProjectDir = dir;
+      store.state.lastProjectDir = dir;
+      console.log(
+        "[Cookie Code] context-port:bind-project: pendingProjectDir =",
+        dir,
+      );
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
