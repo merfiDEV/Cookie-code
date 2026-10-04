@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.calc.outputs.version }}
-      tag:     ${{ steps.calc.outputs.tag }}
+      tag: ${{ steps.calc.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,8 +93,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Sync version from computed tag
         run: node scripts/sync-version.js
@@ -102,6 +102,16 @@ jobs:
           APP_VERSION: ${{ needs.bump.outputs.tag }}
 
       - run: npm install --no-fund --no-audit
+
+      # Кэш бинарников electron-builder (winCodeSign, nsis, winCodeSign и пр.).
+      # Защита от 503 при скачивании вспомогательных тулов с GitHub Releases.
+      - name: Cache electron-builder binaries
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.os == 'Windows' && 'C:\\Users\\runneradmin\\AppData\\Local\\electron-builder\\Cache' || '~/.cache/electron-builder' }}
+          key: electron-builder-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            electron-builder-${{ runner.os }}-
 
       - name: Build
         run: npm run ${{ matrix.command }}
