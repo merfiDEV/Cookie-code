@@ -1,181 +1,90 @@
 # Changelog
 
-## [4.0.36] - 2026-10-04
+## [5.0.0] - 2024-10-05
+
+### 🎉 Major Release — Cookie Code
+
+**Breaking Changes:**
+- 🍪 **Rebrand: Cuckoo Code → Cookie Code** — новое название, новая идентичность:
+  - все пользовательские строки обновлены на "Cookie Code";
+  - внутренние API и техническая терминология остались без изменений для совместимости.
 
 ### Added
 
-- 📸 **Команда `/screen` в Telegram — скриншот активного окна** — бот делает снимок текущего окна и присылает его в чат:
-  - новая команда `/screen` (+ подсказка в `/help`), зарегистрирована в меню команд для RU/EN;
-  - если активного окна нет — понятное сообщение «Нет активного окна»;
-  - при ошибке захвата бот возвращает причину (`screen.error`).
-- ✅ **Утверждение плана через Telegram** — план из режима плана теперь можно согласовать или отклонить прямо из бота:
-  - сообщение «📋 План на утверждение» с inline-кнопками «✅ Согласовать» / «❌ Отказать»;
-  - решение синхронизируется между ботом и окном приложения (состояние диалога плана общее);
-  - повторное нажатие по закрытому запросу отвечает «Запрос уже закрыт».
-- 🧹 **Перенос контекста: удаление промежуточного чата-суммаризатора** — чат, в котором модель сжимала историю, больше не остаётся висеть:
-  - sessionId промежуточного чата запоминается и удаляется уже из финального чата после переноса;
-  - удаление идёт через DOM сайдбара и **не зависит от языка интерфейса** (пункт меню и кнопка определяются по структурным признакам, а не по тексту).
+- 📚 **Билингвальная документация** — теперь три README для разных аудиторий:
+  - `README.md` (12K, русский) — краткая версия для русских пользователей;
+  - `README.en.md` (12K, английский) — полная версия с чётким value proposition для международной аудитории;
+  - `README.ru.md` (25K, русский) — полная техническая документация на русском.
+- 🎨 **SVG-иконки вместо эмодзи** — заменили 🔄 на чистые SVG:
+  - кнопка "Изменить" (проект) — иконка карандаша/редактирования;
+  - кнопка "Обновить" (сессии, окна, MCP, diff) — иконка круговой стрелки;
+  - `stroke="currentColor"` — автоматическая адаптация к цвету текста;
+  - компактные 14×14px иконки с чёткими линиями.
+- 🔧 **Улучшенный diff viewer** — 8 крупных апгрейдов:
+  - навигация по hunks с кнопками ◀/▶ и хоткеями `n`/`p`;
+  - внутристроковый diff (алгоритм Myers) — подсветка изменённых символов;
+  - копирование — кнопка Copy для всего diff, клик на строку копирует без префикса;
+  - фильтры — чекбоксы Added/Deleted/Context для скрытия ненужных строк;
+  - мини-карта — вертикальная полоса с цветными сегментами изменений;
+  - статистика — `📊 +234 -89 в 12 файлах` в списке;
+  - кэширование — результаты git-команд сохраняются в Map;
+  - перетаскиваемое окно — захват за шапку, сохранение позиции в localStorage.
+- 📱 **Построчный diff в Telegram-уведомлениях** — операции `edit` теперь показывают реальные изменения:
+  - вместо "было/стало" — unified diff с префиксами `+`/`-`/` `;
+  - до 30 строк diff, затем `…(обрезано)`;
+  - используется тот же `buildLineDiff` из `tools/line-diff.js`, что и в UI.
 
 ### Changed
 
-- 🌐 **Локализация списка MCP в оверлее** — статусы («Подключён» / «Не подключён» / «Отключён»), пустой список и тосты действий переведены через i18n (RU/EN) вместо захардкоженных строк.
-- 💬 **Диалоги вопросов и режима плана** — улучшена обработка закрытия/отмены (`ask-user-question`, `exit-plan-mode`), обновлён рендеринг markdown для новых сценариев утверждения.
-
-### Fixed
-
-- 🎨 **Кастомизация: фон и покраска не применяются при выключенной кастомизации** — если кастомизация отключена, фон/blur/эффекты не навязываются, а inline-стили `background-image` снимаются с `<html>`/`<body>`:
-  - добавлен флаг состояния, синхронизируемый при загрузке настроек и по изменению из другого окна/бота — фон больше не «возвращается» обратно;
-  - при выключении сбрасываются blur, RGB-ник и стекло ввода.
-- 🖼️ **Экспорт в PDF/DOCX: чистка SVG и служебных элементов** — перед выгрузкой ответа удаляются декоративные SVG-иконки и сервисные узлы, чтобы в документ попадал только полезный контент.
-- 🔗 **Привязка перенесённого чата к проекту** — после переноса контекста новый чат автоматически привязывается к тому же проекту:
-  - `projectDir` переносится через контекст-порт и устанавливается как `pendingProjectDir` нового чата;
-  - добавлен fallback `lastProjectDir` в session-store и чтение персистентного маппинга, чтобы системный промпт проекта собирался даже при сброшенном `selectedProjectDir`.
-
-### Added (EN)
-
-- 📸 **Telegram `/screen` command — screenshot of the active window** — the bot captures the current window and sends it to the chat:
-  - new `/screen` command (+ hint in `/help`), registered in the command menu for RU/EN;
-  - if there is no active window, a clear "No active window" message is returned;
-  - on capture failure the bot reports the reason (`screen.error`).
-- ✅ **Plan approval via Telegram** — a plan from plan mode can now be approved or denied straight from the bot:
-  - a "📋 Plan for approval" message with inline "✅ Approve" / "❌ Deny" buttons;
-  - the decision is synchronized between the bot and the app window (shared plan dialog state);
-  - pressing a button on an already-closed request answers "Request already closed".
-- 🧹 **Context transfer: removing the intermediate summarizer chat** — the chat where the model compressed the history no longer lingers:
-  - the summarizer chat's sessionId is remembered and deleted from the final chat after the transfer;
-  - deletion goes through the sidebar DOM and **does not depend on the UI language** (menu item and button are matched by structural traits, not by text).
-
-### Changed (EN)
-
-- 🌐 **Localized MCP list in the overlay** — statuses ("Connected" / "Disconnected" / "Disabled"), the empty state, and action toasts now go through i18n (RU/EN) instead of hardcoded strings.
-- 💬 **Question and plan-mode dialogs** — improved close/cancel handling (`ask-user-question`, `exit-plan-mode`) and markdown rendering for the new approval scenarios.
-
-### Fixed (EN)
-
-- 🎨 **Customization: background and styling are not applied when customization is off** — when customization is disabled, background/blur/effects are not forced, and inline `background-image` styles are removed from `<html>`/`<body>`:
-  - a state flag is synchronized on settings load and on changes from another window/bot — the background no longer snaps back;
-  - disabling resets blur, RGB username, and input glass.
-- 🖼️ **PDF/DOCX export: stripping SVG and service elements** — before exporting a response, decorative SVG icons and service nodes are removed so only useful content lands in the document.
-- 🔗 **Binding a transferred chat to the project** — after a context transfer, the new chat is automatically bound to the same project:
-  - `projectDir` is carried through the context port and set as the new chat's `pendingProjectDir`;
-  - added a `lastProjectDir` fallback in session-store and reading of the persistent mapping, so the project system prompt is built even when `selectedProjectDir` is reset.
-
-## [4.0.35] - 2026-09-29
-
-### Added
-
-- 🎤 **Голосовые сообщения теперь превращаются в текст — и всё это прямо у тебя на компьютере!** 🎉 Никаких облаков и сторонних сервисов — расшифровкой занимается локальный Whisper:
-  - 🧠 новый модуль `botsrc/whisper.js`: сам скачает `whisper-cli.exe` (+ DLL) и GGML-модель, сконвертирует аудио через ffmpeg в WAV 16 kHz mono и вернёт чистый текст;
-  - ⚙️ в настройках (вкладка Telegram) появился блок «🎤 Распознавание голоса (Whisper)» — включаешь одной галочкой и настраиваешь под себя:
-    - размер модели: лёгкая / средняя / тяжёлая 🪶⚖️🏋️;
-    - язык распознавания: авто, RU, EN, UK, DE, FR, ES, ZH 🌍;
-    - при желании — свои пути к `whisper-cli.exe` и `ffmpeg`;
-  - ⬇️ кнопки «Скачать whisper-cli», «Скачать модель» и «Удалить Whisper» — со статусом (exe / модель / ffmpeg) и прогрессом загрузки, чтобы всё было наглядно;
-  - 💌 распознанный текст прилетает в Telegram отдельным сообщением, а если включён приём сообщений в чат (chatFeed) — аккуратно вставляется в поле ввода DeepSeek с пометкой о возможных неточностях;
-  - 🆘 если что-то не готово — бот подскажет по-человечески: нет `whisper-cli.exe`, не скачана модель или не найден `ffmpeg`;
-  - 📦 без внешних npm-зависимостей — только встроенный `fetch` (Node 18+/Electron), чтобы ничего лишнего не тянуть.
-
-### Changed
-
-- 💬 **Бот больше не игнорирует голосовые и аудио** — раньше они молча пропадали, теперь `msg.voice`/`msg.audio` честно распознаются как контент; в `/help` добавили пункт про распознавание голоса, чтобы ты знал о возможности :)
-- 🧹 **Небольшая уборка форматирования в `src/main/ipc.js` и `src/preload/api.js`** — выровняли отступы в блоках `init-project`, `set-project-dir`, `list-sessions` и обработчиках инструментов. Логика не тронута, просто стало опрятнее.
-
-### Added (EN)
-
-- 🎤 **Voice messages turn into text — right on your machine!** 🎉 No clouds or third-party services — transcription runs on a local Whisper:
-  - 🧠 new module `botsrc/whisper.js`: downloads `whisper-cli.exe` (+ DLL) and a GGML model, converts audio via ffmpeg to 16 kHz mono WAV, and returns clean text;
-  - ⚙️ a new "🎤 Voice recognition (Whisper)" block in settings (Telegram tab) — flip one checkbox and tune it your way:
-    - model size: light / medium / heavy 🪶⚖️🏋️;
-    - recognition language: auto, RU, EN, UK, DE, FR, ES, ZH 🌍;
-    - optional custom paths to `whisper-cli.exe` and `ffmpeg`;
-  - ⬇️ "Download whisper-cli", "Download model", and "Remove Whisper" buttons — with a status line (exe / model / ffmpeg) and download progress, so everything stays clear;
-  - 💌 the transcribed text arrives in Telegram as a separate message and, when chat feed is enabled, is gently inserted into the DeepSeek chat input with a note about possible inaccuracies;
-  - 🆘 if something is missing, the bot explains it human-style: no `whisper-cli.exe`, model not downloaded, or `ffmpeg` not found;
-  - 📦 no external npm dependencies — built-in `fetch` only (Node 18+/Electron), nothing extra pulled in.
-
-### Changed (EN)
-
-- 💬 **The bot no longer ignores voice and audio** — they used to vanish silently; now `msg.voice`/`msg.audio` are properly treated as content, and `/help` mentions voice recognition so you know it's there :)
-- 🧹 **A bit of formatting tidy-up in `src/main/ipc.js` and `src/preload/api.js`** — indentation aligned in the `init-project`, `set-project-dir`, `list-sessions` blocks and tool handlers. No logic changed, just neater.
-
-## [4.0.34] - 2026-09-26
-
-### Added
-
-- 📤 **Инструмент `attach_telegram` — отправка файлов в Telegram** — AI может прикрепить любой локальный файл и отправить его прямо в чат с ботом:
-  - JS-API `attachTelegram(filePath, caption?, comment?)`: `caption` — подпись к файлу, `comment` — то, что AI хочет добавить от себя (зачем файл, что внутри, на что обратить внимание);
-  - если задан только `comment`, он уходит подписью; если заданы оба — `comment` дописывается к `caption` отдельной строкой;
-  - лимит 45 МБ (запас под лимит Telegram в 50 МБ), подпись и комментарий обрезаются до 1024 символов;
-  - отправка через уже настроенного бота (`telegramBot.sendDocument`) — новых зависимостей нет;
-  - файлы больше лимита, отсутствующий файл или ненастроенный бот возвращают понятную ошибку;
-  - объявление в `cuckoo-tools.d.ts`, обёртка `attachTelegram` в песочнице `JsRunner`.
-- 📁 **Telegram-бот: выбор проекта кнопками** — новая команда `/projects` (алиасы `/project`, `/proj`) открывает список проектов inline-клавиатурой:
-  - список собирается из сохранённых связок «сессия → проект» активного профиля, плюс текущий проект;
-  - постраничный вывод по 8 проектов с кнопками «◀️ Назад / Вперёд ▶️» и счётчиком страниц;
-  - выбор проекта переключает окно на **существующую сессию** этого проекта (та же навигация, что и `/switch`) — новый чат не создаётся;
-  - кнопка «⌨️ Ввести путь вручную» принимает абсолютный путь к папке следующим сообщением;
-  - если проект не выбран, команды `/diff`, `/log`, `/sessions` показывают сообщение вместе с клавиатурой выбора.
-
-### Changed
-
-- 📜 **`/log` и `/sessions` редактируют сообщение, а не плодят новые** — при повторном вызове и при листании страниц бот обновляет уже отправленное сообщение (`editMessageText`); если сообщение было удалено вручную — отправляется новое.
-- 🆕 **`/new` сообщает результат** — вместо тишины или `⚠️ undefined` бот отвечает явно: «🆕 Новый чат открыт», «⚠️ Нет активного окна…» или «❌ Не удалось открыть новый чат: \<причина\>».
-- 🌐 **Язык бота больше не навязывается** — `readSettings()` отдаёт ровно то, что записано в файле настроек, без подстановки языка системы; при `/start` бот больше не требует принудительно выбрать язык, а сразу показывает справку.
-
-### Fixed
-
-- 🐛 **`/new` не отвечал** — `newChat()` делает `loadURL` на домашнюю страницу и выгружает JS-контекст окна, поэтому `executeJavaScript` с ожиданием результата зависал навсегда. Теперь вызов «выстрелил-и-забыл», а ответ приходит сразу.
-- 🐛 **Пагинация выбора проекта падала** — `ReferenceError: msgId is not defined` в обработчике callback-кнопок; id сообщения теперь берётся из `cbq.message`, а при неудачном редактировании есть фолбэк на отправку нового сообщения.
-- 🐛 **Выбор проекта не применялся в приложении** — установка проекта по известному пути не переключала окно на его сессию. Добавлен IPC `set-project-dir` (+ `setProjectDir` в preload и `setProjectByDir` в main): поиск сессии по папке проекта и навигация на неё.
-- 🐛 **Ошибка `setProjectDir недоступен в окне`** — метода не существовало; добавлен полный путь IPC → preload → main.
+- 📖 **Новая структура README** — English-first для GitHub-аудитории:
+  - чёткая проблема → решение в первых строках;
+  - value proposition: "Zero token cost + Real agent loop + Git integration";
+  - конкретные примеры использования вместо технического описания;
+  - призыв к действию — скачать бинарники.
 
 ### Removed
 
-- 🧹 **Принудительная фиксация языка DeepSeek** — удалён модуль `src/preload/dom/deepseek-language.js`, который переключал Language на «Система» и блокировал селект (`pointer-events:none`, `aria-disabled`, гашение `onMouseDown`/`onKeyDown`). Язык интерфейса DeepSeek снова выбирается пользователем свободно.
+- 🗑️ **Устаревшие документы удалены из репозитория**:
+  - `ROADMAP.ru.md` и `Roadmap.md` — 3-недельной давности, больше не актуальны;
+  - `.cuckooCode/AUTO_UPDATE_RELEASE.md` — документация по auto-update на китайском;
+  - `DIFF_IMPROVEMENTS.md` — временный документ с описанием улучшений (все реализованы).
 
 ### Added (EN)
 
-- 📤 **Tool `attach_telegram` — send files to Telegram** — the AI can attach any local file and send it straight to the chat with the bot:
-  - JS API `attachTelegram(filePath, caption?, comment?)`: `caption` is the file caption, `comment` is an extra note the AI adds itself (why the file, what's inside, what to look at);
-  - if only `comment` is given, it becomes the caption; if both are given, `comment` is appended to `caption` on a separate line;
-  - 45 MB limit (headroom under Telegram's 50 MB cap), caption and comment are truncated to 1024 chars;
-  - sent through the already-configured bot (`telegramBot.sendDocument`) — no new dependencies;
-  - oversized files, a missing file, or an unconfigured bot return a clear error;
-  - declared in `cuckoo-tools.d.ts`, wrapped as `attachTelegram` in the `JsRunner` sandbox.
-- 📁 **Telegram bot: pick a project with buttons** — the new `/projects` command (aliases `/project`, `/proj`) opens a project list as an inline keyboard:
-  - the list is built from saved "session → project" mappings of the active profile plus the current project;
-  - paged output, 8 projects per page, with "◀️ Back / Next ▶️" buttons and a page counter;
-  - picking a project switches the window to the **existing session** of that project (same navigation as `/switch`) — no new chat is created;
-  - the "⌨️ Enter path manually" button accepts an absolute folder path as the next message;
-  - if no project is selected, `/diff`, `/log`, and `/sessions` show the message together with the project picker.
+- 📚 **Bilingual documentation** — three README files for different audiences:
+  - `README.md` (12K, Russian) — concise version for Russian users;
+  - `README.en.md` (12K, English) — full version with clear value proposition for international audience;
+  - `README.ru.md` (25K, Russian) — complete technical documentation in Russian.
+- 🎨 **SVG icons instead of emoji** — replaced 🔄 with clean SVG:
+  - "Change" button (project) — pencil/edit icon;
+  - "Refresh" button (sessions, windows, MCP, diff) — circular arrow icon;
+  - `stroke="currentColor"` — automatic adaptation to text color;
+  - compact 14×14px icons with sharp lines.
+- 🔧 **Enhanced diff viewer** — 8 major upgrades:
+  - hunk navigation with ◀/▶ buttons and `n`/`p` hotkeys;
+  - intra-line diff (Myers algorithm) — highlights changed characters;
+  - copy — Copy button for full diff, click on line copies without prefix;
+  - filters — Added/Deleted/Context checkboxes to hide unwanted lines;
+  - mini-map — vertical bar with colored change segments;
+  - statistics — `📊 +234 -89 in 12 files` in the list;
+  - caching — git command results saved in Map;
+  - draggable window — grab by header, position saved in localStorage.
+- 📱 **Line-by-line diff in Telegram notifications** — `edit` operations now show real changes:
+  - instead of "before/after" — unified diff with `+`/`-`/` ` prefixes;
+  - up to 30 lines of diff, then `…(truncated)`;
+  - uses the same `buildLineDiff` from `tools/line-diff.js` as the UI.
 
 ### Changed (EN)
 
-- 📜 **`/log` and `/sessions` edit the message instead of posting new ones** — on repeat calls and when paging, the bot updates the message it already sent (`editMessageText`); if the message was deleted manually, a new one is sent.
-- 🆕 **`/new` reports the result** — instead of silence or `⚠️ undefined`, the bot answers explicitly: "🆕 New chat opened", "⚠️ No active window…", or "❌ Failed to open a new chat: \\<reason\\>".
-- 🌐 **The bot language is no longer forced** — `readSettings()` returns exactly what is stored in the settings file, with no system-language substitution; on `/start` the bot no longer demands a language choice and just shows help.
-
-### Fixed (EN)
-
-- 🐛 **`/new` did not respond** — `newChat()` calls `loadURL` to the home page, which unloads the window's JS context, so `executeJavaScript` awaiting a result hung forever. The call is now fire-and-forget and the reply comes back immediately.
-- 🐛 **Project picker pagination crashed** — `ReferenceError: msgId is not defined` in the callback-button handler; the message id is now taken from `cbq.message`, and a failed edit falls back to sending a new message.
-- 🐛 **Project selection did not apply in the app** — setting a project by a known path did not switch the window to its session. Added the IPC `set-project-dir` (plus `setProjectDir` in preload and `setProjectByDir` in main): it finds the session by project folder and navigates to it.
-- 🐛 **"setProjectDir is unavailable in the window" error** — the method did not exist; the full IPC → preload → main path was added.
+- 📖 **New README structure** — English-first for GitHub audience:
+  - clear problem → solution in the first lines;
+  - value proposition: "Zero token cost + Real agent loop + Git integration";
+  - concrete usage examples instead of technical description;
+  - call to action — download binaries.
 
 ### Removed (EN)
 
-- 🧹 **Forced DeepSeek language lock** — deleted the `src/preload/dom/deepseek-language.js` module, which switched Language to "System" and locked the select (`pointer-events:none`, `aria-disabled`, neutered `onMouseDown`/`onKeyDown`). The DeepSeek UI language can be chosen freely by the user again.
-
-## [4.0.33] - 2026-09-23
-
-### Added
-
-- ⏳ **Уведомление в Telegram о долгих процессах с кнопкой «🛑 Убить процесс»** — если команда bash/pwsh или скрипт AI выполняется дольше 10 секунд, бот присылает сообщение с таймером и кнопкой экстренной остановки:
-  - работает для любых команд: и запущенных AI через `JsRunner`, и классических инструментов `bash`/`pwsh`, и ручных запусков из блоков кода в чате :)
-  - по нажатию кнопки процесс мгновенно завершается вместе со всем деревом процессов (`taskkill /T /F` на Windows);
-  - сообщение в Telegram красиво обновляется на «🛑 Процесс остановлен пользователем» или сообщает, если процесс уже успел завершиться сам;
-  - если Telegram-бот в настройках выключен или не настроен — приложение работает в обычном режиме без задержек и лишних запросов.
-
-### Fixed
-
-- 🪓 **Остановка зависших процессов** — теперь кнопка завершения в Telegram корректно находит активный дочерний процесс и гарантированно гасит всё дерево процессов на Windows.
+- 🗑️ **Obsolete documents removed from repository**:
+  - `ROADMAP.ru.md` and `Roadmap.md` — 3 weeks old, no longer relevant;
+  - `.cuckooCode/AUTO_UPDATE_RELEASE.md` — auto-update documentation in Chinese;
+  - `DIFF_IMPROVEMENTS.md` — temporary document describing improvements (all implemented).

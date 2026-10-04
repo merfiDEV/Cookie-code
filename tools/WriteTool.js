@@ -1,6 +1,7 @@
 const { Tool, ToolResult } = require('./ToolRegistry');
 const fs = require('fs');
 const path = require('path');
+const { buildLineDiff } = require('./line-diff');
 
 /**
  * 校验 write 参数：
@@ -98,9 +99,10 @@ class WriteTool extends Tool {
 
       // Подсчёт строк для счётчика +added -removed в инлайн-блоке
       let oldLines = 0;
+      let oldContent = '';
       if (operation === 'update') {
         try {
-          const oldContent = fs.readFileSync(resolvedPath, 'utf-8');
+          oldContent = fs.readFileSync(resolvedPath, 'utf-8');
           oldLines = countLines(oldContent);
         } catch (_) { oldLines = 0; }
       }
@@ -126,6 +128,7 @@ class WriteTool extends Tool {
       const res = ToolResult.success(formatWriteOutput(input.filePath, operation));
       // diff-статистика для инлайн-счётчика
       res.stats = { added: newLines, removed: oldLines, operation };
+      res.diff = buildLineDiff(oldContent, input.content);
       // также в data для общности (AI увидит, но не критично)
       if (res.data && typeof res.data === 'string') {
         // сохраняем envelope как data, stats отдельно

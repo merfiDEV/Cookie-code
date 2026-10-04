@@ -368,6 +368,25 @@ function applyDiffToBlock(block, added, removed) {
   diffEl.title = 'Изменено строк: +' + (added||0) + ' -' + (removed||0);
 }
 
+function renderDiffToCode(block, diff) {
+  if (!block || !Array.isArray(diff) || diff.length === 0) return;
+  let view = block.querySelector('.cuckoo-tool-diff-view');
+  if (!view) {
+    view = document.createElement('div');
+    view.className = 'cuckoo-tool-diff-view';
+    const codeBlock = block.querySelector('.md-code-block');
+    if (codeBlock) block.insertBefore(view, codeBlock);
+    else block.appendChild(view);
+  }
+  view.innerHTML = '';
+  for (const row of diff) {
+    const line = document.createElement('div');
+    line.className = 'cuckoo-tool-diff-line ' + (row.type || 'context');
+    line.textContent = (row.type === 'added' ? '+ ' : row.type === 'removed' ? '- ' : '  ') + String(row.text || '');
+    view.appendChild(line);
+  }
+}
+
 function markToolBlockDiff(code, stats) {
   return safe('tool-render.markToolBlockDiff', () => {
     if (!code) return false;
@@ -387,12 +406,13 @@ function markToolBlockDiff(code, stats) {
       added = Number(stats) || 0;
     }
     // Если оба 0 — не показываем
-    if (added === 0 && removed === 0) return false;
-    pendingDiffs.set(key, { added, removed });
+    const diff = stats && typeof stats === 'object' && Array.isArray(stats.diff) ? stats.diff : [];
+    if (added === 0 && removed === 0 && diff.length === 0) return false;
+    pendingDiffs.set(key, { added, removed, diff });
     try {
       const raw = localStorage.getItem(DIFF_STORE_KEY) || '{}';
       const store = JSON.parse(raw);
-      store[key] = { added, removed };
+      store[key] = { added, removed, diff };
       localStorage.setItem(DIFF_STORE_KEY, JSON.stringify(store));
     } catch (_) {}
     applyPendingDiffs();
@@ -424,6 +444,7 @@ function applyPendingDiffsInner() {
     for (const [key, diff] of pendingDiffs) {
       if (!blockCode.includes(key)) continue;
       applyDiffToBlock(block, diff.added, diff.removed);
+      renderDiffToCode(block, diff.diff);
       pendingDiffs.delete(key);
       break;
     }

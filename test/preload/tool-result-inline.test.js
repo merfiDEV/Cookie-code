@@ -29,7 +29,12 @@ function makeEl(tag) {
     parentElement: null,
     setAttribute(n, v) { this.attributes[n] = String(v); },
     getAttribute(n) { return this.attributes[n] !== undefined ? this.attributes[n] : null; },
-    appendChild(c) { this.children.push(c); c.parentElement = this; return c; },
+    appendChild(c) {
+      this.children.push(c);
+      c.parentElement = this;
+      this.textContent += (this.tagName === 'PRE' && this.children.length > 1 ? '\n' : '') + (c.textContent || '');
+      return c;
+    },
     removeChild(c) {
       const i = this.children.indexOf(c);
       if (i !== -1) this.children.splice(i, 1);

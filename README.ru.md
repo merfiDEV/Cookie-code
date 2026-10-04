@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> · <strong>Русский</strong>
+  <a href="README.en.md">English</a> · <strong>Русский</strong>
 </p>
 
 **Cookie Code** — AI-агент для рабочего стола с **нулевой стоимостью токенов**.

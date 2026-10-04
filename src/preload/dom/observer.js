@@ -305,8 +305,11 @@ async function executeJsBlocksWithRetry(initialBlocks, markdown, force) {
             // оставляем пусто — не показываем 0/0
           } catch (_) {}
         }
-        if (added || removed)
-          toolRender.markToolBlockDiff(item.code, { added, removed });
+        const diff = r && Array.isArray(r.stats)
+          ? r.stats.flatMap((s) => Array.isArray(s.diff) ? s.diff : [])
+          : (r && r.stats && Array.isArray(r.stats.diff) ? r.stats.diff : []);
+        if (added || removed || diff.length)
+          toolRender.markToolBlockDiff(item.code, { added, removed, diff });
       } catch (_) {}
     }
     sendCombinedJsResultsToChat(results);

@@ -1,6 +1,7 @@
 const { Tool, ToolResult } = require('./ToolRegistry');
 const fs = require('fs');
 const path = require('path');
+const { buildLineDiff } = require('./line-diff');
 
 function countLines(str) {
   if (!str || str.length === 0) return 0;
@@ -121,6 +122,7 @@ class FileEditTool extends Tool {
       const oldLines = countLines(old_string);
       const newLines = countLines(new_string);
       res.stats = { added: newLines * (replace_all ? occurrences : 1), removed: oldLines * (replace_all ? occurrences : 1), occurrences };
+      res.diff = buildLineDiff(content, newContent);
       return res;
     } catch (err) {
       return ToolResult.error(`编辑文件失败: ${err.message}`);
