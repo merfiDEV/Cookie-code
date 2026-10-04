@@ -1,6 +1,7 @@
 const { Tool, ToolResult } = require('./ToolRegistry');
 const fs = require('fs');
 const path = require('path');
+const { buildLineDiff } = require('./line-diff');
 
 /**
  * 校验 edit 参数（对齐 dsh parseEditArgs）：
@@ -178,6 +179,7 @@ class EditTool extends Tool {
       const oldLines = countLines(input.oldString);
       const newLines = countLines(input.newString);
       res.stats = { added: newLines * (input.replaceAll ? occurrences : 1), removed: oldLines * (input.replaceAll ? occurrences : 1), occurrences };
+      res.diff = buildLineDiff(content, newContent);
       return res;
     } catch (err) {
       return ToolResult.error('编辑文件失败: ' + err.message);

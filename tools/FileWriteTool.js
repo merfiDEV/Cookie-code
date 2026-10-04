@@ -1,6 +1,7 @@
 const { Tool, ToolResult } = require('./ToolRegistry');
 const fs = require('fs');
 const path = require('path');
+const { buildLineDiff } = require('./line-diff');
 
 function countLines(str) {
   if (!str || str.length === 0) return 0;
@@ -66,9 +67,13 @@ class FileWriteTool extends Tool {
       }
 
       const isUpdate = fs.existsSync(resolvedPath);
+      let oldContent = '';
       let oldLines = 0;
       if (isUpdate) {
-        try { oldLines = countLines(fs.readFileSync(resolvedPath, encoding)); } catch (_) {}
+        try {
+          oldContent = fs.readFileSync(resolvedPath, encoding);
+          oldLines = countLines(oldContent);
+        } catch (_) {}
       }
       const newLines = countLines(content);
 
@@ -93,6 +98,7 @@ class FileWriteTool extends Tool {
         path: absolutePath
       });
       res.stats = { added: newLines, removed: isUpdate ? oldLines : 0, operation: isUpdate ? 'update' : 'create' };
+      res.diff = buildLineDiff(oldContent, content);
       return res;
     } catch (err) {
       return ToolResult.error(`写入文件失败: ${err.message}`);

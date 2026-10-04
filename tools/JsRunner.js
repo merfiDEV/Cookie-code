@@ -426,6 +426,7 @@ class JsRunner {
             added: result.stats.added,
             removed: result.stats.removed,
             operation: result.stats.operation || "",
+            diff: Array.isArray(result.diff) ? result.diff : [],
           });
         }
       } catch (_) {}

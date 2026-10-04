@@ -106,9 +106,11 @@ function ensureStyles() {
     '.cuckoo-tool-result-content { margin: 0; padding: 7px 9px; background: rgba(128,128,160,.055); ' +
     'border: 1px solid rgba(128,128,160,.14); border-radius: 6px; ' +
     'font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; ' +
+    'white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; color: inherit; }' +
     'white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; color: inherit; }';
   document.head.appendChild(style);
 }
+
 
 /**
  * Сохранить результат в localStorage (переживает перезагрузку страницы).
@@ -116,12 +118,12 @@ function ensureStyles() {
  * @param {string} status
  * @param {string} output
  */
-function persistResult(key, status, output) {
+function persistResult(key, status, output, diff) {
   try {
     const raw = localStorage.getItem(STORE_KEY) || '[]';
     const arr = JSON.parse(raw);
     const list = Array.isArray(arr) ? arr.filter((x) => x && x.k !== key) : [];
-    list.push({ k: key, s: status, o: String(output || '').slice(0, MAX_STORED_LEN) });
+    list.push({ k: key, s: status, o: String(output || '').slice(0, MAX_STORED_LEN), d: Array.isArray(diff) ? diff : [] });
     while (list.length > MAX_STORED) list.shift();
     localStorage.setItem(STORE_KEY, JSON.stringify(list));
   } catch (_) { /* приватный режим/битый JSON — не критично */ }
@@ -135,7 +137,7 @@ function loadStoredResults() {
     if (!Array.isArray(arr)) return;
     for (const item of arr) {
       if (item && item.k && !pendingResults.has(item.k)) {
-        pendingResults.set(item.k, { status: item.s || 'success', output: item.o || '' });
+        pendingResults.set(item.k, { status: item.s || 'success', output: item.o || '', diff: item.d || [] });
       }
     }
   } catch (_) { /* битый JSON — пропускаем */ }
@@ -223,8 +225,9 @@ function markToolBlockResult(code, result) {
   return safe('tool-result-inline.markToolBlockResult', () => {
     const key = codeKey(code);
     if (!key) return false;
-    pendingResults.set(key, { status: statusOf(result), output: outputOf(result) });
-    persistResult(key, statusOf(result), outputOf(result));
+    const res = { status: statusOf(result), output: outputOf(result), diff: Array.isArray(result && result.diff) ? result.diff : [] };
+    pendingResults.set(key, res);
+    persistResult(key, res.status, res.output, res.diff);
     try { applyPendingResults(); } catch (_) {}
     return true;
   }, false);

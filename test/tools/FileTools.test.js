@@ -36,6 +36,7 @@ test('FileWriteTool 覆盖已有文件', async () => {
   const tool = new FileWriteTool();
   const r = await tool.execute({ file_path: 'a.txt', content: 'new', projectDir: tmpRoot });
   assert.strictEqual(r.success, true);
+  assert.deepStrictEqual(r.diff.map((x) => x.type), ['removed', 'added']);
   assert.strictEqual(fs.readFileSync(f, 'utf8'), 'new');
 });
 
@@ -66,6 +67,7 @@ test('FileEditTool 替换文本', async () => {
   const tool = new FileEditTool();
   const r = await tool.execute({ file_path: 'a.txt', old_string: 'world', new_string: 'cuckoo', projectDir: tmpRoot });
   assert.strictEqual(r.success, true);
+  assert.deepStrictEqual(r.diff.map((x) => x.type), ['removed', 'added']);
   assert.strictEqual(fs.readFileSync(path.join(tmpRoot, 'a.txt'), 'utf8'), 'hello cuckoo');
 });
 
