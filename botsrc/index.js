@@ -2759,7 +2759,7 @@ async function notifyAllDone(todos) {
 
 /**
  * Человекочитаемое представление аргументов вызова инструмента.
- * Для edit показываем НОВЫЙ код (new_string) до 2000 символов.
+ * Для edit показываем построчный diff (added/removed/context).
  */
 function formatToolArgs(toolName, args) {
   if (!args || typeof args !== "object") return "";
@@ -2772,21 +2772,42 @@ function formatToolArgs(toolName, args) {
       const old = a.old_string != null ? String(a.old_string) : "";
       let s = "";
       if (file) s += "📄 " + file + "\n";
-      if (old)
-        s +=
-          _t("tool.old") +
-          "\n" +
-          old.slice(0, 500) +
-          (old.length > 500 ? "\n" + _t("tool.truncated") : "") +
-          "\n";
-      if (neu)
-        s +=
-          _t("tool.new") +
-          "\n" +
-          neu.slice(0, 2000) +
-          (neu.length > 2000
-            ? "\n" + _t("tool.truncatedTotal", { n: neu.length })
-            : "");
+      
+      // Построчный diff вместо двух больших блоков.
+      if (old || neu) {
+        try {
+          const { buildLineDiff } = require("../tools/line-diff");
+          const rows = buildLineDiff(old, neu);
+          const MAX_LINES = 30; // показываем до 30 строк diff
+          const slice = rows.slice(0, MAX_LINES);
+          const lines = slice.map(r => {
+            if (r.type === 'added') return '+ ' + r.text;
+            if (r.type === 'removed') return '- ' + r.text;
+            return '  ' + r.text;
+          });
+          s += lines.join('\n');
+          if (rows.length > MAX_LINES) {
+            s += '\n' + _t("tool.truncatedTotal", { n: rows.length });
+          }
+        } catch (err) {
+          // Fallback на старый формат при ошибке.
+          if (old)
+            s +=
+              _t("tool.old") +
+              "\n" +
+              old.slice(0, 500) +
+              (old.length > 500 ? "\n" + _t("tool.truncated") : "") +
+              "\n";
+          if (neu)
+            s +=
+              _t("tool.new") +
+              "\n" +
+              neu.slice(0, 2000) +
+              (neu.length > 2000
+                ? "\n" + _t("tool.truncatedTotal", { n: neu.length })
+                : "");
+        }
+      }
       return s;
     }
     case "read":
