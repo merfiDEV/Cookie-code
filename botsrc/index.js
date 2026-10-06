@@ -124,7 +124,12 @@ function _log(level, ...args) {
  */
 async function _sendToChat(text) {
   try {
-    const win = windowState.getMainWindow();
+    // ВАЖНО: шлём в родительское (не-субагентское) окно. Если открыто
+    // окно субагента, оно могло стать «активным» — но команды пользователя
+    // из TG всегда должны попадать в главный чат.
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (!win || win.isDestroyed())
       return { success: false, error: "нет активного окна" };
 
@@ -165,9 +170,11 @@ async function _sendToChat(text) {
   }
 }
 
-/** Выполнить JS в активном окне и вернуть результат. */
+/** Выполнить JS в родительском (не-субагентском) окне. */
 async function _evalInWindow(script) {
-  const win = windowState.getMainWindow();
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
   if (!win || win.isDestroyed())
     return { success: false, error: "нет активного окна" };
   try {
@@ -178,10 +185,12 @@ async function _evalInWindow(script) {
   }
 }
 
-/** Получить контекст активного окна (профиль/сессия/projectDir). */
+/** Получить контекст родительского (не-субагентского) окна. */
 function _activeContext() {
   try {
-    const win = windowState.getMainWindow();
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (win && !win.isDestroyed() && win.webContents) {
       return windowState.getContextByWebContents(win.webContents);
     }
@@ -189,10 +198,12 @@ function _activeContext() {
   return null;
 }
 
-/** Получить id активного окна (для доступа к его todo-списку). */
+/** Получить id родительского (не-субагентского) окна (для todo-списка). */
 function _activeSenderId() {
   try {
-    const win = windowState.getMainWindow();
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (win && !win.isDestroyed() && win.webContents) return win.webContents.id;
   } catch (_) {}
   return null;
@@ -1473,7 +1484,9 @@ async function _handleSettingsCallback(data, cbq) {
 async function _cmdStop() {
   let count = 0;
   try {
-    const win = windowState.getMainWindow();
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (
       win &&
       !win.isDestroyed() &&
@@ -1506,7 +1519,9 @@ async function _cmdScreen() {
   if (!cfg.enabled || !cfg.token || !cfg.chatId)
     return { success: false, skipped: true };
 
-  const win = windowState.getMainWindow();
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
   if (!win || win.isDestroyed()) {
     await telegramBot.sendMessage(_t("screen.noWindow"));
     return { success: false, error: "noWindow" };
@@ -1546,7 +1561,9 @@ async function _cmdStatus() {
   } catch (_) {}
   lines.push(_t("status.version", { v: escapeHtml(version) }));
 
-  const win = windowState.getMainWindow();
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
   const winOk = !!(win && !win.isDestroyed());
   lines.push(
     _t("status.window") +
@@ -1614,7 +1631,9 @@ async function _cmdStatus() {
 async function _cmdNew() {
   const win = (() => {
     try {
-      return windowState.getMainWindow();
+      return windowState.getParentWindow
+        ? windowState.getParentWindow()
+        : windowState.getMainWindow();
     } catch (_) {
       return null;
     }
@@ -1954,7 +1973,9 @@ function _projectKeyboard() {
 async function _setProject(chatId, dir) {
   const win = (() => {
     try {
-      return windowState.getMainWindow();
+      return windowState.getParentWindow
+        ? windowState.getParentWindow()
+        : windowState.getMainWindow();
     } catch (_) {
       return null;
     }
@@ -2418,7 +2439,9 @@ async function _sendInWindow(win) {
 async function _insertImageToWindow(absPath, caption, send) {
   try {
     const { clipboard, nativeImage } = require("electron");
-    const win = windowState.getMainWindow();
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (!win || win.isDestroyed())
       return { success: false, error: _t("common.noWindow") };
     const img = nativeImage.createFromPath(absPath);
@@ -2470,7 +2493,9 @@ async function _attachFileToWindow(absPath, caption, send) {
       UPLOAD_TIMEOUT_MS,
       MAX_FILE_SIZE,
     } = require("../tools/AttachFileTool");
-    const win = windowState.getMainWindow();
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (!win || win.isDestroyed())
       return { success: false, error: _t("common.noWindow") };
     const stat = fs.statSync(absPath);

@@ -61,6 +61,33 @@ function getMainWindow() {
   return ctx ? ctx.win : null;
 }
 
+/**
+ * Родительское окно (НЕ субагент). Для TG-бота: команды пользователя
+ * должны всегда попадать в главное окно, даже если открыто окно субагента.
+ * Берём самое свежее не-субагентское окно; если такого нет — падаем на getMainWindow().
+ */
+function getParentWindow() {
+  let fallback = null;
+  for (const [id, ctx] of windows) {
+    if (!ctx.isSubagent && ctx.win && !ctx.win.isDestroyed()) {
+      fallback = ctx.win;
+    }
+  }
+  return fallback || getMainWindow();
+}
+
+/** Родительский контекст (не субагент). Аналогично getParentWindow(). */
+function getParentContext() {
+  let fallback = null;
+  for (const [id, ctx] of windows) {
+    if (!ctx.isSubagent && ctx.win && !ctx.win.isDestroyed()) {
+      fallback = ctx;
+    }
+  }
+  if (fallback) return fallback;
+  return getMainContext();
+}
+
 function getMainContext() {
   if (!lastActiveWindowId) return null;
   return windows.get(lastActiveWindowId) || null;
@@ -96,6 +123,8 @@ module.exports = {
   getContextByWebContents,
   getMainWindow,
   getMainContext,
+  getParentWindow,
+  getParentContext,
   setMainWindow,
   getAllWindows,
   getAllContexts,
