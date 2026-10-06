@@ -266,6 +266,24 @@ const STRINGS = {
     "city.tz": "Часовой пояс",
     "city.place": "Город / страна",
 
+    // ===== Субагенты (run_agent / create_agent / list_agents / read_agent) =====
+    "agent.runTitle": "🚀 <b>ИИ делегирует задачу субагенту</b>",
+    "agent.resultTitle": "🎯 <b>Субагент вернул результат</b>",
+    "agent.createTitle": "🧬 <b>ИИ создаёт нового субагента</b>",
+    "agent.listTitle": "📋 <b>ИИ смотрит список субагентов</b>",
+    "agent.readTitle": "🔍 <b>ИИ читает описание субагента</b>",
+    "agent.name": "Агент",
+    "agent.task": "Задача",
+    "agent.tools": "Инструменты",
+    "agent.maxTurns": "Лимит шагов",
+    "agent.noTools": "все разрешены",
+    "agent.noLimit": "без лимита",
+    "agent.noResult": "(пустой результат)",
+    "agent.failed": "❌ <b>Субагент завершился с ошибкой</b>",
+    "agent.created": "Агент создан",
+    "agent.existing": "Агент обновлён",
+    "agent.prompt": "Системный промпт",
+
     // ===== Approval =====
     "approval.title": "🔐 <b>Подтверждение команды</b>",
     "approval.jsScript": "JS-скрипт",
@@ -576,6 +594,24 @@ const STRINGS = {
     "city.time": "Time",
     "city.tz": "Timezone",
     "city.place": "City / country",
+
+    // ===== Subagents (run_agent / create_agent / list_agents / read_agent) =====
+    "agent.runTitle": "🚀 <b>AI delegates a task to a subagent</b>",
+    "agent.resultTitle": "🎯 <b>Subagent returned a result</b>",
+    "agent.createTitle": "🧬 <b>AI creates a new subagent</b>",
+    "agent.listTitle": "📋 <b>AI views the subagent list</b>",
+    "agent.readTitle": "🔍 <b>AI reads subagent details</b>",
+    "agent.name": "Agent",
+    "agent.task": "Task",
+    "agent.tools": "Tools",
+    "agent.maxTurns": "Max turns",
+    "agent.noTools": "all allowed",
+    "agent.noLimit": "no limit",
+    "agent.noResult": "(empty result)",
+    "agent.failed": "❌ <b>Subagent failed</b>",
+    "agent.created": "Agent created",
+    "agent.existing": "Agent updated",
+    "agent.prompt": "System prompt",
 
     // ===== Approval =====
     "approval.title": "🔐 <b>Command approval</b>",

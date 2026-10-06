@@ -446,6 +446,14 @@ subagent.injectSubagentDeps({ createWindow, profileManager });
 injectAgentRunner(async ({ agent, task, currentWindowId, projectDir }) => {
   const ctx = windowState.getWindowContext(currentWindowId);
   if (!ctx) throw new Error("Контекст окна не найден");
+
+  // Уведомляем TG о старте делегирования ДО открытия дочернего окна —
+  // чтобы пользователь сразу видел карточку «делегирую задачу»,
+  // а не ждал до конца работы субагента.
+  try {
+    require("../../botsrc").notifyAgentStarted(agent.name, task);
+  } catch (_) {}
+
   return subagent.runAgent({
     parentProfileId: ctx.profileId,
     parentWindowId: currentWindowId,

@@ -3015,6 +3015,19 @@ const TECH_SERVICE_TOOLS = new Set([
   "exitplanmode",
 ]);
 
+// Агентские инструменты: имеют собственное оформление (см. _render*Agent),
+// в общий батч «🔧 tool ×N» не идут, но уведомления им нужны.
+const AGENT_TOOLS = new Set([
+  "run_agent",
+  "runagent",
+  "create_agent",
+  "createagent",
+  "list_agents",
+  "listagents",
+  "read_agent",
+  "readagent",
+]);
+
 /**
  * Поставить уведомление в батч: если пришло такое же действие в течение
  * TECH_BATCH_MS — увеличиваем счётчик (×N), иначе шлём предыдущее и начинаем новое.
@@ -3181,6 +3194,164 @@ function _renderCityTime(toolName, ok, args, preview) {
   return _t("city.title") + "\n\n" + rows.join("\n");
 }
 
+/**
+ * Красивое сообщение для run_agent: карточка с именем агента и задачей.
+ * Вызывается из notifyToolResult при старте (args) — а результат агента
+ * отдельным сообщением ловит `agent_result` (через notifyAgentResult).
+ * @returns {string|null}  HTML-сообщение или null, если не наш инструмент
+ */
+function _renderRunAgent(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "run_agent" && name !== "runagent") return null;
+
+  const a = args && typeof args === "object" ? args : {};
+  const agentName = String(a.name || a.agent || "").trim();
+  const task = String(a.task || "").trim();
+
+  if (!agentName) return null;
+
+  const lines = [];
+  lines.push(_t("agent.runTitle"));
+  lines.push("");
+  lines.push(
+    "🤖 " +
+      escapeHtml(_t("agent.name")) +
+      ": <b>" +
+      escapeHtml(agentName) +
+      "</b>",
+  );
+  if (task) {
+    lines.push(
+      "📌 " +
+        escapeHtml(_t("agent.task")) +
+        ":\n<blockquote expandable>" +
+        escapeHtml(_techTruncLong(task, 700)) +
+        "</blockquote>",
+    );
+  }
+  if (!ok) {
+    // Ошибка запуска (агент не найден, context lost и т.п.)
+    // _t() уже возвращает HTML — не экранируем.
+    lines.push("");
+    lines.push(_t("agent.failed"));
+    if (preview) {
+      lines.push(
+        "<blockquote expandable>" +
+          escapeHtml(_techTrunc(String(preview), 400)) +
+          "</blockquote>",
+      );
+    }
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Красивое сообщение для create_agent: карточка нового агента (имя, tools, лимит).
+ * Результат содержит путь к файлу и подсказку «теперь можно вызвать».
+ * @returns {string|null}
+ */
+function _renderCreateAgent(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "create_agent" && name !== "createagent") return null;
+  if (!ok) return null;
+
+  const a = args && typeof args === "object" ? args : {};
+  const agentName = String(a.name || "").trim();
+  const description = String(a.description || "").trim();
+  const tools = Array.isArray(a.tools) ? a.tools.filter(Boolean) : [];
+  const maxTurns = a.maxTurns;
+  const overwrite = a.overwrite === true;
+
+  const lines = [];
+  lines.push(_t("agent.createTitle"));
+  lines.push("");
+  lines.push(
+    "🤖 " +
+      escapeHtml(_t("agent.name")) +
+      ": <b>" +
+      escapeHtml(agentName) +
+      "</b>",
+  );
+  if (description) {
+    lines.push("📝 " + escapeHtml(description));
+  }
+  lines.push(
+    "🧰 " +
+      escapeHtml(_t("agent.tools")) +
+      ": " +
+      (tools.length > 0
+        ? tools.map((x) => "<code>" + escapeHtml(x) + "</code>").join(", ")
+        : "<i>" + escapeHtml(_t("agent.noTools")) + "</i>"),
+  );
+  lines.push(
+    "🔁 " +
+      escapeHtml(_t("agent.maxTurns")) +
+      ": <code>" +
+      (maxTurns
+        ? escapeHtml(String(maxTurns))
+        : escapeHtml(_t("agent.noLimit"))) +
+      "</code>",
+  );
+  lines.push("");
+  lines.push(
+    "<i>" +
+      escapeHtml(overwrite ? _t("agent.existing") : _t("agent.created")) +
+      "</i>",
+  );
+  return lines.join("\n");
+}
+
+/**
+ * Красивое сообщение для list_agents: сам список приходит в preview.
+ * @returns {string|null}
+ */
+function _renderListAgents(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "list_agents" && name !== "listagents") return null;
+  if (!ok) return null;
+  const body = _stripResultWrapper(String(preview || "")).trim();
+  if (!body) return _t("agent.listTitle") + "\n\n<i>(пусто)</i>";
+  return (
+    _t("agent.listTitle") +
+    "\n\n<blockquote expandable>" +
+    escapeHtml(_techTruncLong(body, 3000)) +
+    "</blockquote>"
+  );
+}
+
+/**
+ * Красивое сообщение для read_agent: имя агента + его systemPrompt.
+ * @returns {string|null}
+ */
+function _renderReadAgent(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "read_agent" && name !== "readagent") return null;
+  if (!ok) return null;
+  const a = args && typeof args === "object" ? args : {};
+  const agentName = String(a.name || "").trim();
+  const body = _stripResultWrapper(String(preview || "")).trim();
+  const lines = [];
+  lines.push(_t("agent.readTitle"));
+  if (agentName) {
+    lines.push("");
+    lines.push(
+      "🤖 " +
+        escapeHtml(_t("agent.name")) +
+        ": <b>" +
+        escapeHtml(agentName) +
+        "</b>",
+    );
+  }
+  if (body) {
+    lines.push(
+      "\n<blockquote expandable>" +
+        escapeHtml(_techTruncLong(body, 3000)) +
+        "</blockquote>",
+    );
+  }
+  return lines.join("\n");
+}
+
 /** Обрезка длинного текста для спец-сообщений (мягкий лимит 3500 симв.). */
 function _techTruncLong(s, max) {
   const limit = max || 3500;
@@ -3189,25 +3360,116 @@ function _techTruncLong(s, max) {
   return str.slice(0, limit) + "\n…(обрезано)";
 }
 
+/**
+ * Уведомление о СТАРТЕ делегирования субагенту.
+ * Вызывается раннером (index.js) ДО открытия дочернего окна, чтобы
+ * пользователь в TG сразу видел карточку «делегирую задачу».
+ * @param {string} agentName
+ * @param {string} task
+ */
+async function notifyAgentStarted(agentName, task) {
+  try {
+    const cfg = _read();
+    if (!cfg.enabled || !cfg.notifyTools)
+      return { success: false, skipped: true };
+    const lines = [];
+    lines.push(_t("agent.runTitle"));
+    lines.push("");
+    lines.push(
+      "🤖 " +
+        escapeHtml(_t("agent.name")) +
+        ": <b>" +
+        escapeHtml(agentName || "agent") +
+        "</b>",
+    );
+    if (task) {
+      lines.push(
+        "📌 " +
+          escapeHtml(_t("agent.task")) +
+          ":\n<blockquote expandable>" +
+          escapeHtml(_techTruncLong(task, 700)) +
+          "</blockquote>",
+      );
+    }
+    return await telegramBot.sendMessage(lines.join("\n"), {
+      parseMode: "HTML",
+    });
+  } catch (err) {
+    console.error("[bot] notifyAgentStarted failed:", err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 /** Уведомление о результате tool (компактный стиль «Tech»). */
 async function notifyToolResult(toolName, ok, detail) {
   const cfg = _read();
   if (!cfg.enabled || !cfg.notifyTools)
     return { success: false, skipped: true };
+  const _toolLower = String(toolName || "").toLowerCase();
   // Служебные вызовы (вопрос к пользователю и т.п.) в уведомления не шлём —
   // у них есть собственное сообщение.
-  const _toolLower = String(toolName || "").toLowerCase();
   if (TECH_SERVICE_TOOLS.has(_toolLower)) {
-    return { success: false, skipped: true };
-  }
-  // Умные уведомления: пропускаем инструменты из списка исключений.
-  if (cfg.notifyIgnore.length > 0 && cfg.notifyIgnore.includes(_toolLower)) {
     return { success: false, skipped: true };
   }
 
   const args = detail && typeof detail === "object" ? detail.args : null;
   const preview =
     detail && typeof detail === "object" ? detail.preview : detail;
+
+  // ===== Агентские инструменты: собственная карточка, минуя batch/notifyIgnore =====
+  if (AGENT_TOOLS.has(_toolLower)) {
+    try {
+      const isRunAgent =
+        _toolLower === "run_agent" || _toolLower === "runagent";
+
+      if (isRunAgent) {
+        // Карточка запуска уже отправлена раннером (notifyAgentStarted).
+        // Здесь шлём ТОЛЬКО результат (или ошибку субагента).
+        if (ok && preview) {
+          const body = _stripResultWrapper(String(preview || "")).trim();
+          if (body) {
+            const shown =
+              body.length > 3500 ? body.slice(0, 3500) + "\n…(обрезано)" : body;
+            const resultMsg =
+              _t("agent.resultTitle") +
+              "\n\n<blockquote expandable>" +
+              escapeHtml(shown) +
+              "</blockquote>";
+            await telegramBot.sendMessage(resultMsg, { parseMode: "HTML" });
+          }
+        } else if (!ok && preview) {
+          const errMsg =
+            _t("agent.failed") +
+            "\n\n<blockquote expandable>" +
+            escapeHtml(_techTrunc(String(preview), 800)) +
+            "</blockquote>";
+          await telegramBot.sendMessage(errMsg, { parseMode: "HTML" });
+        }
+        return { success: true, special: true };
+      }
+
+      const createMsg = _renderCreateAgent(toolName, ok, args, preview);
+      const listMsg = createMsg
+        ? null
+        : _renderListAgents(toolName, ok, args, preview);
+      const readMsg =
+        createMsg || listMsg
+          ? null
+          : _renderReadAgent(toolName, ok, args, preview);
+      const special = createMsg || listMsg || readMsg;
+      if (special) {
+        await telegramBot.sendMessage(special, { parseMode: "HTML" });
+        return { success: true, special: true };
+      }
+    } catch (err) {
+      console.error("[bot] agent render failed:", err.message);
+    }
+  }
+
+  // Умные уведомления: пропускаем инструменты из списка исключений.
+  if (cfg.notifyIgnore.length > 0 && cfg.notifyIgnore.includes(_toolLower)) {
+    return { success: false, skipped: true };
+  }
 
   // Спец-оформление: память и время/локация — своими красивыми сообщениями,
   // без общего стиля «🔧 label path» и без батчинга.
@@ -3406,6 +3668,7 @@ module.exports = {
   ping,
   testSend,
   notifyToolResult,
+  notifyAgentStarted,
   notifyAIResponse,
   startTyping,
   stopTyping,
