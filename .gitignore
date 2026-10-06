@@ -45,3 +45,4 @@ test/coverage.lcov
 .playwright-mcp/
 /tiktok
 /.cuckoo/skills
+/cookie/agents

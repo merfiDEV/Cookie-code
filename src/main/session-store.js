@@ -123,9 +123,19 @@ function createSessionStore(profileId, storeDir, windowState) {
       }
     } else {
       state.currentSessionId = null;
-      state.selectedProjectDir = null;
-      if (win && !win.isDestroyed()) {
-        win.webContents.send("project-dir-updated", null);
+      // Если есть pendingProjectDir (например, в дочернем окне субагента
+      // мы заранее задали рабочую папку), НЕ затираем selectedProjectDir —
+      // иначе инструменты до появления sessionId увидят null.
+      if (!state.pendingProjectDir) {
+        state.selectedProjectDir = null;
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("project-dir-updated", null);
+        }
+      } else {
+        state.selectedProjectDir = state.pendingProjectDir;
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("project-dir-updated", state.pendingProjectDir);
+        }
       }
     }
   }

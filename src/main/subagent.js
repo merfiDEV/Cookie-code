@@ -231,10 +231,16 @@ async function runAgent(opts) {
   const windowId = _createWindow(subProfile);
 
   // Прокидываем projectDir + lineage + whitelist в контекст дочернего окна.
+  // ВАЖНО: ставим pendingProjectDir — иначе handleUrlChange при загрузке
+  // homeUrl DeepSeek (sessionId ещё нет) сбросит selectedProjectDir в null.
+  // pendingProjectDir привязывается к сессии автоматически, когда она появится.
   try {
     const subCtx = windowState.getWindowContext(windowId);
     if (subCtx && subCtx.sessionStore) {
-      if (projectDir) subCtx.sessionStore.state.selectedProjectDir = projectDir;
+      if (projectDir) {
+        subCtx.sessionStore.state.selectedProjectDir = projectDir;
+        subCtx.sessionStore.state.pendingProjectDir = projectDir;
+      }
       if (parentSessionId) {
         subCtx.sessionStore.state.pendingLineage = {
           parentId: parentSessionId,

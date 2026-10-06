@@ -62,6 +62,31 @@ function initSubagentWatch() {
 
   console.log("[Cookie Code][Subagent] активирован: " + cfg.agentName);
 
+  // Показываем рабочую папку в overlay — тот же блок, что у родительского окна.
+  // Папка пришла в cfg.projectDir (main-процесс кладёт её в subagentConfig).
+  if (cfg.projectDir) {
+    try {
+      const projectDirPanel = require("../overlay/project-dir");
+      // Двойная попытка: overlay может инициализироваться с задержкой,
+      // а initProjectDirSection() сбрасывает папку в null — обновляем дважды.
+      const showDir = () => {
+        try {
+          projectDirPanel.updateProjectDirDisplay(cfg.projectDir);
+          console.log(
+            "[Cookie Code][Subagent] рабочая папка показана: " + cfg.projectDir,
+          );
+        } catch (_) {}
+      };
+      setTimeout(showDir, 800);
+      setTimeout(showDir, 2500);
+    } catch (err) {
+      console.error(
+        "[Cookie Code][Subagent] не удалось показать папку:",
+        err && err.message,
+      );
+    }
+  }
+
   const maxTurns = cfg.maxTurns || null;
   let turnCount = 0;
   let lastSentText = "";
