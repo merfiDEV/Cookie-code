@@ -2970,10 +2970,19 @@ function _techFlush() {
   if (!b) return null;
 
   const suffix = b.count > 1 ? " (×" + b.count + ")" : "";
-  // Заголовок: «🔧 Editing path (×N)» либо «💻 terminal (×N)» без детали.
-  const header = b.command
+  // Заголовок: «🤖 Агент: explore // 🔧 Editing path (×N)» — если из субагента.
+  // Иначе просто «🔧 Editing path (×N)».
+  const body_line = b.command
     ? b.emoji + " " + b.label + suffix
     : b.emoji + " " + b.label + " " + _techTrunc(b.detail) + suffix;
+  const agentLine = b.agentName
+    ? "🤖 " +
+      escapeHtml(_t("agent.name")) +
+      ": <b>" +
+      escapeHtml(b.agentName) +
+      "</b>\n"
+    : "";
+  const header = agentLine + body_line;
 
   // Тело: 1) команда/путь, 2) результат — каждый блок своей цитатой.
   let msg = header;
@@ -3032,7 +3041,7 @@ const AGENT_TOOLS = new Set([
  * Поставить уведомление в батч: если пришло такое же действие в течение
  * TECH_BATCH_MS — увеличиваем счётчик (×N), иначе шлём предыдущее и начинаем новое.
  */
-function _techQueue(toolName, args, preview) {
+function _techQueue(toolName, args, preview, agentName) {
   const icon = _techIcon(toolName);
   const detail = _techDetail(toolName, args);
   const name = String(toolName || "").toLowerCase();
@@ -3041,13 +3050,15 @@ function _techQueue(toolName, args, preview) {
       ? String((args && args.command) || "")
       : "";
   const result = String(preview || "");
+  const agent = agentName ? String(agentName).trim() : null;
 
   if (
     _techBatch &&
     _techBatch.emoji === icon.emoji &&
     _techBatch.label === icon.label &&
     _techBatch.detail === detail &&
-    _techBatch.command === command
+    _techBatch.command === command &&
+    _techBatch.agentName === agent
   ) {
     _techBatch.count++;
     // Результат последнего вызова в серии — показываем его.
@@ -3062,6 +3073,7 @@ function _techQueue(toolName, args, preview) {
       preview: result,
       args,
       count: 1,
+      agentName: agent,
     };
     if (prev) _techFlush();
     if (_techBatchTimer) clearTimeout(_techBatchTimer);
@@ -3503,7 +3515,10 @@ async function notifyToolResult(toolName, ok, detail) {
   }
 
   // Успех — в батч (одинаковые подряд схлопываются в ×N).
-  _techQueue(toolName, args, preview);
+  // Если вызов из субагента — в заголовок попадёт «🤖 Агент: <имя>».
+  const agentName =
+    detail && typeof detail === "object" ? detail.agentName || null : null;
+  _techQueue(toolName, args, preview, agentName);
   return { success: true, batched: true };
 }
 

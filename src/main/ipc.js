@@ -1143,6 +1143,7 @@ function registerIpcHandlers() {
         (payload) => attachFileToChat(event.sender, payload),
         currentWindowId,
         ctx && Array.isArray(ctx.toolsWhitelist) ? ctx.toolsWhitelist : null,
+        (ctx && ctx.subagentConfig && ctx.subagentConfig.agentName) || null,
       );
       if (isTaskCanceled(event.sender.id, taskToken)) {
         return {
@@ -1238,8 +1239,14 @@ function registerIpcHandlers() {
   });
 
   // Ответ AI → в Telegram (для просмотра с телефона).
-  ipcMain.handle("telegram-notify-ai", async (_event, { text } = {}) => {
+  // ВАЖНО: если ответ пришёл из окна-субагента — НЕ шлём (у субагента
+  // отдельное оформление: notifyAgentStarted + результат через notifyToolResult).
+  ipcMain.handle("telegram-notify-ai", async (event, { text } = {}) => {
     try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (ctx && ctx.isSubagent) {
+        return { success: false, skipped: true, reason: "subagent window" };
+      }
       const bot = require("../../botsrc");
       return await bot.notifyAIResponse(text);
     } catch (err) {

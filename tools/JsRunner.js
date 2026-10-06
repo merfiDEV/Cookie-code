@@ -375,6 +375,7 @@ class JsRunner {
     attachFile,
     currentWindowId,
     toolsWhitelist,
+    agentName,
   ) {
     if (!code || typeof code !== "string" || !code.trim()) {
       return { success: false, error: "无效的 JS 代码" };
@@ -494,7 +495,13 @@ class JsRunner {
         const exitMatch = String(preview).match(/\[exit code:\s*(-?\d+)\]/);
         const hasBadExit = !!(exitMatch && exitMatch[1] !== "0");
         const ok = !!result.success && !hasBadExit;
-        notifyToolResult(label, ok, { args: args, preview: preview });
+        notifyToolResult(label, ok, {
+          args: args,
+          preview: preview,
+          // Если вызов идёт из окна-субагента — указываем имя агента,
+          // чтобы в TG уведомление было в стиле «🤖 Агент: explore → 📖 read».
+          agentName: agentName || null,
+        });
       } catch (_) {}
       return JSON.stringify(result);
     };

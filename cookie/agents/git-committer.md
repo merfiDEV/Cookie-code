@@ -118,6 +118,41 @@ await bash("git push");                           // обычный push
 - **Никогда не делай `git push --force`** без прямой просьбы пользователя.
 - Если push отклонён (`non-fast-forward`) — **не форсируй**. Скажи пользователю и предложи `git pull --rebase`.
 
+### 7. Собрать ссылки на коммит и репозиторий
+
+После push **обязательно** собери ссылки:
+
+```cuckoo
+// Полный SHA коммита (для ссылки)
+const sha = await bash("git rev-parse HEAD");
+log(sha);
+
+// URL удалённого репозитория — нормализуем в https-формат для ссылки
+const remote = await bash("git remote get-url origin");
+log(remote);
+
+// Текущая ветка
+const branch = await bash("git rev-parse --abbrev-ref HEAD");
+log(branch);
+```
+
+**Преобразование SSH → HTTPS** (если `origin` в формате git@github.com:...):
+
+- `git@github.com:user/repo.git` → `https://github.com/user/repo`
+- `https://github.com/user/repo.git` → `https://github.com/user/repo`
+
+**Формирование ссылок:**
+
+- **Репозиторий:** `<repo_url>`
+- **Коммит:** `<repo_url>/commit/<full_sha>`
+- **Для GitHub:** `https://github.com/<owner>/<repo>/commit/<sha>`
+- **Для GitLab:** `https://gitlab.com/<owner>/<repo>/-/commit/<sha>`
+- **Для Bitbucket:** `https://bitbucket.org/<owner>/<repo>/commits/<sha>`
+
+Используй `git config --get remote.origin.url` если `git remote get-url origin` недоступен.
+Для мультиплатформенности можно получить хост через `git remote show origin` — но проще
+парсить URL регулярно: определить хост (github/gitlab/bitbucket) и подставить правильный путь.
+
 ## Что ты НЕ делаешь
 
 - Не пуш в `main`/`master` напрямую, если проект работает через PR (проверь по истории `git log --first-parent`).
@@ -128,17 +163,33 @@ await bash("git push");                           // обычный push
 
 ## Формат отчёта в родительский диалог
 
-Верни **краткую** сводку:
+Верни **структурированную** сводку с обязательными **ссылками**:
 
 ```
 Закоммичено и запушено.
 
-Коммиты:
-- abc1234 feat(auth): add JWT refresh token rotation (3 файла)
-- def5678 fix(chat): prevent duplicate messages on reconnect (1 файл)
-
+Репозиторий: https://github.com/user/repo
 Ветка: feature/auth-jwt
-Удалённый: origin/feature/auth-jwt (обновлён)
+
+Коммиты:
+1. https://github.com/user/repo/commit/abc1234...
+   feat(auth): add JWT refresh token rotation (3 файла)
+2. https://github.com/user/repo/commit/def5678...
+   fix(chat): prevent duplicate messages on reconnect (1 файл)
 ```
 
-Если что-то не сделал (например, остановился из-за секрета) — чётко напиши почему и что нужно от пользователя.
+**Обязательные элементы отчёта:**
+
+1. **Ссылка на репозиторий** — `<repo_url>` (нормализованный в https).
+2. **Ссылка на каждый коммит** — `<repo_url>/commit/<full_sha>` (или аналог для GitLab/Bitbucket).
+3. **Ветка** — куда запушено.
+4. **Краткое описание** каждого коммита (subject).
+5. **Список файлов** — количество или перечисление.
+
+Если push **не удался**:
+
+- Чётко напиши ошибку.
+- НЕ выдумывай ссылки — покажи только то, что реально существует локально (SHA есть, ссылка — нет, т.к. коммит не на удалённом).
+- Предложи действие: `git pull --rebase` / ручной push / разбор конфликта.
+
+Если остановился из-за секрета — сообщи: какой файл, что нашёл, что нужно от пользователя.
