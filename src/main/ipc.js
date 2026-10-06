@@ -68,6 +68,28 @@ function requestUserQuestion(sender, questions) {
  * Резолв вопроса, отвеченного в Telegram (вызывается из botsrc).
  * @returns {boolean} true, если нашли ожидающий вопрос.
  */
+/**
+ * Отмена вопроса из Telegram: пользователь нажал "Отказаться отвечать".
+ * Отклоняет ожидающий promise и просит окно закрыть диалог.
+ * @returns {boolean} true, если нашли ожидающий вопрос.
+ */
+function cancelUserQuestionFromTelegram(requestId) {
+  for (const [key, pending] of pendingUserQuestions) {
+    if (key.endsWith(":" + requestId)) {
+      pendingUserQuestions.delete(key);
+      try {
+        const senderId = Number(key.split(":")[0]);
+        const wc = require("electron").webContents.fromId(senderId);
+        if (wc && !wc.isDestroyed())
+          wc.send("ask-user-question-resolved", { requestId });
+      } catch (_) {}
+      pending.reject(new Error("Пользователь отменил вопрос"));
+      return true;
+    }
+  }
+  return false;
+}
+
 function resolveUserQuestionFromTelegram(requestId, answers) {
   for (const [key, pending] of pendingUserQuestions) {
     if (key.endsWith(":" + requestId)) {
@@ -351,6 +373,12 @@ function registerIpcHandlers() {
     if (typeof bot.setOnQuestionAnswered === "function") {
       bot.setOnQuestionAnswered((requestId, answers) => {
         resolveUserQuestionFromTelegram(requestId, answers);
+      });
+    }
+    // Мост Telegram → окно: отказ отвечать отклоняет тот же promise.
+    if (typeof bot.setOnQuestionCancelled === "function") {
+      bot.setOnQuestionCancelled((requestId) => {
+        cancelUserQuestionFromTelegram(requestId);
       });
     }
   } catch (_) {}

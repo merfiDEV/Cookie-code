@@ -298,10 +298,16 @@ const _planCallbackTokens = new Map();
 const _longProcessTokens = new Map();
 let _cbTokenCounter = 0;
 let _onQuestionAnswered = null;
+let _onQuestionCancelled = null;
 
 /** Установить колбэк, вызываемый при ответе на вопрос из TG. */
 function setOnQuestionAnswered(fn) {
   _onQuestionAnswered = typeof fn === "function" ? fn : null;
+}
+
+/** Установить колбэк, вызываемый при отказе отвечать на вопрос из TG. */
+function setOnQuestionCancelled(fn) {
+  _onQuestionCancelled = typeof fn === "function" ? fn : null;
 }
 
 /** Экранирование для HTML в тексте вопроса. */
@@ -357,6 +363,11 @@ async function askQuestion(requestId, questions) {
       keyboard.push([{ text: qi + 1 + ") " + label, callback_data: token }]);
     });
   });
+  // Кнопка "Отказаться отвечать" — отменяет весь вопрос целиком.
+  entry.skipToken = "qs_" + requestId;
+  keyboard.push([
+    { text: _t("question.skip"), callback_data: entry.skipToken },
+  ]);
 
   const res = await telegramBot.sendMessage(text, {
     parseMode: "HTML",
@@ -461,6 +472,13 @@ async function _handleCallback(chatId, data, cbq) {
     await _handleLongProcessCallback(token, longProcRef, cbq);
     return;
   }
+
+  // Кнопка "Отказаться отвечать" — отменяет вопрос целиком.
+  if (token.startsWith("qs_")) {
+    await _handleQuestionSkip(token.slice(3), cbq);
+    return;
+  }
+
   const ref = _callbackTokens.get(token);
   if (!ref) {
     await telegramBot.answerCallbackQuery(cbq.id);
@@ -795,6 +813,48 @@ async function _handleLongProcessCallback(token, ref, cbq) {
 }
 
 /** Перерисовать сообщение с вопросами: отметить выбранное, убрать лишние кнопки. */
+/** Обработать нажатие "Отказаться отвечать": отменить вопрос целиком. */
+async function _handleQuestionSkip(requestId, cbq) {
+  const entry = _pendingQuestions.get(requestId);
+  await telegramBot.answerCallbackQuery(cbq.id, {
+    text: _t("question.skipped"),
+  });
+  if (!entry) return;
+
+  // Очищаем запись и все связанные токены.
+  _pendingQuestions.delete(requestId);
+  for (const row of entry.tokens || []) {
+    for (const t of row || []) _callbackTokens.delete(t);
+  }
+  if (entry.skipToken) _callbackTokens.delete(entry.skipToken);
+
+  // Обновляем сообщение: заголовок + пометка "отменено", кнопок больше нет.
+  if (entry.messageId) {
+    const lines = [_t("question.title")];
+    entry.questions.forEach((q, qi) => {
+      lines.push("");
+      lines.push(qi + 1 + ". " + _qEsc(q.question));
+    });
+    lines.push("");
+    lines.push("🚫 " + _t("question.skipped"));
+    try {
+      await telegramBot.editMessageText(entry.messageId, lines.join("\n"), {
+        parseMode: "HTML",
+        replyMarkup: { inline_keyboard: [] },
+      });
+    } catch (_) {}
+  }
+
+  // Сообщаем окну, что вопрос отменён (reject промиса).
+  if (typeof _onQuestionCancelled === "function") {
+    try {
+      _onQuestionCancelled(requestId);
+    } catch (err) {
+      _log("error", "onQuestionCancelled error:", err.message);
+    }
+  }
+}
+
 async function _refreshQuestionMessage(requestId, entry) {
   if (!entry.messageId) return;
   const lines = [_t("question.title")];
@@ -819,6 +879,12 @@ async function _refreshQuestionMessage(requestId, entry) {
       keyboard.push([{ text: qi + 1 + ") " + label, callback_data: token }]);
     });
   });
+  // Кнопка "Отказаться отвечать" остаётся, пока вопрос не закрыт.
+  if (entry.skipToken) {
+    keyboard.push([
+      { text: _t("question.skip"), callback_data: entry.skipToken },
+    ]);
+  }
 
   await telegramBot.editMessageText(entry.messageId, lines.join("\n"), {
     parseMode: "HTML",
@@ -3795,6 +3861,7 @@ module.exports = {
   notifyLongProcess,
   askQuestion,
   setOnQuestionAnswered,
+  setOnQuestionCancelled,
   _handleIncoming,
   _handleCallback,
   _sendToChat,

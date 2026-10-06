@@ -343,6 +343,8 @@ const STRINGS = {
     "question.closed": "Вопрос уже закрыт",
     "question.notFound": "Вариант не найден",
     "question.accepted": "Принято: {answer}",
+    "question.skip": "🚫 Отказаться отвечать",
+    "question.skipped": "Вопрос отменён",
 
     // ===== Уведомление об ответе AI =====
     "ai.truncated": "…(обрезано, всего {n} симв.)",
@@ -687,6 +689,8 @@ const STRINGS = {
     "question.closed": "Question already closed",
     "question.notFound": "Option not found",
     "question.accepted": "Accepted: {answer}",
+    "question.skip": "🚫 Refuse to answer",
+    "question.skipped": "Question cancelled",
 
     // ===== AI response notification =====
     "ai.truncated": "…(truncated, {n} chars total)",
