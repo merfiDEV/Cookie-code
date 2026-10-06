@@ -20,6 +20,9 @@ function addWindow(
     sessionStore,
     isSubagent: !!isSubagent,
     subagentConfig: subagentConfig || null,
+    // Ограничение инструментов для субагента (whitelist из agent.tools).
+    // null = без ограничений. Заполняется в subagent.js::runAgent.
+    toolsWhitelist: null,
   });
   lastActiveWindowId = win.id;
   win.on("closed", () => {

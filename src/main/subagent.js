@@ -230,8 +230,7 @@ async function runAgent(opts) {
 
   const windowId = _createWindow(subProfile);
 
-  // Прокидываем projectDir + lineage в sessionStore дочернего окна,
-  // иначе инструменты субагента увидят projectDir = null.
+  // Прокидываем projectDir + lineage + whitelist в контекст дочернего окна.
   try {
     const subCtx = windowState.getWindowContext(windowId);
     if (subCtx && subCtx.sessionStore) {
@@ -242,6 +241,21 @@ async function runAgent(opts) {
           kind: "subagent",
           agentName: opts.agentName,
         };
+      }
+    }
+    // Жёсткое ограничение инструментов: если в frontmatter агента
+    // указан список tools — только они разрешены в дочернем окне.
+    if (subCtx) {
+      if (Array.isArray(opts.tools) && opts.tools.length > 0) {
+        subCtx.toolsWhitelist = opts.tools.slice();
+        console.log(
+          "[Subagent] whitelist для " +
+            opts.agentName +
+            ": " +
+            opts.tools.join(", "),
+        );
+      } else {
+        subCtx.toolsWhitelist = null; // без ограничений
       }
     }
   } catch (_) {}

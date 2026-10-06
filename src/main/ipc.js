@@ -916,6 +916,26 @@ function registerIpcHandlers() {
         }
       }
 
+      // Whitelist для субагента: прямое выполнение tool-вызова тоже
+      // должно проходить проверку (не только через JsRunner).
+      if (ctx && Array.isArray(ctx.toolsWhitelist)) {
+        const ALIAS = { __bash: "bash" };
+        const name = ALIAS[toolName] || toolName;
+        if (ctx.toolsWhitelist.indexOf(name) === -1) {
+          return {
+            callId,
+            success: false,
+            error:
+              "Инструмент «" +
+              name +
+              "» не разрешён этому агенту. " +
+              "Разрешены: " +
+              ctx.toolsWhitelist.join(", ") +
+              ".",
+          };
+        }
+      }
+
       const taskToken = beginTask(event.sender.id);
       try {
         const result = await toolRegistry.execute(toolName, {
@@ -1122,6 +1142,7 @@ function registerIpcHandlers() {
         sessionIdOf(event),
         (payload) => attachFileToChat(event.sender, payload),
         currentWindowId,
+        ctx && Array.isArray(ctx.toolsWhitelist) ? ctx.toolsWhitelist : null,
       );
       if (isTaskCanceled(event.sender.id, taskToken)) {
         return {

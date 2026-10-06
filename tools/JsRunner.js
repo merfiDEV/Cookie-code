@@ -374,6 +374,7 @@ class JsRunner {
     sessionId,
     attachFile,
     currentWindowId,
+    toolsWhitelist,
   ) {
     if (!code || typeof code !== "string" || !code.trim()) {
       return { success: false, error: "无效的 JS 代码" };
@@ -411,6 +412,27 @@ class JsRunner {
         }
       } catch (_) {
         /* plan-mode недоступен — не блокируем */
+      }
+
+      // ===== Whitelist инструментов для субагента =====
+      // Если окно — субагент с ограниченным набором (frontmatter tools),
+      // любой вызов вне списка отклоняется ДО исполнения.
+      if (Array.isArray(toolsWhitelist)) {
+        // Внутренние алиасы → публичные имена
+        const ALIAS = { __bash: "bash" };
+        const toolName = ALIAS[op] || op;
+        if (toolsWhitelist.indexOf(toolName) === -1) {
+          return JSON.stringify({
+            success: false,
+            error:
+              "Инструмент «" +
+              toolName +
+              "» не разрешён этому агенту. " +
+              "Разрешены: " +
+              toolsWhitelist.join(", ") +
+              ".",
+          });
+        }
       }
 
       let result;
