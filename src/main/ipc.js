@@ -686,6 +686,99 @@ function registerIpcHandlers() {
     }
   });
 
+  // Переименовать чат (DeepSeek и др. — через DOM сайдбара).
+  // Скрипт: находим ссылку a[href*="/a/chat/s/<id>"], открываем её меню,
+  // жмём первый пункт "Переименовать" (.ds-dropdown-menu-option:nth-child(1)),
+  // заполняем input.ds-input__input новым именем и подтверждаем (Enter).
+  // Селекторы подтверждены разведкой через MCP Playwright:
+  //   - кнопка меню:      div[role="button"].ds-button внутри ссылки
+  //   - меню:             div.ds-dropdown-menu[role="menu"]
+  //   - пункт Rename:     .ds-dropdown-menu-option:nth-child(1)
+  //   - input:            input.ds-input__input
+  //   - подтверждение:    Enter (кнопки Save в DOM нет)
+  ipcMain.handle("rename-session", async (event, { sessionId, title } = {}) => {
+    if (!sessionId) return { success: false, error: "缺少会话ID" };
+    if (!title || !String(title).trim()) {
+      return { success: false, error: "缺少新名称" };
+    }
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const win = ctx ? ctx.win : null;
+    if (!win || win.isDestroyed())
+      return { success: false, error: "窗口已关闭" };
+
+    const safeId = JSON.stringify(String(sessionId));
+    const safeTitle = JSON.stringify(String(title).trim());
+    const script = `(async function(){
+        const sid = ${safeId};
+        const newTitle = ${safeTitle};
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+        // 1) Найти ссылку сессии в сайдбаре.
+        const link = document.querySelector('a[href*="/a/chat/s/' + sid + '"]');
+        if (!link) return { success: false, error: "chat-link-not-found" };
+
+        // 2) Навести события hover — кнопка меню появляется только при hover.
+        try {
+          link.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+          link.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+          link.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+        } catch (_) {}
+        await sleep(200);
+
+        // 3) Открыть контекстное меню (кнопка "..." внутри ссылки).
+        const menuBtn = link.querySelector('div[role="button"]');
+        if (!menuBtn) return { success: false, error: "menu-button-not-found" };
+        menuBtn.click();
+        await sleep(400);
+
+        // 4) Пункт "Переименовать" — первый в меню (не зависит от языка).
+        const menu = document.querySelector('div.ds-dropdown-menu[role="menu"]');
+        if (!menu) return { success: false, error: "menu-not-found" };
+        const renameOpt = menu.querySelector('.ds-dropdown-menu-option');
+        if (!renameOpt) return { success: false, error: "rename-option-not-found" };
+        renameOpt.click();
+        await sleep(400);
+
+        // 5) Input для нового имени.
+        const input = document.querySelector('input.ds-input__input');
+        if (!input) return { success: false, error: "input-not-found" };
+        input.focus();
+        // Записываем через native setter, чтобы React заметил изменение.
+        const proto = Object.getPrototypeOf(input);
+        const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+        if (setter) setter.call(input, newTitle);
+        else input.value = newTitle;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        await sleep(150);
+
+        // 6) Подтверждение — Enter (кнопки Save нет).
+        const enterOpts = { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true };
+        input.dispatchEvent(new KeyboardEvent("keydown", enterOpts));
+        input.dispatchEvent(new KeyboardEvent("keypress", enterOpts));
+        input.dispatchEvent(new KeyboardEvent("keyup", enterOpts));
+        await sleep(500);
+
+        // 7) Проверка: прочитать новое имя ссылки.
+        const after = document.querySelector('a[href*="/a/chat/s/' + sid + '"]');
+        const finalName = after ? (after.textContent || "").trim() : null;
+        return { success: true, finalName: finalName };
+      })()`;
+
+    try {
+      const result = await win.webContents.executeJavaScript(script, true);
+      if (!result || result.success !== true) {
+        return {
+          success: false,
+          error: (result && result.error) || "rename-failed",
+        };
+      }
+      return { success: true, finalName: result.finalName || null };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Открыть новый чат (переход на домашнюю страницу провайдера).
   ipcMain.handle("new-chat", async (event) => {
     const ctx = windowState.getContextByWebContents(event.sender);
