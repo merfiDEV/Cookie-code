@@ -438,6 +438,21 @@ async function buildInitPrompt(selectedDir, providerId) {
     "Skill 位于 <projectDir>/.cuckoo/skills/<skill-name>/，其中 SKILL.md 为指令文件，tool.js 可选导出可执行函数。",
   ].join("\n");
 
+  // Agents (субагенты) — прогрессивное раскрытие: только name + description.
+  // Сами определения (systemPrompt, tools, maxTurns) живут в .cuckoo/agents/*.md
+  // и подгружаются в момент вызова run_agent.
+  let agentsSection = "";
+  try {
+    const { scanAgents, buildAgentsSection } = require("./agents");
+    const agents = scanAgents(selectedDir);
+    agentsSection = buildAgentsSection(agents);
+    if (agents.length > 0) {
+      console.log("[Cookie Code] Найдено субагентов:", agents.length);
+    }
+  } catch (err) {
+    console.error("[Cookie Code] Ошибка сканирования субагентов:", err.message);
+  }
+
   const placeholders = {
     "{{TOOL_API_TYPES}}": toolApiTypes,
     "{{TOOLS_LIST}}": toolsDescription,
@@ -447,6 +462,7 @@ async function buildInitPrompt(selectedDir, providerId) {
     "{{PROJECT_INTRO_SECTION}}": projectIntroSection,
     "{{SKILL_SECTION}}": skillSection,
     "{{MCP_SECTION}}": mcpSection,
+    "{{AGENTS_SECTION}}": agentsSection,
   };
   let combined = templateContent;
   for (const [key, value] of Object.entries(placeholders)) {

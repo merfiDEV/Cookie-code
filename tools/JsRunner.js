@@ -199,6 +199,16 @@ const BOOTSTRAP = [
   "  globalThis.memoryClear = async function () {",
   "    return await __call('memory_clear', {});",
   "  };",
+  "  globalThis.runAgent = async function (name, task) {",
+  "    return await __call('run_agent', { name: name, task: task });",
+  "  };",
+  "  globalThis.run_agent = globalThis.runAgent;",
+  "  globalThis.listAgents = async function () {",
+  "    return await __call('list_agents', {});",
+  "  };",
+  "  globalThis.readAgent = async function (name) {",
+  "    return await __call('read_agent', { name: name });",
+  "  };",
   "  globalThis.exitPlanMode = async function (plan) {",
   "    return await __call('exit_plan_mode', { plan: plan });",
   "  };",
@@ -359,6 +369,7 @@ class JsRunner {
     exitPlanMode,
     sessionId,
     attachFile,
+    currentWindowId,
   ) {
     if (!code || typeof code !== "string" || !code.trim()) {
       return { success: false, error: "无效的 JS 代码" };
@@ -411,6 +422,10 @@ class JsRunner {
               Object.assign({}, args, {
                 projectDir,
                 senderId,
+                currentWindowId:
+                  typeof currentWindowId === "number"
+                    ? currentWindowId
+                    : senderId,
                 askUserQuestion,
                 pasteImage,
                 exitPlanMode,

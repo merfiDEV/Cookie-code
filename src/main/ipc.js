@@ -19,6 +19,7 @@ const { decodeOutput, normalizeCommand } = require("../../tools/decodeOutput");
 const gitDiff = require("./git-diff");
 const todoStore = require("./todo-store");
 const planMode = require("./plan-mode");
+const subagent = require("./subagent");
 
 /**
  * Если у окна все задачи выполнены (и список непустой) — пингуем Telegram один раз.
@@ -328,6 +329,22 @@ function tryOpenInVSCode(filePath) {
 }
 
 function registerIpcHandlers() {
+  // ===== Субагенты: bridge дочернего окна сообщает финальный текст =====
+  ipcMain.handle("subagent-response", async (event, payload) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (ctx && ctx.win && !ctx.win.isDestroyed()) {
+        subagent.onSubagentResponse(
+          ctx.win.id,
+          (payload && payload.text) || "",
+        );
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Мост Telegram → окно: ответ на вопрос из TG резолвит тот же promise.
   try {
     const bot = require("../../botsrc");
@@ -905,6 +922,8 @@ function registerIpcHandlers() {
           ...params,
           projectDir: selectedDir,
           senderId: event.sender.id,
+          currentWindowId:
+            ctx && ctx.win && !ctx.win.isDestroyed() ? ctx.win.id : null,
           askUserQuestion: (questions) =>
             requestUserQuestion(event.sender, questions),
           pasteImage: (filePath, caption, send) =>
@@ -1087,6 +1106,8 @@ function registerIpcHandlers() {
     const ctx = windowState.getContextByWebContents(event.sender);
     const store = ctx ? ctx.sessionStore : null;
     const selectedDir = store ? store.state.selectedProjectDir : null;
+    const currentWindowId =
+      ctx && ctx.win && !ctx.win.isDestroyed() ? ctx.win.id : null;
     const taskToken = beginTask(event.sender.id);
     try {
       const before = JSON.stringify(todoStore.getList(event.sender.id));
@@ -1100,6 +1121,7 @@ function registerIpcHandlers() {
         (plan) => requestExitPlanMode(event.sender, plan),
         sessionIdOf(event),
         (payload) => attachFileToChat(event.sender, payload),
+        currentWindowId,
       );
       if (isTaskCanceled(event.sender.id, taskToken)) {
         return {

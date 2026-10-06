@@ -107,6 +107,12 @@ if (RENDERER_LOG_DIR) {
 
 const { registerIpcHandlers } = require("./ipc");
 const whatsNew = require("./whats-new");
+const subagent = require("./subagent");
+const {
+  injectAgentRunner,
+  injectSubagentChecker,
+} = require("../../tools/RunAgentTool");
+const { isSubagentWindow } = require("./agents-window-state");
 
 // Whats-new: проверить факт обновления ДО создания окна.
 // Внутри — атомарное сохранение новой lastSeenVersion, чтобы повторный
@@ -146,10 +152,19 @@ function createWindow(profile) {
     windowState,
   );
 
+  // Субагент-конфиг передаётся дочернему окну через additionalArguments.
+  // Bridge в preload сам распознаёт, что это окно-субагент, и запускает цикл.
+  const subagentArg = profileData.subagentConfig
+    ? "--cuckoo-subagent=" +
+      encodeURIComponent(JSON.stringify(profileData.subagentConfig))
+    : null;
+
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 900,
-    title: "Cookie Code Pro - " + provider.name + " - " + profileData.name,
+    title: profileData.isSubagent
+      ? "Cookie Code Pro - " + provider.name + " - " + profileData.name
+      : "Cookie Code Pro - " + provider.name + " - " + profileData.name,
     icon: APP_ICON,
     webPreferences: {
       preload: path.join(__dirname, "..", "..", "preload.js"),
@@ -158,7 +173,9 @@ function createWindow(profile) {
       sandbox: false,
       partition: profileData.partition, // 每个 profile 独立持久化 session
       backgroundThrottling: false,
-      additionalArguments: ["--cuckoo-user-data=" + app.getPath("userData")],
+      additionalArguments: subagentArg
+        ? ["--cuckoo-user-data=" + app.getPath("userData"), subagentArg]
+        : ["--cuckoo-user-data=" + app.getPath("userData")],
     },
   });
 
@@ -166,7 +183,14 @@ function createWindow(profile) {
   const winSession = mainWindow.webContents.session;
 
   // Регистрируем контекст окна — providerId жёстко 'deepseek'.
-  windowState.addWindow(mainWindow, profileData.id, "deepseek", sessionStore);
+  windowState.addWindow(
+    mainWindow,
+    profileData.id,
+    "deepseek",
+    sessionStore,
+    profileData.isSubagent,
+    profileData.subagentConfig,
+  );
   sessionsToFlush.add(winSession);
 
   // 更新主窗口引用
@@ -281,6 +305,9 @@ function createWindow(profile) {
     sessionsToFlush.delete(winSession);
     windowState.removeWindow(mainWindow.id);
   });
+
+  // Возвращаем id окна: нужно для субагента (родитель ждёт дочернее окно по id).
+  return mainWindow.id;
 }
 
 // ========== 应用菜单 ==========
@@ -411,6 +438,26 @@ function setupAppMenu() {
 
 // ========== IPC 处理器 ==========
 registerIpcHandlers();
+
+// ========== Субагенты (Agents) ==========
+// Инжектим в tool runAgent реальный раннер и определитель «окно-субагент»,
+// чтобы tools-слой не зависел от main-слоя (инверсия зависимости).
+subagent.injectSubagentDeps({ createWindow, profileManager });
+injectAgentRunner(async ({ agent, task, currentWindowId, projectDir }) => {
+  const ctx = windowState.getWindowContext(currentWindowId);
+  if (!ctx) throw new Error("Контекст окна не найден");
+  return subagent.runAgent({
+    parentProfileId: ctx.profileId,
+    parentWindowId: currentWindowId,
+    agentName: agent.name,
+    task,
+    systemPrompt: agent.systemPrompt,
+    tools: agent.tools,
+    maxTurns: agent.maxTurns,
+    projectDir, // приоритетный источник рабочей папки
+  });
+});
+injectSubagentChecker(isSubagentWindow);
 
 // ========== Telegram-бот (botsrc/) — применяем настройки при старте ==========
 try {

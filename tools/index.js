@@ -42,6 +42,8 @@ const {
   MemoryReadTool,
   MemoryClearTool,
 } = require("./MemoryTool");
+const { RunAgentTool } = require("./RunAgentTool");
+const { ListAgentsTool, ReadAgentTool } = require("./AgentTools");
 
 // 创建全局工具注册表
 const registry = new ToolRegistry();
@@ -84,6 +86,9 @@ registry.register(new AttachTelegramTool());
 registry.register(new MemorySaveTool());
 registry.register(new MemoryReadTool());
 registry.register(new MemoryClearTool());
+registry.register(new RunAgentTool());
+registry.register(new ListAgentsTool());
+registry.register(new ReadAgentTool());
 
 // 导出
 module.exports = {
@@ -123,6 +128,9 @@ module.exports = {
   MemorySaveTool,
   MemoryReadTool,
   MemoryClearTool,
+  RunAgentTool,
+  ListAgentsTool,
+  ReadAgentTool,
   // 便捷方法
   getAllTools: () => registry,
   getToolDescriptions: () => registry.getDescriptions(),
