@@ -1761,6 +1761,73 @@ async function _cmdTodos(chatId, page) {
   });
 }
 
+/** /agents — список субагентов проекта (из cookie/agents/*.md). */
+async function _cmdAgents() {
+  let agents = [];
+  let projectDir = null;
+  try {
+    projectDir = _projectDir();
+    if (projectDir) {
+      const { scanAgents } = require("../src/main/agents");
+      agents = scanAgents(projectDir);
+    }
+  } catch (err) {
+    _log("error", "/agents error:", err.message);
+  }
+
+  // Проект не выбран — подсказываем.
+  if (!projectDir) {
+    return telegramBot.sendMessage(_t("agents.cmd.noProject"), {
+      parseMode: "HTML",
+    });
+  }
+
+  // Проект есть, но агентов нет.
+  if (!Array.isArray(agents) || agents.length === 0) {
+    return telegramBot.sendMessage(_t("agents.cmd.empty"), {
+      parseMode: "HTML",
+    });
+  }
+
+  const lines = [];
+  lines.push(_t("agents.cmd.header", { n: agents.length }));
+  lines.push("");
+
+  const MAX = 15; // ограничим вывод, чтобы не улететь за лимит TG
+  const shown = agents.slice(0, MAX);
+  for (let i = 0; i < shown.length; i++) {
+    const a = shown[i];
+    const tools =
+      a.tools && a.tools.length
+        ? a.tools.map((x) => "<code>" + escapeHtml(x) + "</code>").join(", ")
+        : "<i>" + escapeHtml(_t("agents.cmd.itemNoTools")) + "</i>";
+    const turns = a.maxTurns
+      ? escapeHtml(String(a.maxTurns))
+      : "<i>" + escapeHtml(_t("agents.cmd.itemNoLimit")) + "</i>";
+    const sourceEmoji = a.source === "project" ? "📦" : "🏠";
+    lines.push(
+      "<b>" + (i + 1) + ". " + escapeHtml(a.name) + "</b> " + sourceEmoji,
+    );
+    if (a.description) {
+      lines.push(escapeHtml(a.description));
+    }
+    lines.push("   " + escapeHtml(_t("agents.cmd.itemTools")) + ": " + tools);
+    lines.push("   " + escapeHtml(_t("agents.cmd.itemTurns")) + ": " + turns);
+    lines.push("");
+  }
+  if (agents.length > MAX) {
+    lines.push(
+      "<i>" +
+        escapeHtml(_t("agents.cmd.more", { n: agents.length - MAX })) +
+        "</i>",
+    );
+    lines.push("");
+  }
+  lines.push(_t("agents.cmd.hint"));
+
+  return telegramBot.sendMessage(lines.join("\n"), { parseMode: "HTML" });
+}
+
 /** Текущий projectDir активного окна. */
 function _projectDir() {
   const ctx = _activeContext();
@@ -2210,6 +2277,7 @@ async function _cmdHelp() {
     _t("help.cmd.show"),
     _t("help.cmd.files"),
     _t("help.cmd.todos"),
+    _t("help.cmd.agents"),
     _t("help.cmd.screen"),
     _t("help.cmd.cancel"),
     _t("help.cmd.help"),
@@ -2696,6 +2764,11 @@ async function _handleIncoming(chatId, text, msg) {
   }
   if (cmd === "/screen" || cmd === "/screenshot") {
     await _cmdScreen();
+    return;
+  }
+  // Команда /agents — список субагентов проекта.
+  if (cmd === "/agents" || cmd === "/agent") {
+    await _cmdAgents();
     return;
   }
 
@@ -3585,6 +3658,7 @@ async function _registerCommands() {
       switch: "переключить сессию",
       diagnostics: "диагностика",
       todos: "список задач",
+      agents: "субагенты проекта",
       screen: "скриншот окна",
       cancel: "отменить ввод",
     },
@@ -3603,6 +3677,7 @@ async function _registerCommands() {
       switch: "switch session",
       diagnostics: "diagnostics",
       todos: "todo list",
+      agents: "project subagents",
       screen: "window screenshot",
       cancel: "cancel",
     },

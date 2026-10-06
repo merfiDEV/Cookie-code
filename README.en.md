@@ -15,11 +15,6 @@
   <img src="assets/photo_1_2026-09-12_19-02-00.jpg" alt="Cookie Code — main window" width="900">
 </p>
 
-<p align="center">
-  <img src="assets/photo_2026-10-06_18-24-20.jpg" alt="Cookie Code — subagents" width="440">
-  <img src="assets/photo_2026-10-06_18-24-55.jpg" alt="Cookie Code — control panel" width="440">
-</p>
-
 **Turn DeepSeek into a real coding assistant.** Cookie Code bridges the gap between AI chat and your actual codebase — no API tokens, no copy-paste, just pure automation.
 
 ---
@@ -61,6 +56,11 @@ The AI can now:
 4. AI sees the output and continues working
 
 ### 🚀 **Subagents — AI Builds Its Own Helpers**
+
+<p align="center">
+  <img src="assets/photo_2026-10-06_18-24-20.jpg" alt="Cookie Code — subagents" width="440">
+  <img src="assets/photo_2026-10-06_18-24-55.jpg" alt="Cookie Code — control panel" width="440">
+</p>
 
 Cookie Code can **delegate tasks to isolated AI agents**, each in its own window with its own context. The subagent's drafts, searches, and tool calls **never pollute the main conversation** — only the final summary comes back to the parent.
 

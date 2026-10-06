@@ -44,6 +44,7 @@ const STRINGS = {
     "help.cmd.show": "/show &lt;hash&gt; — diff коммита",
     "help.cmd.files": "/files &lt;hash&gt; — файлы коммита",
     "help.cmd.todos": "/todos       — список задач активного окна",
+    "help.cmd.agents": "/agents      — список субагентов проекта",
     "help.cmd.screen": "/screen      — скриншот активного окна",
     "help.cmd.cancel": "/cancel      — отменить ввод / подтверждение",
     "help.cmd.help": "/help        — эта справка",
@@ -283,6 +284,20 @@ const STRINGS = {
     "agent.created": "Агент создан",
     "agent.existing": "Агент обновлён",
     "agent.prompt": "Системный промпт",
+    "agents.cmd.title": "🤖 <b>Субагенты проекта</b>",
+    "agents.cmd.empty":
+      "🤖 <b>Субагентов нет</b>\n\nДобавьте .md-файл в cookie/agents/ или попросите AI: «Создай агента для …».",
+    "agents.cmd.noProject":
+      "📂 <b>Проект не выбран</b>\n\nСначала выберите проект в главном окне — субагенты привязаны к проекту.",
+    "agents.cmd.header": "🤖 <b>Субагенты проекта</b> — {n} шт.",
+    "agents.cmd.itemTools": "🧰 Инструменты",
+    "agents.cmd.itemTurns": "🔁 Шагов",
+    "agents.cmd.itemSource": "📍 Источник",
+    "agents.cmd.itemNoTools": "все разрешены",
+    "agents.cmd.itemNoLimit": "без лимита",
+    "agents.cmd.hint":
+      '💡 Делегируйте задачу: <code>run_agent("name", "задача")</code>',
+    "agents.cmd.more": "…и ещё {n}",
 
     // ===== Approval =====
     "approval.title": "🔐 <b>Подтверждение команды</b>",
@@ -372,6 +387,7 @@ const STRINGS = {
     "help.cmd.show": "/show &lt;hash&gt; — commit diff",
     "help.cmd.files": "/files &lt;hash&gt; — commit files",
     "help.cmd.todos": "/todos       — tasks of the active window",
+    "help.cmd.agents": "/agents      — project subagents list",
     "help.cmd.screen": "/screen      — screenshot of the active window",
     "help.cmd.cancel": "/cancel      — cancel input / approval",
     "help.cmd.help": "/help        — this help",
@@ -612,6 +628,20 @@ const STRINGS = {
     "agent.created": "Agent created",
     "agent.existing": "Agent updated",
     "agent.prompt": "System prompt",
+    "agents.cmd.title": "🤖 <b>Project subagents</b>",
+    "agents.cmd.empty":
+      '🤖 <b>No subagents</b>\n\nAdd a .md file to cookie/agents/ or ask the AI: "Create an agent for …".',
+    "agents.cmd.noProject":
+      "📂 <b>No project selected</b>\n\nPick a project in the main window first — subagents are project-scoped.",
+    "agents.cmd.header": "🤖 <b>Project subagents</b> — {n} total",
+    "agents.cmd.itemTools": "🧰 Tools",
+    "agents.cmd.itemTurns": "🔁 Steps",
+    "agents.cmd.itemSource": "📍 Source",
+    "agents.cmd.itemNoTools": "all allowed",
+    "agents.cmd.itemNoLimit": "no limit",
+    "agents.cmd.hint":
+      '💡 Delegate a task: <code>run_agent("name", "task")</code>',
+    "agents.cmd.more": "…and {n} more",
 
     // ===== Approval =====
     "approval.title": "🔐 <b>Command approval</b>",
