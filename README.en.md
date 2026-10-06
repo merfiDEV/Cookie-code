@@ -15,6 +15,11 @@
   <img src="assets/photo_1_2026-09-12_19-02-00.jpg" alt="Cookie Code — main window" width="900">
 </p>
 
+<p align="center">
+  <img src="assets/photo_2026-10-06_18-24-20.jpg" alt="Cookie Code — subagents" width="440">
+  <img src="assets/photo_2026-10-06_18-24-55.jpg" alt="Cookie Code — control panel" width="440">
+</p>
+
 **Turn DeepSeek into a real coding assistant.** Cookie Code bridges the gap between AI chat and your actual codebase — no API tokens, no copy-paste, just pure automation.
 
 ---
@@ -27,9 +32,10 @@
 
 ✅ **Zero token cost** — uses your free DeepSeek web account, no API keys  
 ✅ **Real agent loop** — AI reads files → writes code → runs tests → commits changes  
+✅ **Subagents** — AI delegates tasks to isolated agents (own context, own tool whitelist)  
 ✅ **Git integration** — see diffs, browse history, review changes in a visual panel  
 ✅ **Telegram control** — code from your phone, get notifications, approve commands remotely  
-✅ **Beautiful UI** — glass effects, custom themes, animated pets, dark mode  
+✅ **Beautiful UI** — glass effects, custom themes, animated pets, dark mode
 
 ---
 
@@ -38,6 +44,7 @@
 ### 🤖 **AI Agent That Actually Does Things**
 
 The AI can now:
+
 - 📖 **Read your files** — entire project structure, grep patterns, file contents
 - ✏️ **Write & edit code** — create files, apply patches, delete old code
 - 💻 **Run commands** — bash, PowerShell, database queries, any shell script
@@ -47,10 +54,51 @@ The AI can now:
 - 🔧 **MCP tools** — connect any MCP server for extended capabilities
 
 **How it works:**
+
 1. You ask: "Show me recent changes in auth.js"
 2. AI emits: `` `cuckoo const r = await grep('auth.js', 'login');` ``
 3. Cookie Code intercepts, executes, streams result back to AI
 4. AI sees the output and continues working
+
+### 🚀 **Subagents — AI Builds Its Own Helpers**
+
+Cookie Code can **delegate tasks to isolated AI agents**, each in its own window with its own context. The subagent's drafts, searches, and tool calls **never pollute the main conversation** — only the final summary comes back to the parent.
+
+**How it works:**
+
+1. You: _"Delegate to explore: find all calls to apiFetch"_
+2. AI calls `run_agent("explore", "find all calls to apiFetch")`
+3. A **separate window** opens using the same DeepSeek login
+4. The subagent works in isolation: `glob → read → grep → ...`
+5. When done, the window closes and **only the summary** appears in the chat
+
+**Three ways to create an agent:**
+
+- **Manually** — drop `cookie/agents/<name>.md` with frontmatter into your project
+- **Via AI** — say _"Create an agent for SQL migration review"_ → AI calls `create_agent` and uses it immediately
+- **Built-in** — `explore`, `code-reviewer`, `git-committer`, `changelog-writer` ship with the project
+
+**Safety rails:**
+
+- 🔒 **Tool whitelist** — put `tools: read, grep` in the agent's frontmatter → it **physically cannot** call `bash` or `mysql`
+- 🚫 **Anti-recursion** — a subagent cannot spawn another subagent
+- ⏱ **maxTurns** — breaks infinite loops (e.g., 40 steps for the committer)
+- ⏲ **10-min timeout** — force-closes a hung window
+
+**Agent example:**
+
+```markdown
+---
+name: code-reviewer
+description: Review code quality. Use after writing code.
+tools: read, grep, glob
+maxTurns: 20
+---
+
+You are an experienced code review expert...
+```
+
+---
 
 ### 🎨 **Beautiful & Customizable**
 
@@ -94,6 +142,7 @@ Control everything from your phone:
 </p>
 
 Built-in diff viewer:
+
 - **Changes tab** — see uncommitted changes, file-by-file diffs
 - **History tab** — browse commits, click to see full diff
 - **Navigation** — jump between hunks, filter added/deleted lines
@@ -103,6 +152,7 @@ Built-in diff viewer:
 ### 📈 **Statistics Dashboard**
 
 Track your productivity:
+
 - **Activity heatmap** — GitHub-style contribution graph
 - **Token usage** — daily/weekly trends
 - **Favorite models** — which AI you use most
@@ -114,12 +164,14 @@ Track your productivity:
 
 ### Option 1: Download Binary (Recommended)
 
-**Windows:**  
+**Windows:**
+
 1. Download [CookieCode-Setup.exe](https://github.com/merfiDEV/Cookie-code/releases/latest)
 2. Run installer
 3. Launch Cookie Code
 
-**macOS:**  
+**macOS:**
+
 1. Download [CookieCode.dmg](https://github.com/merfiDEV/Cookie-code/releases/latest)
 2. Drag to Applications
 3. Open (right-click → Open if Gatekeeper blocks)
@@ -178,6 +230,7 @@ AI: [runs git add + git commit]
 ### 3️⃣ **Explore Tools**
 
 Open the side panel (Cookie Code logo) to:
+
 - 🗂️ **Browse sessions** — switch between project contexts
 - 📝 **Manage todos** — see AI-created task lists
 - 🔄 **View git diff** — visual file changes
@@ -192,6 +245,7 @@ Open the side panel (Cookie Code logo) to:
 **Current limitation:** AI only knows files it explicitly reads.
 
 **Planned feature:** Full project indexing
+
 - Embed all source files into a vector database
 - AI can semantic search: "Where's the auth logic?"
 - Instant jump-to-definition for any symbol
@@ -222,13 +276,13 @@ Drop `.js` files into `tools/custom/` to extend Cookie Code:
 ```javascript
 // tools/custom/deploy.js
 module.exports = {
-  name: 'deploy',
-  description: 'Deploy to production',
-  params: { target: 'string' },
+  name: "deploy",
+  description: "Deploy to production",
+  params: { target: "string" },
   async execute({ target }) {
     // Your deployment logic
-    return { success: true, url: '...' };
-  }
+    return { success: true, url: "..." };
+  },
 };
 ```
 
@@ -240,20 +294,20 @@ AI can now call `deploy` like any built-in tool.
 
 Cookie Code ships with 20+ tools out of the box:
 
-| Tool | Description | Example |
-|------|-------------|---------|
-| `read` | Read file contents | `read('src/auth.js')` |
-| `write` | Create or overwrite file | `write('test.js', code)` |
-| `edit` | Apply targeted patch | `edit('app.js', oldCode, newCode)` |
-| `glob` | Find files by pattern | `glob('**/*.test.js')` |
-| `grep` | Search file contents | `grep('TODO', { include: '*.js' })` |
-| `bash` | Run shell command | `bash('npm test')` |
-| `pwsh` | Run PowerShell script | `pwsh('Get-Process')` |
-| `git` | Git operations | `git('status')` |
-| `mysql` | SQL queries | `mysql('SELECT * FROM users')` |
-| `webFetch` | HTTP requests | `webFetch('https://api.example.com')` |
-| `todoWrite` | Manage task lists | `todoWrite([{content: 'Fix bug'}])` |
-| `mcpCall` | Call MCP server tool | `mcpCall('github', 'create_pr', {...})` |
+| Tool        | Description              | Example                                 |
+| ----------- | ------------------------ | --------------------------------------- |
+| `read`      | Read file contents       | `read('src/auth.js')`                   |
+| `write`     | Create or overwrite file | `write('test.js', code)`                |
+| `edit`      | Apply targeted patch     | `edit('app.js', oldCode, newCode)`      |
+| `glob`      | Find files by pattern    | `glob('**/*.test.js')`                  |
+| `grep`      | Search file contents     | `grep('TODO', { include: '*.js' })`     |
+| `bash`      | Run shell command        | `bash('npm test')`                      |
+| `pwsh`      | Run PowerShell script    | `pwsh('Get-Process')`                   |
+| `git`       | Git operations           | `git('status')`                         |
+| `mysql`     | SQL queries              | `mysql('SELECT * FROM users')`          |
+| `webFetch`  | HTTP requests            | `webFetch('https://api.example.com')`   |
+| `todoWrite` | Manage task lists        | `todoWrite([{content: 'Fix bug'}])`     |
+| `mcpCall`   | Call MCP server tool     | `mcpCall('github', 'create_pr', {...})` |
 
 [Full tool reference →](docs/TOOLS.md)
 
@@ -316,12 +370,14 @@ Free to use, modify, and distribute. Commercial use allowed.
 ## 🙏 Credits
 
 Built with:
+
 - [Electron](https://www.electronjs.org/) — desktop app framework
 - [DeepSeek](https://www.deepseek.com/) — AI chat interface
 - [Telegraf](https://github.com/telegraf/telegraf) — Telegram bot framework
 - [gifenc](https://github.com/mattdesl/gifenc) — GIF processing
 
 Inspired by:
+
 - [Aider](https://github.com/paul-gauthier/aider) — AI pair programming in terminal
 - [Claude Desktop](https://claude.ai/download) — MCP protocol pioneer
 - [Cursor](https://cursor.sh/) — AI-first code editor
@@ -341,8 +397,8 @@ If Cookie Code saves you time, consider giving it a star! It helps others discov
 - **Documentation:** [docs/](docs/)
 - **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 - **Roadmap:** [GitHub Projects](https://github.com/merfiDEV/Cookie-code/projects)
-- **Discord:** [Join the community](https://discord.gg/...) *(coming soon)*
-- **Twitter:** [@CookieCodeAI](https://twitter.com/...) *(coming soon)*
+- **Discord:** [Join the community](https://discord.gg/...) _(coming soon)_
+- **Twitter:** [@CookieCodeAI](https://twitter.com/...) _(coming soon)_
 
 ---
 
