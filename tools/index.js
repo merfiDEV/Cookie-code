@@ -37,6 +37,14 @@ const { ReadPhotoTool } = require("./ReadPhotoTool");
 const { ExitPlanModeTool } = require("./ExitPlanModeTool");
 const { AttachFileTool } = require("./AttachFileTool");
 const { AttachTelegramTool } = require("./AttachTelegramTool");
+const {
+  MemorySaveTool,
+  MemoryReadTool,
+  MemoryClearTool,
+} = require("./MemoryTool");
+const { RunAgentTool } = require("./RunAgentTool");
+const { ListAgentsTool, ReadAgentTool } = require("./AgentTools");
+const { CreateAgentTool } = require("./CreateAgentTool");
 
 // 创建全局工具注册表
 const registry = new ToolRegistry();
@@ -76,6 +84,13 @@ registry.register(new ReadPhotoTool());
 registry.register(new ExitPlanModeTool());
 registry.register(new AttachFileTool());
 registry.register(new AttachTelegramTool());
+registry.register(new MemorySaveTool());
+registry.register(new MemoryReadTool());
+registry.register(new MemoryClearTool());
+registry.register(new RunAgentTool());
+registry.register(new ListAgentsTool());
+registry.register(new ReadAgentTool());
+registry.register(new CreateAgentTool());
 
 // 导出
 module.exports = {
@@ -110,8 +125,15 @@ module.exports = {
   ReadPhotoTool,
   ExitPlanModeTool,
   AttachFileTool,
-    AttachTelegramTool,
-    InjectPageJSTool,
+  AttachTelegramTool,
+  InjectPageJSTool,
+  MemorySaveTool,
+  MemoryReadTool,
+  MemoryClearTool,
+  RunAgentTool,
+  ListAgentsTool,
+  ReadAgentTool,
+  CreateAgentTool,
   // 便捷方法
   getAllTools: () => registry,
   getToolDescriptions: () => registry.getDescriptions(),

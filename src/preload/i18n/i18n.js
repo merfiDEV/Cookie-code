@@ -533,6 +533,22 @@ const KEYS = {
     ru: "Свои картинки: положите файлы (.webp/.jpg/.png/.gif) в папку и нажмите «Обновить».",
     en: "Custom images: drop files (.webp/.jpg/.png/.gif) into the folder and click Refresh.",
   },
+  // ---- Память AI ----
+  "settings.section.memory": { ru: "Память", en: "Memory" },
+  "settings.memory.openFile": {
+    ru: "Открыть файл памяти",
+    en: "Open memory file",
+  },
+  "settings.memory.clear": { ru: "Очистить память", en: "Clear memory" },
+  "settings.memory.clearConfirm": {
+    ru: "Удалить все записи памяти? Действие необратимо.",
+    en: "Delete all memory entries? This cannot be undone.",
+  },
+  "settings.memory.entries": { ru: "записей", en: "entries" },
+  "settings.memory.hint": {
+    ru: "AI запоминает факты о вас и вашей системе. Файл памяти: <userData>/memory.md",
+    en: "The AI remembers facts about you and your system. Memory file: <userData>/memory.md",
+  },
   // ---- Шрифт ----
   "settings.section.font": { ru: "Шрифт", en: "Font" },
   "settings.font.openFolder": {

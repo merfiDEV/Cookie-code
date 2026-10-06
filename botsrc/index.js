@@ -124,7 +124,12 @@ function _log(level, ...args) {
  */
 async function _sendToChat(text) {
   try {
-    const win = windowState.getMainWindow();
+    // ВАЖНО: шлём в родительское (не-субагентское) окно. Если открыто
+    // окно субагента, оно могло стать «активным» — но команды пользователя
+    // из TG всегда должны попадать в главный чат.
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (!win || win.isDestroyed())
       return { success: false, error: "нет активного окна" };
 
@@ -165,9 +170,11 @@ async function _sendToChat(text) {
   }
 }
 
-/** Выполнить JS в активном окне и вернуть результат. */
+/** Выполнить JS в родительском (не-субагентском) окне. */
 async function _evalInWindow(script) {
-  const win = windowState.getMainWindow();
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
   if (!win || win.isDestroyed())
     return { success: false, error: "нет активного окна" };
   try {
@@ -178,10 +185,12 @@ async function _evalInWindow(script) {
   }
 }
 
-/** Получить контекст активного окна (профиль/сессия/projectDir). */
+/** Получить контекст родительского (не-субагентского) окна. */
 function _activeContext() {
   try {
-    const win = windowState.getMainWindow();
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (win && !win.isDestroyed() && win.webContents) {
       return windowState.getContextByWebContents(win.webContents);
     }
@@ -189,10 +198,12 @@ function _activeContext() {
   return null;
 }
 
-/** Получить id активного окна (для доступа к его todo-списку). */
+/** Получить id родительского (не-субагентского) окна (для todo-списка). */
 function _activeSenderId() {
   try {
-    const win = windowState.getMainWindow();
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (win && !win.isDestroyed() && win.webContents) return win.webContents.id;
   } catch (_) {}
   return null;
@@ -1473,7 +1484,9 @@ async function _handleSettingsCallback(data, cbq) {
 async function _cmdStop() {
   let count = 0;
   try {
-    const win = windowState.getMainWindow();
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (
       win &&
       !win.isDestroyed() &&
@@ -1506,7 +1519,9 @@ async function _cmdScreen() {
   if (!cfg.enabled || !cfg.token || !cfg.chatId)
     return { success: false, skipped: true };
 
-  const win = windowState.getMainWindow();
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
   if (!win || win.isDestroyed()) {
     await telegramBot.sendMessage(_t("screen.noWindow"));
     return { success: false, error: "noWindow" };
@@ -1546,7 +1561,9 @@ async function _cmdStatus() {
   } catch (_) {}
   lines.push(_t("status.version", { v: escapeHtml(version) }));
 
-  const win = windowState.getMainWindow();
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
   const winOk = !!(win && !win.isDestroyed());
   lines.push(
     _t("status.window") +
@@ -1614,7 +1631,9 @@ async function _cmdStatus() {
 async function _cmdNew() {
   const win = (() => {
     try {
-      return windowState.getMainWindow();
+      return windowState.getParentWindow
+        ? windowState.getParentWindow()
+        : windowState.getMainWindow();
     } catch (_) {
       return null;
     }
@@ -1761,6 +1780,73 @@ async function _cmdTodos(chatId, page) {
   });
 }
 
+/** /agents — список субагентов проекта (из cookie/agents/*.md). */
+async function _cmdAgents() {
+  let agents = [];
+  let projectDir = null;
+  try {
+    projectDir = _projectDir();
+    if (projectDir) {
+      const { scanAgents } = require("../src/main/agents");
+      agents = scanAgents(projectDir);
+    }
+  } catch (err) {
+    _log("error", "/agents error:", err.message);
+  }
+
+  // Проект не выбран — подсказываем.
+  if (!projectDir) {
+    return telegramBot.sendMessage(_t("agents.cmd.noProject"), {
+      parseMode: "HTML",
+    });
+  }
+
+  // Проект есть, но агентов нет.
+  if (!Array.isArray(agents) || agents.length === 0) {
+    return telegramBot.sendMessage(_t("agents.cmd.empty"), {
+      parseMode: "HTML",
+    });
+  }
+
+  const lines = [];
+  lines.push(_t("agents.cmd.header", { n: agents.length }));
+  lines.push("");
+
+  const MAX = 15; // ограничим вывод, чтобы не улететь за лимит TG
+  const shown = agents.slice(0, MAX);
+  for (let i = 0; i < shown.length; i++) {
+    const a = shown[i];
+    const tools =
+      a.tools && a.tools.length
+        ? a.tools.map((x) => "<code>" + escapeHtml(x) + "</code>").join(", ")
+        : "<i>" + escapeHtml(_t("agents.cmd.itemNoTools")) + "</i>";
+    const turns = a.maxTurns
+      ? escapeHtml(String(a.maxTurns))
+      : "<i>" + escapeHtml(_t("agents.cmd.itemNoLimit")) + "</i>";
+    const sourceEmoji = a.source === "project" ? "📦" : "🏠";
+    lines.push(
+      "<b>" + (i + 1) + ". " + escapeHtml(a.name) + "</b> " + sourceEmoji,
+    );
+    if (a.description) {
+      lines.push(escapeHtml(a.description));
+    }
+    lines.push("   " + escapeHtml(_t("agents.cmd.itemTools")) + ": " + tools);
+    lines.push("   " + escapeHtml(_t("agents.cmd.itemTurns")) + ": " + turns);
+    lines.push("");
+  }
+  if (agents.length > MAX) {
+    lines.push(
+      "<i>" +
+        escapeHtml(_t("agents.cmd.more", { n: agents.length - MAX })) +
+        "</i>",
+    );
+    lines.push("");
+  }
+  lines.push(_t("agents.cmd.hint"));
+
+  return telegramBot.sendMessage(lines.join("\n"), { parseMode: "HTML" });
+}
+
 /** Текущий projectDir активного окна. */
 function _projectDir() {
   const ctx = _activeContext();
@@ -1887,7 +1973,9 @@ function _projectKeyboard() {
 async function _setProject(chatId, dir) {
   const win = (() => {
     try {
-      return windowState.getMainWindow();
+      return windowState.getParentWindow
+        ? windowState.getParentWindow()
+        : windowState.getMainWindow();
     } catch (_) {
       return null;
     }
@@ -2210,6 +2298,7 @@ async function _cmdHelp() {
     _t("help.cmd.show"),
     _t("help.cmd.files"),
     _t("help.cmd.todos"),
+    _t("help.cmd.agents"),
     _t("help.cmd.screen"),
     _t("help.cmd.cancel"),
     _t("help.cmd.help"),
@@ -2350,7 +2439,9 @@ async function _sendInWindow(win) {
 async function _insertImageToWindow(absPath, caption, send) {
   try {
     const { clipboard, nativeImage } = require("electron");
-    const win = windowState.getMainWindow();
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (!win || win.isDestroyed())
       return { success: false, error: _t("common.noWindow") };
     const img = nativeImage.createFromPath(absPath);
@@ -2402,7 +2493,9 @@ async function _attachFileToWindow(absPath, caption, send) {
       UPLOAD_TIMEOUT_MS,
       MAX_FILE_SIZE,
     } = require("../tools/AttachFileTool");
-    const win = windowState.getMainWindow();
+    const win = windowState.getParentWindow
+      ? windowState.getParentWindow()
+      : windowState.getMainWindow();
     if (!win || win.isDestroyed())
       return { success: false, error: _t("common.noWindow") };
     const stat = fs.statSync(absPath);
@@ -2698,6 +2791,11 @@ async function _handleIncoming(chatId, text, msg) {
     await _cmdScreen();
     return;
   }
+  // Команда /agents — список субагентов проекта.
+  if (cmd === "/agents" || cmd === "/agent") {
+    await _cmdAgents();
+    return;
+  }
 
   // ---- Ожидание ввода значения настройки ----
   if (_settingsWaiting.has(chatId)) {
@@ -2772,7 +2870,7 @@ function formatToolArgs(toolName, args) {
       const old = a.old_string != null ? String(a.old_string) : "";
       let s = "";
       if (file) s += "📄 " + file + "\n";
-      
+
       // Построчный diff вместо двух больших блоков.
       if (old || neu) {
         try {
@@ -2780,14 +2878,14 @@ function formatToolArgs(toolName, args) {
           const rows = buildLineDiff(old, neu);
           const MAX_LINES = 30; // показываем до 30 строк diff
           const slice = rows.slice(0, MAX_LINES);
-          const lines = slice.map(r => {
-            if (r.type === 'added') return '+ ' + r.text;
-            if (r.type === 'removed') return '- ' + r.text;
-            return '  ' + r.text;
+          const lines = slice.map((r) => {
+            if (r.type === "added") return "+ " + r.text;
+            if (r.type === "removed") return "- " + r.text;
+            return "  " + r.text;
           });
-          s += lines.join('\n');
+          s += lines.join("\n");
           if (rows.length > MAX_LINES) {
-            s += '\n' + _t("tool.truncatedTotal", { n: rows.length });
+            s += "\n" + _t("tool.truncatedTotal", { n: rows.length });
           }
         } catch (err) {
           // Fallback на старый формат при ошибке.
@@ -2970,10 +3068,19 @@ function _techFlush() {
   if (!b) return null;
 
   const suffix = b.count > 1 ? " (×" + b.count + ")" : "";
-  // Заголовок: «🔧 Editing path (×N)» либо «💻 terminal (×N)» без детали.
-  const header = b.command
+  // Заголовок: «🤖 Агент: explore // 🔧 Editing path (×N)» — если из субагента.
+  // Иначе просто «🔧 Editing path (×N)».
+  const body_line = b.command
     ? b.emoji + " " + b.label + suffix
     : b.emoji + " " + b.label + " " + _techTrunc(b.detail) + suffix;
+  const agentLine = b.agentName
+    ? "🤖 " +
+      escapeHtml(_t("agent.name")) +
+      ": <b>" +
+      escapeHtml(b.agentName) +
+      "</b>\n"
+    : "";
+  const header = agentLine + body_line;
 
   // Тело: 1) команда/путь, 2) результат — каждый блок своей цитатой.
   let msg = header;
@@ -3015,11 +3122,24 @@ const TECH_SERVICE_TOOLS = new Set([
   "exitplanmode",
 ]);
 
+// Агентские инструменты: имеют собственное оформление (см. _render*Agent),
+// в общий батч «🔧 tool ×N» не идут, но уведомления им нужны.
+const AGENT_TOOLS = new Set([
+  "run_agent",
+  "runagent",
+  "create_agent",
+  "createagent",
+  "list_agents",
+  "listagents",
+  "read_agent",
+  "readagent",
+]);
+
 /**
  * Поставить уведомление в батч: если пришло такое же действие в течение
  * TECH_BATCH_MS — увеличиваем счётчик (×N), иначе шлём предыдущее и начинаем новое.
  */
-function _techQueue(toolName, args, preview) {
+function _techQueue(toolName, args, preview, agentName) {
   const icon = _techIcon(toolName);
   const detail = _techDetail(toolName, args);
   const name = String(toolName || "").toLowerCase();
@@ -3028,13 +3148,15 @@ function _techQueue(toolName, args, preview) {
       ? String((args && args.command) || "")
       : "";
   const result = String(preview || "");
+  const agent = agentName ? String(agentName).trim() : null;
 
   if (
     _techBatch &&
     _techBatch.emoji === icon.emoji &&
     _techBatch.label === icon.label &&
     _techBatch.detail === detail &&
-    _techBatch.command === command
+    _techBatch.command === command &&
+    _techBatch.agentName === agent
   ) {
     _techBatch.count++;
     // Результат последнего вызова в серии — показываем его.
@@ -3049,6 +3171,7 @@ function _techQueue(toolName, args, preview) {
       preview: result,
       args,
       count: 1,
+      agentName: agent,
     };
     if (prev) _techFlush();
     if (_techBatchTimer) clearTimeout(_techBatchTimer);
@@ -3060,25 +3183,419 @@ function _techQueue(toolName, args, preview) {
   return null;
 }
 
+// ==================== Спец-оформление для memory/city_time ====================
+//
+// Память и время/локация получают собственный «человеческий» формат вместо
+// общего 🔧 <label> <path>. Сообщение отправляется сразу (без батчинга).
+
+/**
+ * Красивое сообщение для memory_save / memory_read / memory_clear.
+ * @returns {string|null}  HTML-сообщение или null, если не наш инструмент
+ */
+function _renderMemory(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (
+    name !== "memory_save" &&
+    name !== "memory_read" &&
+    name !== "memory_clear"
+  ) {
+    return null;
+  }
+  if (!ok) return null; // ошибки уходят общим путём
+
+  const body = _stripResultWrapper(String(preview || "")).trim();
+
+  if (name === "memory_clear") {
+    return _t("mem.clearTitle") + "\n\n" + escapeHtml(_t("mem.cleared"));
+  }
+
+  if (name === "memory_save") {
+    // Результат: "Сохранено в память: - [дата] текст" — берём часть после ":".
+    const idx = body.indexOf(":");
+    const entry = (idx >= 0 ? body.slice(idx + 1) : body).trim();
+    // Дополнительно: сам текст из args.text, если в body пусто.
+    const text = entry || String((args && args.text) || "").trim();
+    return (
+      _t("mem.saveTitle") +
+      "\n\n<b>" +
+      escapeHtml(_t("mem.saved")) +
+      "</b>\n<blockquote expandable>" +
+      escapeHtml(text) +
+      "</blockquote>"
+    );
+  }
+
+  // memory_read — сам файл памяти.
+  const isEmpty =
+    !body ||
+    body === "(память пуста)" ||
+    (/^#\s*Память Cookie Code\s*$/m.test(body) && !/^-\s*\[/m.test(body));
+  if (isEmpty) {
+    return _t("mem.readEmpty");
+  }
+  // Отрезаем служебный заголовок файла (# Память... + пояснение + пустая строка),
+  // оставляя только строки-записи "- [...] ...".
+  const lines = body.split(/\r?\n/);
+  const entries = lines.filter((l) => /^-\s*\[/.test(l));
+  const shown = entries.length > 0 ? entries.join("\n") : body;
+  return (
+    _t("mem.readTitle") +
+    "\n\n<b>" +
+    escapeHtml(_t("mem.content")) +
+    "</b>\n<blockquote expandable>" +
+    escapeHtml(_techTruncLong(shown)) +
+    "</blockquote>\n<i>" +
+    escapeHtml(_t("mem.count", { n: entries.length })) +
+    "</i>"
+  );
+}
+
+/**
+ * Красивое сообщение для city_time: переоформляем "ключ: значение" в блоки.
+ * @returns {string|null}
+ */
+function _renderCityTime(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "city_time" && name !== "citytime") return null;
+  if (!ok) return null;
+
+  const body = String(preview || "").trim();
+  if (!body) return _t("city.title");
+
+  // Ожидаемый формат:
+  //   时间: <human> (<iso>)
+  //   时区: <tz>
+  //   城市 / 国家: <place>   (может быть "未确定")
+  const pick = (label) => {
+    const re = new RegExp("^" + label + "\\s*:\\s*(.+)$", "m");
+    const m = body.match(re);
+    return m ? m[1].trim() : "";
+  };
+  const time = pick("时间") || pick("Время") || pick("Time");
+  const tz = pick("时区") || pick("Timezone");
+  const place =
+    pick("城市 / 国家") || pick("Город / страна") || pick("City / country");
+
+  const rows = [];
+  if (time)
+    rows.push(
+      "⏰ " + escapeHtml(_t("city.time")) + ": <b>" + escapeHtml(time) + "</b>",
+    );
+  if (tz)
+    rows.push(
+      "🌍 " +
+        escapeHtml(_t("city.tz")) +
+        ": <code>" +
+        escapeHtml(tz) +
+        "</code>",
+    );
+  if (place)
+    rows.push("📍 " + escapeHtml(_t("city.place")) + ": " + escapeHtml(place));
+
+  if (rows.length === 0) {
+    // Не распознали — отдаём как есть, но в цитате.
+    return (
+      _t("city.title") +
+      "\n\n<blockquote expandable>" +
+      escapeHtml(body) +
+      "</blockquote>"
+    );
+  }
+  return _t("city.title") + "\n\n" + rows.join("\n");
+}
+
+/**
+ * Красивое сообщение для run_agent: карточка с именем агента и задачей.
+ * Вызывается из notifyToolResult при старте (args) — а результат агента
+ * отдельным сообщением ловит `agent_result` (через notifyAgentResult).
+ * @returns {string|null}  HTML-сообщение или null, если не наш инструмент
+ */
+function _renderRunAgent(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "run_agent" && name !== "runagent") return null;
+
+  const a = args && typeof args === "object" ? args : {};
+  const agentName = String(a.name || a.agent || "").trim();
+  const task = String(a.task || "").trim();
+
+  if (!agentName) return null;
+
+  const lines = [];
+  lines.push(_t("agent.runTitle"));
+  lines.push("");
+  lines.push(
+    "🤖 " +
+      escapeHtml(_t("agent.name")) +
+      ": <b>" +
+      escapeHtml(agentName) +
+      "</b>",
+  );
+  if (task) {
+    lines.push(
+      "📌 " +
+        escapeHtml(_t("agent.task")) +
+        ":\n<blockquote expandable>" +
+        escapeHtml(_techTruncLong(task, 700)) +
+        "</blockquote>",
+    );
+  }
+  if (!ok) {
+    // Ошибка запуска (агент не найден, context lost и т.п.)
+    // _t() уже возвращает HTML — не экранируем.
+    lines.push("");
+    lines.push(_t("agent.failed"));
+    if (preview) {
+      lines.push(
+        "<blockquote expandable>" +
+          escapeHtml(_techTrunc(String(preview), 400)) +
+          "</blockquote>",
+      );
+    }
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Красивое сообщение для create_agent: карточка нового агента (имя, tools, лимит).
+ * Результат содержит путь к файлу и подсказку «теперь можно вызвать».
+ * @returns {string|null}
+ */
+function _renderCreateAgent(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "create_agent" && name !== "createagent") return null;
+  if (!ok) return null;
+
+  const a = args && typeof args === "object" ? args : {};
+  const agentName = String(a.name || "").trim();
+  const description = String(a.description || "").trim();
+  const tools = Array.isArray(a.tools) ? a.tools.filter(Boolean) : [];
+  const maxTurns = a.maxTurns;
+  const overwrite = a.overwrite === true;
+
+  const lines = [];
+  lines.push(_t("agent.createTitle"));
+  lines.push("");
+  lines.push(
+    "🤖 " +
+      escapeHtml(_t("agent.name")) +
+      ": <b>" +
+      escapeHtml(agentName) +
+      "</b>",
+  );
+  if (description) {
+    lines.push("📝 " + escapeHtml(description));
+  }
+  lines.push(
+    "🧰 " +
+      escapeHtml(_t("agent.tools")) +
+      ": " +
+      (tools.length > 0
+        ? tools.map((x) => "<code>" + escapeHtml(x) + "</code>").join(", ")
+        : "<i>" + escapeHtml(_t("agent.noTools")) + "</i>"),
+  );
+  lines.push(
+    "🔁 " +
+      escapeHtml(_t("agent.maxTurns")) +
+      ": <code>" +
+      (maxTurns
+        ? escapeHtml(String(maxTurns))
+        : escapeHtml(_t("agent.noLimit"))) +
+      "</code>",
+  );
+  lines.push("");
+  lines.push(
+    "<i>" +
+      escapeHtml(overwrite ? _t("agent.existing") : _t("agent.created")) +
+      "</i>",
+  );
+  return lines.join("\n");
+}
+
+/**
+ * Красивое сообщение для list_agents: сам список приходит в preview.
+ * @returns {string|null}
+ */
+function _renderListAgents(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "list_agents" && name !== "listagents") return null;
+  if (!ok) return null;
+  const body = _stripResultWrapper(String(preview || "")).trim();
+  if (!body) return _t("agent.listTitle") + "\n\n<i>(пусто)</i>";
+  return (
+    _t("agent.listTitle") +
+    "\n\n<blockquote expandable>" +
+    escapeHtml(_techTruncLong(body, 3000)) +
+    "</blockquote>"
+  );
+}
+
+/**
+ * Красивое сообщение для read_agent: имя агента + его systemPrompt.
+ * @returns {string|null}
+ */
+function _renderReadAgent(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "read_agent" && name !== "readagent") return null;
+  if (!ok) return null;
+  const a = args && typeof args === "object" ? args : {};
+  const agentName = String(a.name || "").trim();
+  const body = _stripResultWrapper(String(preview || "")).trim();
+  const lines = [];
+  lines.push(_t("agent.readTitle"));
+  if (agentName) {
+    lines.push("");
+    lines.push(
+      "🤖 " +
+        escapeHtml(_t("agent.name")) +
+        ": <b>" +
+        escapeHtml(agentName) +
+        "</b>",
+    );
+  }
+  if (body) {
+    lines.push(
+      "\n<blockquote expandable>" +
+        escapeHtml(_techTruncLong(body, 3000)) +
+        "</blockquote>",
+    );
+  }
+  return lines.join("\n");
+}
+
+/** Обрезка длинного текста для спец-сообщений (мягкий лимит 3500 симв.). */
+function _techTruncLong(s, max) {
+  const limit = max || 3500;
+  const str = String(s == null ? "" : s);
+  if (str.length <= limit) return str;
+  return str.slice(0, limit) + "\n…(обрезано)";
+}
+
+/**
+ * Уведомление о СТАРТЕ делегирования субагенту.
+ * Вызывается раннером (index.js) ДО открытия дочернего окна, чтобы
+ * пользователь в TG сразу видел карточку «делегирую задачу».
+ * @param {string} agentName
+ * @param {string} task
+ */
+async function notifyAgentStarted(agentName, task) {
+  try {
+    const cfg = _read();
+    if (!cfg.enabled || !cfg.notifyTools)
+      return { success: false, skipped: true };
+    const lines = [];
+    lines.push(_t("agent.runTitle"));
+    lines.push("");
+    lines.push(
+      "🤖 " +
+        escapeHtml(_t("agent.name")) +
+        ": <b>" +
+        escapeHtml(agentName || "agent") +
+        "</b>",
+    );
+    if (task) {
+      lines.push(
+        "📌 " +
+          escapeHtml(_t("agent.task")) +
+          ":\n<blockquote expandable>" +
+          escapeHtml(_techTruncLong(task, 700)) +
+          "</blockquote>",
+      );
+    }
+    return await telegramBot.sendMessage(lines.join("\n"), {
+      parseMode: "HTML",
+    });
+  } catch (err) {
+    console.error("[bot] notifyAgentStarted failed:", err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 /** Уведомление о результате tool (компактный стиль «Tech»). */
 async function notifyToolResult(toolName, ok, detail) {
   const cfg = _read();
   if (!cfg.enabled || !cfg.notifyTools)
     return { success: false, skipped: true };
+  const _toolLower = String(toolName || "").toLowerCase();
   // Служебные вызовы (вопрос к пользователю и т.п.) в уведомления не шлём —
   // у них есть собственное сообщение.
-  const _toolLower = String(toolName || "").toLowerCase();
   if (TECH_SERVICE_TOOLS.has(_toolLower)) {
-    return { success: false, skipped: true };
-  }
-  // Умные уведомления: пропускаем инструменты из списка исключений.
-  if (cfg.notifyIgnore.length > 0 && cfg.notifyIgnore.includes(_toolLower)) {
     return { success: false, skipped: true };
   }
 
   const args = detail && typeof detail === "object" ? detail.args : null;
   const preview =
     detail && typeof detail === "object" ? detail.preview : detail;
+
+  // ===== Агентские инструменты: собственная карточка, минуя batch/notifyIgnore =====
+  if (AGENT_TOOLS.has(_toolLower)) {
+    try {
+      const isRunAgent =
+        _toolLower === "run_agent" || _toolLower === "runagent";
+
+      if (isRunAgent) {
+        // Карточка запуска уже отправлена раннером (notifyAgentStarted).
+        // Здесь шлём ТОЛЬКО результат (или ошибку субагента).
+        if (ok && preview) {
+          const body = _stripResultWrapper(String(preview || "")).trim();
+          if (body) {
+            const shown =
+              body.length > 3500 ? body.slice(0, 3500) + "\n…(обрезано)" : body;
+            const resultMsg =
+              _t("agent.resultTitle") +
+              "\n\n<blockquote expandable>" +
+              escapeHtml(shown) +
+              "</blockquote>";
+            await telegramBot.sendMessage(resultMsg, { parseMode: "HTML" });
+          }
+        } else if (!ok && preview) {
+          const errMsg =
+            _t("agent.failed") +
+            "\n\n<blockquote expandable>" +
+            escapeHtml(_techTrunc(String(preview), 800)) +
+            "</blockquote>";
+          await telegramBot.sendMessage(errMsg, { parseMode: "HTML" });
+        }
+        return { success: true, special: true };
+      }
+
+      const createMsg = _renderCreateAgent(toolName, ok, args, preview);
+      const listMsg = createMsg
+        ? null
+        : _renderListAgents(toolName, ok, args, preview);
+      const readMsg =
+        createMsg || listMsg
+          ? null
+          : _renderReadAgent(toolName, ok, args, preview);
+      const special = createMsg || listMsg || readMsg;
+      if (special) {
+        await telegramBot.sendMessage(special, { parseMode: "HTML" });
+        return { success: true, special: true };
+      }
+    } catch (err) {
+      console.error("[bot] agent render failed:", err.message);
+    }
+  }
+
+  // Умные уведомления: пропускаем инструменты из списка исключений.
+  if (cfg.notifyIgnore.length > 0 && cfg.notifyIgnore.includes(_toolLower)) {
+    return { success: false, skipped: true };
+  }
+
+  // Спец-оформление: память и время/локация — своими красивыми сообщениями,
+  // без общего стиля «🔧 label path» и без батчинга.
+  if (ok) {
+    let special = null;
+    try {
+      special = _renderMemory(toolName, ok, args, preview);
+      if (!special) special = _renderCityTime(toolName, ok, args, preview);
+    } catch (err) {
+      console.error("[bot] special render failed:", err.message);
+      special = null;
+    }
+    if (special) {
+      return telegramBot.sendMessage(special, { parseMode: "HTML" });
+    }
+  }
 
   // Ошибка — шлём сразу, отдельным сообщением, с обрезанным текстом ошибки.
   if (!ok) {
@@ -3096,7 +3613,10 @@ async function notifyToolResult(toolName, ok, detail) {
   }
 
   // Успех — в батч (одинаковые подряд схлопываются в ×N).
-  _techQueue(toolName, args, preview);
+  // Если вызов из субагента — в заголовок попадёт «🤖 Агент: <имя>».
+  const agentName =
+    detail && typeof detail === "object" ? detail.agentName || null : null;
+  _techQueue(toolName, args, preview, agentName);
   return { success: true, batched: true };
 }
 
@@ -3163,6 +3683,7 @@ async function _registerCommands() {
       switch: "переключить сессию",
       diagnostics: "диагностика",
       todos: "список задач",
+      agents: "субагенты проекта",
       screen: "скриншот окна",
       cancel: "отменить ввод",
     },
@@ -3181,6 +3702,7 @@ async function _registerCommands() {
       switch: "switch session",
       diagnostics: "diagnostics",
       todos: "todo list",
+      agents: "project subagents",
       screen: "window screenshot",
       cancel: "cancel",
     },
@@ -3261,6 +3783,7 @@ module.exports = {
   ping,
   testSend,
   notifyToolResult,
+  notifyAgentStarted,
   notifyAIResponse,
   startTyping,
   stopTyping,

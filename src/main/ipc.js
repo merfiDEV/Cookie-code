@@ -19,6 +19,7 @@ const { decodeOutput, normalizeCommand } = require("../../tools/decodeOutput");
 const gitDiff = require("./git-diff");
 const todoStore = require("./todo-store");
 const planMode = require("./plan-mode");
+const subagent = require("./subagent");
 
 /**
  * Если у окна все задачи выполнены (и список непустой) — пингуем Telegram один раз.
@@ -328,6 +329,22 @@ function tryOpenInVSCode(filePath) {
 }
 
 function registerIpcHandlers() {
+  // ===== Субагенты: bridge дочернего окна сообщает финальный текст =====
+  ipcMain.handle("subagent-response", async (event, payload) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (ctx && ctx.win && !ctx.win.isDestroyed()) {
+        subagent.onSubagentResponse(
+          ctx.win.id,
+          (payload && payload.text) || "",
+        );
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Мост Telegram → окно: ответ на вопрос из TG резолвит тот же promise.
   try {
     const bot = require("../../botsrc");
@@ -899,12 +916,34 @@ function registerIpcHandlers() {
         }
       }
 
+      // Whitelist для субагента: прямое выполнение tool-вызова тоже
+      // должно проходить проверку (не только через JsRunner).
+      if (ctx && Array.isArray(ctx.toolsWhitelist)) {
+        const ALIAS = { __bash: "bash" };
+        const name = ALIAS[toolName] || toolName;
+        if (ctx.toolsWhitelist.indexOf(name) === -1) {
+          return {
+            callId,
+            success: false,
+            error:
+              "Инструмент «" +
+              name +
+              "» не разрешён этому агенту. " +
+              "Разрешены: " +
+              ctx.toolsWhitelist.join(", ") +
+              ".",
+          };
+        }
+      }
+
       const taskToken = beginTask(event.sender.id);
       try {
         const result = await toolRegistry.execute(toolName, {
           ...params,
           projectDir: selectedDir,
           senderId: event.sender.id,
+          currentWindowId:
+            ctx && ctx.win && !ctx.win.isDestroyed() ? ctx.win.id : null,
           askUserQuestion: (questions) =>
             requestUserQuestion(event.sender, questions),
           pasteImage: (filePath, caption, send) =>
@@ -1087,6 +1126,8 @@ function registerIpcHandlers() {
     const ctx = windowState.getContextByWebContents(event.sender);
     const store = ctx ? ctx.sessionStore : null;
     const selectedDir = store ? store.state.selectedProjectDir : null;
+    const currentWindowId =
+      ctx && ctx.win && !ctx.win.isDestroyed() ? ctx.win.id : null;
     const taskToken = beginTask(event.sender.id);
     try {
       const before = JSON.stringify(todoStore.getList(event.sender.id));
@@ -1100,6 +1141,9 @@ function registerIpcHandlers() {
         (plan) => requestExitPlanMode(event.sender, plan),
         sessionIdOf(event),
         (payload) => attachFileToChat(event.sender, payload),
+        currentWindowId,
+        ctx && Array.isArray(ctx.toolsWhitelist) ? ctx.toolsWhitelist : null,
+        (ctx && ctx.subagentConfig && ctx.subagentConfig.agentName) || null,
       );
       if (isTaskCanceled(event.sender.id, taskToken)) {
         return {
@@ -1195,8 +1239,14 @@ function registerIpcHandlers() {
   });
 
   // Ответ AI → в Telegram (для просмотра с телефона).
-  ipcMain.handle("telegram-notify-ai", async (_event, { text } = {}) => {
+  // ВАЖНО: если ответ пришёл из окна-субагента — НЕ шлём (у субагента
+  // отдельное оформление: notifyAgentStarted + результат через notifyToolResult).
+  ipcMain.handle("telegram-notify-ai", async (event, { text } = {}) => {
     try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (ctx && ctx.isSubagent) {
+        return { success: false, skipped: true, reason: "subagent window" };
+      }
       const bot = require("../../botsrc");
       return await bot.notifyAIResponse(text);
     } catch (err) {
@@ -1519,6 +1569,43 @@ function registerIpcHandlers() {
       return { success: true, path: dir };
     } catch (err) {
       console.error("[Cookie Code] 打开 папку фонов失败:", err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ========== Память AI (userData/memory.md) ==========
+  // Файл заметок о пользователе/его системе; читается/пишется через
+  // инструменты memory_save / memory_read / memory_clear (tools/MemoryTool.js).
+  const memoryStore = require("./memory-store");
+
+  ipcMain.handle("cuckoo-memory-open-file", async () => {
+    try {
+      const file = memoryStore.ensureFile();
+      const errMsg = await shell.openPath(file);
+      if (errMsg) return { success: false, error: errMsg };
+      return { success: true, path: file };
+    } catch (err) {
+      console.error("[Cookie Code] открытие файла памяти失败:", err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("cuckoo-memory-clear", async () => {
+    try {
+      const r = memoryStore.clearMemory();
+      if (!r.ok) return { success: false, error: r.error };
+      return { success: true };
+    } catch (err) {
+      console.error("[Cookie Code] очистка памяти失败:", err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("cuckoo-memory-stats", async () => {
+    try {
+      const stats = memoryStore.getStats();
+      return { success: true, path: memoryStore.getMemoryPath(), ...stats };
+    } catch (err) {
       return { success: false, error: err.message };
     }
   });

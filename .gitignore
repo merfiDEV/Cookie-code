@@ -45,3 +45,6 @@ test/coverage.lcov
 .playwright-mcp/
 /tiktok
 /.cuckoo/skills
+# cookie/agents — НЕ игнорируем: агенты проекта должны попадать в git.
+# Пользовательские агенты лежат в ~/cookie/agents (вне репозитория).
+# Ранее здесь был /cookie/agents — убрано, иначе новые агенты untracked.

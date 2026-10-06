@@ -182,15 +182,38 @@ const BOOTSTRAP = [
   "    return await __call('read_photo', { file_path: filePath, caption: caption || '', send: send !== false });",
   "  };",
   "  globalThis.attachFile = async function (filePathOrPayload) {",
-    "    var payload = typeof filePathOrPayload === 'string'",
-    "      ? { filePath: filePathOrPayload }",
-    "      : (filePathOrPayload || {});",
-    "    return await __call('attach_file', payload);",
-    "  };",
-    "  globalThis.attachTelegram = async function (filePath, caption, comment) {",
-        "    return await __call('attach_telegram', { filePath: filePath, caption: caption || '', comment: comment || '' });",
-        "  };",
-    "  globalThis.exitPlanMode = async function (plan) {",
+  "    var payload = typeof filePathOrPayload === 'string'",
+  "      ? { filePath: filePathOrPayload }",
+  "      : (filePathOrPayload || {});",
+  "    return await __call('attach_file', payload);",
+  "  };",
+  "  globalThis.attachTelegram = async function (filePath, caption, comment) {",
+  "    return await __call('attach_telegram', { filePath: filePath, caption: caption || '', comment: comment || '' });",
+  "  };",
+  "  globalThis.memorySave = async function (text) {",
+  "    return await __call('memory_save', { text: text });",
+  "  };",
+  "  globalThis.memoryRead = async function () {",
+  "    return await __call('memory_read', {});",
+  "  };",
+  "  globalThis.memoryClear = async function () {",
+  "    return await __call('memory_clear', {});",
+  "  };",
+  "  globalThis.runAgent = async function (name, task) {",
+  "    return await __call('run_agent', { name: name, task: task });",
+  "  };",
+  "  globalThis.run_agent = globalThis.runAgent;",
+  "  globalThis.listAgents = async function () {",
+  "    return await __call('list_agents', {});",
+  "  };",
+  "  globalThis.readAgent = async function (name) {",
+  "    return await __call('read_agent', { name: name });",
+  "  };",
+  "  globalThis.createAgent = async function (opts) {",
+  "    return await __call('create_agent', opts || {});",
+  "  };",
+  "  globalThis.create_agent = globalThis.createAgent;",
+  "  globalThis.exitPlanMode = async function (plan) {",
   "    return await __call('exit_plan_mode', { plan: plan });",
   "  };",
   "  globalThis.exit_plan_mode = globalThis.exitPlanMode;",
@@ -350,6 +373,9 @@ class JsRunner {
     exitPlanMode,
     sessionId,
     attachFile,
+    currentWindowId,
+    toolsWhitelist,
+    agentName,
   ) {
     if (!code || typeof code !== "string" || !code.trim()) {
       return { success: false, error: "无效的 JS 代码" };
@@ -389,6 +415,27 @@ class JsRunner {
         /* plan-mode недоступен — не блокируем */
       }
 
+      // ===== Whitelist инструментов для субагента =====
+      // Если окно — субагент с ограниченным набором (frontmatter tools),
+      // любой вызов вне списка отклоняется ДО исполнения.
+      if (Array.isArray(toolsWhitelist)) {
+        // Внутренние алиасы → публичные имена
+        const ALIAS = { __bash: "bash" };
+        const toolName = ALIAS[op] || op;
+        if (toolsWhitelist.indexOf(toolName) === -1) {
+          return JSON.stringify({
+            success: false,
+            error:
+              "Инструмент «" +
+              toolName +
+              "» не разрешён этому агенту. " +
+              "Разрешены: " +
+              toolsWhitelist.join(", ") +
+              ".",
+          });
+        }
+      }
+
       let result;
       if (op === "__bash") {
         result = await runBash(args, projectDir);
@@ -402,6 +449,10 @@ class JsRunner {
               Object.assign({}, args, {
                 projectDir,
                 senderId,
+                currentWindowId:
+                  typeof currentWindowId === "number"
+                    ? currentWindowId
+                    : senderId,
                 askUserQuestion,
                 pasteImage,
                 exitPlanMode,
@@ -444,7 +495,13 @@ class JsRunner {
         const exitMatch = String(preview).match(/\[exit code:\s*(-?\d+)\]/);
         const hasBadExit = !!(exitMatch && exitMatch[1] !== "0");
         const ok = !!result.success && !hasBadExit;
-        notifyToolResult(label, ok, { args: args, preview: preview });
+        notifyToolResult(label, ok, {
+          args: args,
+          preview: preview,
+          // Если вызов идёт из окна-субагента — указываем имя агента,
+          // чтобы в TG уведомление было в стиле «🤖 Агент: explore → 📖 read».
+          agentName: agentName || null,
+        });
       } catch (_) {}
       return JSON.stringify(result);
     };

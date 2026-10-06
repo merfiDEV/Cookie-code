@@ -1,90 +1,40 @@
 # Changelog
 
-## [5.0.0] - 2024-10-05
-
-### 🎉 Major Release — Cookie Code
-
-**Breaking Changes:**
-- 🍪 **Rebrand: Cuckoo Code → Cookie Code** — новое название, новая идентичность:
-  - все пользовательские строки обновлены на "Cookie Code";
-  - внутренние API и техническая терминология остались без изменений для совместимости.
+## [5.0.2] - 2026-10-06
 
 ### Added
 
-- 📚 **Билингвальная документация** — теперь три README для разных аудиторий:
-  - `README.md` (12K, русский) — краткая версия для русских пользователей;
-  - `README.en.md` (12K, английский) — полная версия с чётким value proposition для международной аудитории;
-  - `README.ru.md` (25K, русский) — полная техническая документация на русском.
-- 🎨 **SVG-иконки вместо эмодзи** — заменили 🔄 на чистые SVG:
-  - кнопка "Изменить" (проект) — иконка карандаша/редактирования;
-  - кнопка "Обновить" (сессии, окна, MCP, diff) — иконка круговой стрелки;
-  - `stroke="currentColor"` — автоматическая адаптация к цвету текста;
-  - компактные 14×14px иконки с чёткими линиями.
-- 🔧 **Улучшенный diff viewer** — 8 крупных апгрейдов:
-  - навигация по hunks с кнопками ◀/▶ и хоткеями `n`/`p`;
-  - внутристроковый diff (алгоритм Myers) — подсветка изменённых символов;
-  - копирование — кнопка Copy для всего diff, клик на строку копирует без префикса;
-  - фильтры — чекбоксы Added/Deleted/Context для скрытия ненужных строк;
-  - мини-карта — вертикальная полоса с цветными сегментами изменений;
-  - статистика — `📊 +234 -89 в 12 файлах` в списке;
-  - кэширование — результаты git-команд сохраняются в Map;
-  - перетаскиваемое окно — захват за шапку, сохранение позиции в localStorage.
-- 📱 **Построчный diff в Telegram-уведомлениях** — операции `edit` теперь показывают реальные изменения:
-  - вместо "было/стало" — unified diff с префиксами `+`/`-`/` `;
-  - до 30 строк diff, затем `…(обрезано)`;
-  - используется тот же `buildLineDiff` из `tools/line-diff.js`, что и в UI.
+- 🚀 **Субагенты — теперь у AI есть свои помощники!** 😎 Представьте: просите AI «разберись с этим куском проекта», а он не тонет в тысяче файлов сам, а зовёт специалиста. Каждый субагент работает в **отдельном окне** со своим контекстом — весь его рабочий шум (поиски, чтения, пробы) остаётся там, а вам прилетает только чистый итог. Основной чат не пухнет, голова не кругом:
+  - 🎯 `run_agent(name, task)` — «эй, explore, найди все вызовы apiFetch». Открывается второе окно (тот же логин DeepSeek — ничего заново вводить не надо), субагент делает дело, окно само закрывается, родителю уходит резюме;
+  - 📋 `list_agents` — глянуть, кто вообще у нас в команде: имя, описание, какие инструменты разрешены, сколько шагов максимум;
+  - 🔍 `read_agent(name)` — подсмотреть полный промпт агента (удобно для отладки);
+  - 🧬 `create_agent({...})` — а вот самое интересное: **AI может вырастить себе специалиста прямо из чата!** «Создай агента для ревью SQL-миграций» — и через секунду файл готов, можно сразу делегировать;
+  - 📂 агенты лежат в `cookie/agents/*.md` (проектные — едут с репо, команда видит) или в `~/cookie/agents/*.md` (личные, для всех проектов). Формат — обычный markdown с frontmatter (`name`, `description`, `tools`, `maxTurns`);
+  - 🎁 из коробки уже есть четверо: `explore` (разведчик), `code-reviewer` (ревьюер), `git-committer` (гит-мастер), `changelog-writer` (летописец).
+- 🔒 **Whitelist инструментов — субагент делает только то, что ему разрешили** 🛡️ Написали в frontmatter `tools: read, grep` — и всё, `bash`, `mysql`, `deleteFile` для него закрыты наглухо:
+  - проверка происходит **до** запуска инструмента — не «а потом откатим», а «даже не начнём»;
+  - попробует запрещённое — получит чёткое «Инструмент X не разрешён этому агенту, разрешены: read, grep»;
+  - а ещё субагент не может позвать другого субагента — никаких бесконечных матрёшек 🪆.
+- 🤖 **Субагенты теперь болтают с вами в Telegram** 📱 Полный жизненный цикл на экране телефона:
+  - 🚀 при делегировании сразу прилетает карточка «кому и что поручили»;
+  - 🛠 каждое действие агента помечено «🤖 Агент: <имя>» — сразу видно, кто работает;
+  - 🎯 когда агент закончил — отдельное сообщение с итогом;
+  - 🔇 и никаких дублей: ответы из окна субагента не спамят в чат-фид;
+  - ⏱ финал определяется по «текст устоялся» (а не по старой ненадёжной проверке), с учётом лимита шагов и таймаута.
+- 🧠 **Память AI — теперь AI вас помнит** 💭 Скажите «Запомни, что меня зовут Ваня» или «Сохрани в память: у меня Windows 11 и RTX 3060» — и он запомнит. В следующей сессии уже будет знать контекст, не придётся повторять:
+  - 💾 `memory_save(text)` — сохранить одну мысль (одна запись = одна строчка с датой);
+  - 📖 `memory_read()` — прочитать всё, что накопилось;
+  - 🗑 `memory_clear()` — стереть всё (только по прямой просьбе — AI сначала предупредит);
+  - 📁 всё живёт в одном файлике `<userData>/memory.md`, можно открыть или очистить прямо из настроек;
+  - 🎯 содержимое памяти **не** подмешивается в промпт автоматически — читается только когда реально нужно, чтобы не жечь токены зря;
+  - 🔒 в plan-mode любые изменения памяти заблокированы — на этапе планирования AI ничего не перепишет.
+- 📚 **Новый раздел в README про субагентов** — как делегировать, три способа завести агента, что его защищает (whitelist, anti-recursion, `maxTurns`, timeout) и готовый пример файла агента. Читайте и заводите своих! 📖
 
 ### Changed
 
-- 📖 **Новая структура README** — English-first для GitHub-аудитории:
-  - чёткая проблема → решение в первых строках;
-  - value proposition: "Zero token cost + Real agent loop + Git integration";
-  - конкретные примеры использования вместо технического описания;
-  - призыв к действию — скачать бинарники.
+- 📁 **Агенты переехали: `.cuckoo/agents` → `cookie/agents`** — теперь проектные агенты лежат в репозитории рядышком с кодом (команда видит и использует), а личные — в `~/cookie/agents` (вне репо). Сканер, типы и документация обновлены. 🚚
+- 🎛 **Окно субагента получает полный системный промпт Cookie Code** — тот же набор инструментов и формат `cuckoo`, что у основного ассистента. То есть субагент работает ровно так же умело, просто в своей песочнице. 🧰
 
-### Removed
+### Fixed
 
-- 🗑️ **Устаревшие документы удалены из репозитория**:
-  - `ROADMAP.ru.md` и `Roadmap.md` — 3-недельной давности, больше не актуальны;
-  - `.cuckooCode/AUTO_UPDATE_RELEASE.md` — документация по auto-update на китайском;
-  - `DIFF_IMPROVEMENTS.md` — временный документ с описанием улучшений (все реализованы).
-
-### Added (EN)
-
-- 📚 **Bilingual documentation** — three README files for different audiences:
-  - `README.md` (12K, Russian) — concise version for Russian users;
-  - `README.en.md` (12K, English) — full version with clear value proposition for international audience;
-  - `README.ru.md` (25K, Russian) — complete technical documentation in Russian.
-- 🎨 **SVG icons instead of emoji** — replaced 🔄 with clean SVG:
-  - "Change" button (project) — pencil/edit icon;
-  - "Refresh" button (sessions, windows, MCP, diff) — circular arrow icon;
-  - `stroke="currentColor"` — automatic adaptation to text color;
-  - compact 14×14px icons with sharp lines.
-- 🔧 **Enhanced diff viewer** — 8 major upgrades:
-  - hunk navigation with ◀/▶ buttons and `n`/`p` hotkeys;
-  - intra-line diff (Myers algorithm) — highlights changed characters;
-  - copy — Copy button for full diff, click on line copies without prefix;
-  - filters — Added/Deleted/Context checkboxes to hide unwanted lines;
-  - mini-map — vertical bar with colored change segments;
-  - statistics — `📊 +234 -89 in 12 files` in the list;
-  - caching — git command results saved in Map;
-  - draggable window — grab by header, position saved in localStorage.
-- 📱 **Line-by-line diff in Telegram notifications** — `edit` operations now show real changes:
-  - instead of "before/after" — unified diff with `+`/`-`/` ` prefixes;
-  - up to 30 lines of diff, then `…(truncated)`;
-  - uses the same `buildLineDiff` from `tools/line-diff.js` as the UI.
-
-### Changed (EN)
-
-- 📖 **New README structure** — English-first for GitHub audience:
-  - clear problem → solution in the first lines;
-  - value proposition: "Zero token cost + Real agent loop + Git integration";
-  - concrete usage examples instead of technical description;
-  - call to action — download binaries.
-
-### Removed (EN)
-
-- 🗑️ **Obsolete documents removed from repository**:
-  - `ROADMAP.ru.md` and `Roadmap.md` — 3 weeks old, no longer relevant;
-  - `.cuckooCode/AUTO_UPDATE_RELEASE.md` — auto-update documentation in Chinese;
-  - `DIFF_IMPROVEMENTS.md` — temporary document describing improvements (all implemented).
+- 🐛 **Рабочая папка субагента больше не теряется** — была хитрая бага: при загрузке домашней DeepSeek (когда `sessionId` ещё не появился) выбранная папка проекта сбрасывалась в `null`, и агент начинал искать файлы «в никуда». Теперь папка кэшируется (`pendingProjectDir`) до готовности сессии и привязывается сама — относительные пути работают с первой секунды. ✅

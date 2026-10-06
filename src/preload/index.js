@@ -39,6 +39,7 @@ const whatsNew = require("./dom/whats-new");
 const i18n = require("./i18n/i18n");
 const state = require("./dom/state");
 const tokenInterceptor = require("./dom/token-interceptor");
+const subagentWatch = require("./dom/subagent-watch");
 const { getProviderByUrl } = require("../providers");
 const { safe } = require("./dom/safe");
 
@@ -89,6 +90,10 @@ async function init() {
     // Перехват серверных токенов DeepSeek: ставим как можно раньше,
     // чтобы поймать первый же запрос completion. Работает через safe().
     safe("init.tokenInterceptor", () => tokenInterceptor.install());
+
+    // Субагент: если окно открыто с --cuckoo-subagent=..., запускаем цикл
+    // наблюдения за финальным ответом и отправляем его в main-процесс.
+    safe("init.subagentWatch", () => subagentWatch.initSubagentWatch());
 
     // Регистрируем IPC-листенеры всегда — от них зависит ввод и парсинг tool-блоков
     safe("init.registerIpcListeners", () => chatInput.registerIpcListeners());
@@ -191,8 +196,6 @@ async function init() {
 
     // Принудительно держим тёмную тему DeepSeek
     safe("init.forceDarkThemeStart", () => forceDarkTheme.startWatch());
-
-
 
     // Подмена QR-кода в попапе «Скачать приложение»
     safe("init.qrOverrideStart", () => qrOverride.startWatch());
