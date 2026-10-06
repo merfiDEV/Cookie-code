@@ -1408,6 +1408,46 @@ async function _handleSettingsCallback(data, cbq) {
     return;
   }
 
+  // ---- Тумблеры DeepSeek ----
+  if (
+    data === "st_tg_search" ||
+    data === "st_tg_think" ||
+    data === "st_tg_refresh"
+  ) {
+    if (data === "st_tg_refresh") {
+      await telegramBot.answerCallbackQuery(cbq.id, {
+        text: _t("common.refresh"),
+      });
+      await _cmdToggles(chatId, msgId);
+      return;
+    }
+    const which = data === "st_tg_search" ? "search" : "think";
+    const name =
+      which === "search" ? _t("toggles.search") : _t("toggles.think");
+    const res = await _toggleDeepSeek(which);
+    if (!res.ok) {
+      await telegramBot.answerCallbackQuery(cbq.id, {
+        text: _t("toggles.failed", { err: res.error || "?" }),
+        showAlert: true,
+      });
+      return;
+    }
+    const st = res.after ? _t("toggles.on") : _t("toggles.off");
+    await telegramBot.answerCallbackQuery(cbq.id, {
+      text: _t("toggles.switched", { name: name, state: st }),
+    });
+    // Обновим клавиатуру с новым состоянием.
+    const state = await _readTogglesState();
+    if (msgId && state) {
+      const text = _t("toggles.title") + "\n\n" + _t("toggles.hint");
+      await telegramBot.editMessageText(msgId, text, {
+        parseMode: "HTML",
+        replyMarkup: _togglesKeyboard(state),
+      });
+    }
+    return;
+  }
+
   // ---- Выбор языка бота (/start) ----
   if (data.startsWith("st_lang_")) {
     const lang = i18n.normalizeLang(data.slice("st_lang_".length));
@@ -1843,6 +1883,139 @@ async function _cmdTodos(chatId, page) {
   return telegramBot.sendMessage(rendered.text, {
     parseMode: "HTML",
     replyMarkup: rendered.keyboard,
+  });
+}
+
+/**
+ * Прочитать состояние тумблеров DeepThink/Search через injectPageJS.
+ * Возвращает { search: bool|null, think: bool|null }.
+ */
+async function _readTogglesState() {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed()) return null;
+
+  const script = `(function(){
+    const find = (needle) => {
+      const all = document.querySelectorAll('.ds-toggle-button');
+      for (const el of all) {
+        const t = (el.textContent || '').trim().toLowerCase();
+        if (t.indexOf(needle) >= 0) return el;
+      }
+      return null;
+    };
+    const think = find('deepthink');
+    const search = find('search');
+    const state = (el) => el ? el.getAttribute('aria-pressed') === 'true' : null;
+    return { think: state(think), search: state(search) };
+  })()`;
+
+  try {
+    const res = await win.webContents.executeJavaScript(script, true);
+    return res || { think: null, search: null };
+  } catch (err) {
+    _log("error", "_readTogglesState error:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Переключить один тумблер. name: 'search' | 'think'.
+ * Возвращает { ok: bool, before: bool|null, after: bool|null, error?: string }.
+ */
+async function _toggleDeepSeek(name) {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed()) return { ok: false, error: "noWindow" };
+
+  const needle = name === "think" ? "deepthink" : "search";
+  const script = `(function(){
+    const find = (n) => {
+      const all = document.querySelectorAll('.ds-toggle-button');
+      for (const el of all) {
+        const t = (el.textContent || '').trim().toLowerCase();
+        if (t.indexOf(n) >= 0) return el;
+      }
+      return null;
+    };
+    const el = find('${needle}');
+    if (!el) return { ok: false, error: 'notFound' };
+    const before = el.getAttribute('aria-pressed') === 'true';
+    el.click();
+    return { ok: true, before: before };
+  })()`;
+
+  try {
+    const res = await win.webContents.executeJavaScript(script, true);
+    if (!res || !res.ok)
+      return { ok: false, error: (res && res.error) || "unknown" };
+    // Даём React время отрисовать новое состояние
+    await new Promise((r) => setTimeout(r, 250));
+    const st = await _readTogglesState();
+    const after = st ? (name === "think" ? st.think : st.search) : null;
+    return { ok: true, before: res.before, after: after };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/** Inline-клавиатура с тумблерами. */
+function _togglesKeyboard(state) {
+  const fmt = (on) =>
+    on === true
+      ? "✅ " + _t("toggles.on")
+      : on === false
+        ? "⬜ " + _t("toggles.off")
+        : "❔ " + _t("toggles.unknown");
+  return {
+    inline_keyboard: [
+      [
+        {
+          text: _t("toggles.search") + ": " + fmt(state ? state.search : null),
+          callback_data: "st_tg_search",
+        },
+      ],
+      [
+        {
+          text: _t("toggles.think") + ": " + fmt(state ? state.think : null),
+          callback_data: "st_tg_think",
+        },
+      ],
+      [{ text: "🔄 " + _t("common.refresh"), callback_data: "st_tg_refresh" }],
+    ],
+  };
+}
+
+/** /toggles — показать текущее состояние тумблеров. */
+async function _cmdToggles(chatId, msgId) {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed()) {
+    return telegramBot.sendMessage(_t("toggles.noWindow"), {
+      parseMode: "HTML",
+    });
+  }
+  const state = await _readTogglesState();
+  if (!state || (state.search == null && state.think == null)) {
+    return telegramBot.sendMessage(_t("toggles.notFound"), {
+      parseMode: "HTML",
+    });
+  }
+  const text = _t("toggles.title") + "\n\n" + _t("toggles.hint");
+  const keyboard = _togglesKeyboard(state);
+  if (msgId) {
+    const r = await telegramBot.editMessageText(msgId, text, {
+      parseMode: "HTML",
+      replyMarkup: keyboard,
+    });
+    if (r && r.success) return r;
+  }
+  return telegramBot.sendMessage(text, {
+    parseMode: "HTML",
+    replyMarkup: keyboard,
   });
 }
 
@@ -2365,6 +2538,7 @@ async function _cmdHelp() {
     _t("help.cmd.files"),
     _t("help.cmd.todos"),
     _t("help.cmd.agents"),
+    _t("help.cmd.toggles"),
     _t("help.cmd.screen"),
     _t("help.cmd.cancel"),
     _t("help.cmd.help"),
@@ -2860,6 +3034,11 @@ async function _handleIncoming(chatId, text, msg) {
   // Команда /agents — список субагентов проекта.
   if (cmd === "/agents" || cmd === "/agent") {
     await _cmdAgents();
+    return;
+  }
+  // Команда /toggles — управление тумблерами DeepSeek (Search / DeepThink).
+  if (cmd === "/toggles" || cmd === "/toggle") {
+    await _cmdToggles(chatId);
     return;
   }
 
@@ -3750,6 +3929,7 @@ async function _registerCommands() {
       diagnostics: "диагностика",
       todos: "список задач",
       agents: "субагенты проекта",
+      toggles: "тумблеры DeepSeek",
       screen: "скриншот окна",
       cancel: "отменить ввод",
     },
@@ -3769,6 +3949,7 @@ async function _registerCommands() {
       diagnostics: "diagnostics",
       todos: "todo list",
       agents: "project subagents",
+      toggles: "DeepSeek toggles",
       screen: "window screenshot",
       cancel: "cancel",
     },

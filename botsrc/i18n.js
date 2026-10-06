@@ -45,6 +45,7 @@ const STRINGS = {
     "help.cmd.files": "/files &lt;hash&gt; — файлы коммита",
     "help.cmd.todos": "/todos       — список задач активного окна",
     "help.cmd.agents": "/agents      — список субагентов проекта",
+    "help.cmd.toggles": "/toggles     — тумблеры поиска и раздумий DeepSeek",
     "help.cmd.screen": "/screen      — скриншот активного окна",
     "help.cmd.cancel": "/cancel      — отменить ввод / подтверждение",
     "help.cmd.help": "/help        — эта справка",
@@ -298,6 +299,18 @@ const STRINGS = {
     "agents.cmd.hint":
       '💡 Делегируйте задачу: <code>run_agent("name", "задача")</code>',
     "agents.cmd.more": "…и ещё {n}",
+    "toggles.title": "🎛 <b>Тумблеры DeepSeek</b>",
+    "toggles.hint": "Нажми, чтобы включить/выключить.",
+    "toggles.search": "🔍 Умный поиск",
+    "toggles.think": "🧠 Глубокие раздумья",
+    "toggles.on": "вкл",
+    "toggles.off": "выкл",
+    "toggles.unknown": "?",
+    "toggles.notFound":
+      "❌ Кнопки не найдены на странице. Открой чат DeepSeek и повтори.",
+    "toggles.noWindow": "📂 Нет активного окна.",
+    "toggles.switched": "Переключено: {name} → {state}",
+    "toggles.failed": "Не удалось переключить: {err}",
 
     // ===== Approval =====
     "approval.title": "🔐 <b>Подтверждение команды</b>",
@@ -390,6 +403,7 @@ const STRINGS = {
     "help.cmd.files": "/files &lt;hash&gt; — commit files",
     "help.cmd.todos": "/todos       — tasks of the active window",
     "help.cmd.agents": "/agents      — project subagents list",
+    "help.cmd.toggles": "/toggles     — DeepSeek search & deep-think toggles",
     "help.cmd.screen": "/screen      — screenshot of the active window",
     "help.cmd.cancel": "/cancel      — cancel input / approval",
     "help.cmd.help": "/help        — this help",
@@ -644,6 +658,18 @@ const STRINGS = {
     "agents.cmd.hint":
       '💡 Delegate a task: <code>run_agent("name", "task")</code>',
     "agents.cmd.more": "…and {n} more",
+    "toggles.title": "🎛 <b>DeepSeek toggles</b>",
+    "toggles.hint": "Tap to enable/disable.",
+    "toggles.search": "🔍 Smart Search",
+    "toggles.think": "🧠 Deep Think",
+    "toggles.on": "on",
+    "toggles.off": "off",
+    "toggles.unknown": "?",
+    "toggles.notFound":
+      "❌ Buttons not found on page. Open a DeepSeek chat and try again.",
+    "toggles.noWindow": "📂 No active window.",
+    "toggles.switched": "Toggled: {name} → {state}",
+    "toggles.failed": "Failed to toggle: {err}",
 
     // ===== Approval =====
     "approval.title": "🔐 <b>Command approval</b>",
