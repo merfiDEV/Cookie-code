@@ -102,6 +102,8 @@ function activateCuckooTab() {
     // Подтверждение инструментов + скрытие служебных сообщений
     bindAgentSettings();
     refreshAgentSettings();
+    // Память AI
+    bindMemoryButtons();
     // Чубрики (петы)
     bindPetsSection();
     // Шрифт
@@ -582,6 +584,23 @@ function buildContentHTML() {
     '    <input type="checkbox" id="cuckoo-formatters-enabled">' +
     "  </label>" +
     "  </div>" +
+    "</div>" +
+    // ===== Память AI =====
+    '<div data-cat="system">' +
+    '  <div class="cuckoo-section-title">' +
+    t("settings.section.memory") +
+    "</div>" +
+    '  <div class="ck-btn-row" style="margin-bottom:10px;">' +
+    '    <button id="cuckoo-memory-open-file" class="ck-btn">' +
+    t("settings.memory.openFile") +
+    "</button>" +
+    '    <button id="cuckoo-memory-clear" class="ck-btn">' +
+    t("settings.memory.clear") +
+    "</button>" +
+    "  </div>" +
+    '  <div class="ck-row-hint" id="cuckoo-memory-stats">' +
+    t("settings.memory.hint") +
+    "</div>" +
     "</div>" +
     // ===== Чубрики (петы) =====
     buildPetsSection() +
@@ -1702,6 +1721,69 @@ function bindFontGrid() {
       }
     });
   });
+}
+
+/**
+ * Секция «Память»: открыть файл памяти + очистить.
+ */
+function bindMemoryButtons() {
+  const openBtn = document.querySelector(
+    "#" + TAB_CONTENT_ID + " #cuckoo-memory-open-file",
+  );
+  if (openBtn) {
+    openBtn.addEventListener("click", async () => {
+      try {
+        await window.electronAPI.openMemoryFile();
+      } catch (err) {
+        console.error(
+          "[Cookie Code] Не удалось открыть файл памяти:",
+          err.message,
+        );
+      }
+    });
+  }
+  const clearBtn = document.querySelector(
+    "#" + TAB_CONTENT_ID + " #cuckoo-memory-clear",
+  );
+  if (clearBtn) {
+    clearBtn.addEventListener("click", async () => {
+      const ok = window.confirm(t("settings.memory.clearConfirm"));
+      if (!ok) return;
+      try {
+        await window.electronAPI.clearMemory();
+        await refreshMemoryStats();
+      } catch (err) {
+        console.error("[Cookie Code] Не удалось очистить память:", err.message);
+      }
+    });
+  }
+  refreshMemoryStats();
+}
+
+/**
+ * Обновить подпись под кнопками памяти (путь, размер, число записей).
+ */
+async function refreshMemoryStats() {
+  const el = document.querySelector(
+    "#" + TAB_CONTENT_ID + " #cuckoo-memory-stats",
+  );
+  if (!el) return;
+  try {
+    const res = await window.electronAPI.getMemoryStats();
+    if (!res || !res.success) return;
+    const kb = Math.max(1, Math.round((res.bytes || 0) / 1024));
+    el.textContent =
+      (res.path || "") +
+      " · " +
+      (res.entries || 0) +
+      " " +
+      t("settings.memory.entries") +
+      " · " +
+      kb +
+      " KB";
+  } catch (_) {
+    /* оставляем дефолтную подпись */
+  }
 }
 
 /**

@@ -2772,7 +2772,7 @@ function formatToolArgs(toolName, args) {
       const old = a.old_string != null ? String(a.old_string) : "";
       let s = "";
       if (file) s += "📄 " + file + "\n";
-      
+
       // Построчный diff вместо двух больших блоков.
       if (old || neu) {
         try {
@@ -2780,14 +2780,14 @@ function formatToolArgs(toolName, args) {
           const rows = buildLineDiff(old, neu);
           const MAX_LINES = 30; // показываем до 30 строк diff
           const slice = rows.slice(0, MAX_LINES);
-          const lines = slice.map(r => {
-            if (r.type === 'added') return '+ ' + r.text;
-            if (r.type === 'removed') return '- ' + r.text;
-            return '  ' + r.text;
+          const lines = slice.map((r) => {
+            if (r.type === "added") return "+ " + r.text;
+            if (r.type === "removed") return "- " + r.text;
+            return "  " + r.text;
           });
-          s += lines.join('\n');
+          s += lines.join("\n");
           if (rows.length > MAX_LINES) {
-            s += '\n' + _t("tool.truncatedTotal", { n: rows.length });
+            s += "\n" + _t("tool.truncatedTotal", { n: rows.length });
           }
         } catch (err) {
           // Fallback на старый формат при ошибке.
@@ -3060,6 +3060,135 @@ function _techQueue(toolName, args, preview) {
   return null;
 }
 
+// ==================== Спец-оформление для memory/city_time ====================
+//
+// Память и время/локация получают собственный «человеческий» формат вместо
+// общего 🔧 <label> <path>. Сообщение отправляется сразу (без батчинга).
+
+/**
+ * Красивое сообщение для memory_save / memory_read / memory_clear.
+ * @returns {string|null}  HTML-сообщение или null, если не наш инструмент
+ */
+function _renderMemory(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (
+    name !== "memory_save" &&
+    name !== "memory_read" &&
+    name !== "memory_clear"
+  ) {
+    return null;
+  }
+  if (!ok) return null; // ошибки уходят общим путём
+
+  const body = _stripResultWrapper(String(preview || "")).trim();
+
+  if (name === "memory_clear") {
+    return _t("mem.clearTitle") + "\n\n" + escapeHtml(_t("mem.cleared"));
+  }
+
+  if (name === "memory_save") {
+    // Результат: "Сохранено в память: - [дата] текст" — берём часть после ":".
+    const idx = body.indexOf(":");
+    const entry = (idx >= 0 ? body.slice(idx + 1) : body).trim();
+    // Дополнительно: сам текст из args.text, если в body пусто.
+    const text = entry || String((args && args.text) || "").trim();
+    return (
+      _t("mem.saveTitle") +
+      "\n\n<b>" +
+      escapeHtml(_t("mem.saved")) +
+      "</b>\n<blockquote expandable>" +
+      escapeHtml(text) +
+      "</blockquote>"
+    );
+  }
+
+  // memory_read — сам файл памяти.
+  const isEmpty =
+    !body ||
+    body === "(память пуста)" ||
+    (/^#\s*Память Cookie Code\s*$/m.test(body) && !/^-\s*\[/m.test(body));
+  if (isEmpty) {
+    return _t("mem.readEmpty");
+  }
+  // Отрезаем служебный заголовок файла (# Память... + пояснение + пустая строка),
+  // оставляя только строки-записи "- [...] ...".
+  const lines = body.split(/\r?\n/);
+  const entries = lines.filter((l) => /^-\s*\[/.test(l));
+  const shown = entries.length > 0 ? entries.join("\n") : body;
+  return (
+    _t("mem.readTitle") +
+    "\n\n<b>" +
+    escapeHtml(_t("mem.content")) +
+    "</b>\n<blockquote expandable>" +
+    escapeHtml(_techTruncLong(shown)) +
+    "</blockquote>\n<i>" +
+    escapeHtml(_t("mem.count", { n: entries.length })) +
+    "</i>"
+  );
+}
+
+/**
+ * Красивое сообщение для city_time: переоформляем "ключ: значение" в блоки.
+ * @returns {string|null}
+ */
+function _renderCityTime(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "city_time" && name !== "citytime") return null;
+  if (!ok) return null;
+
+  const body = String(preview || "").trim();
+  if (!body) return _t("city.title");
+
+  // Ожидаемый формат:
+  //   时间: <human> (<iso>)
+  //   时区: <tz>
+  //   城市 / 国家: <place>   (может быть "未确定")
+  const pick = (label) => {
+    const re = new RegExp("^" + label + "\\s*:\\s*(.+)$", "m");
+    const m = body.match(re);
+    return m ? m[1].trim() : "";
+  };
+  const time = pick("时间") || pick("Время") || pick("Time");
+  const tz = pick("时区") || pick("Timezone");
+  const place =
+    pick("城市 / 国家") || pick("Город / страна") || pick("City / country");
+
+  const rows = [];
+  if (time)
+    rows.push(
+      "⏰ " + escapeHtml(_t("city.time")) + ": <b>" + escapeHtml(time) + "</b>",
+    );
+  if (tz)
+    rows.push(
+      "🌍 " +
+        escapeHtml(_t("city.tz")) +
+        ": <code>" +
+        escapeHtml(tz) +
+        "</code>",
+    );
+  if (place)
+    rows.push("📍 " + escapeHtml(_t("city.place")) + ": " + escapeHtml(place));
+
+  if (rows.length === 0) {
+    // Не распознали — отдаём как есть, но в цитате.
+    return (
+      _t("city.title") +
+      "\n\n<blockquote expandable>" +
+      escapeHtml(body) +
+      "</blockquote>"
+    );
+  }
+  return _t("city.title") + "\n\n" + rows.join("\n");
+}
+
+/** Обрезка длинного текста для спец-сообщений (мягкий лимит 3500 симв.). */
+function _techTruncLong(s, max) {
+  const limit = max || 3500;
+  const str = String(s == null ? "" : s);
+  if (str.length <= limit) return str;
+  return str.slice(0, limit) + "\n…(обрезано)";
+}
+
 /** Уведомление о результате tool (компактный стиль «Tech»). */
 async function notifyToolResult(toolName, ok, detail) {
   const cfg = _read();
@@ -3079,6 +3208,22 @@ async function notifyToolResult(toolName, ok, detail) {
   const args = detail && typeof detail === "object" ? detail.args : null;
   const preview =
     detail && typeof detail === "object" ? detail.preview : detail;
+
+  // Спец-оформление: память и время/локация — своими красивыми сообщениями,
+  // без общего стиля «🔧 label path» и без батчинга.
+  if (ok) {
+    let special = null;
+    try {
+      special = _renderMemory(toolName, ok, args, preview);
+      if (!special) special = _renderCityTime(toolName, ok, args, preview);
+    } catch (err) {
+      console.error("[bot] special render failed:", err.message);
+      special = null;
+    }
+    if (special) {
+      return telegramBot.sendMessage(special, { parseMode: "HTML" });
+    }
+  }
 
   // Ошибка — шлём сразу, отдельным сообщением, с обрезанным текстом ошибки.
   if (!ok) {

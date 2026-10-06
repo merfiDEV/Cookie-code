@@ -375,6 +375,34 @@ declare function mcpListServers(): Promise<string>;
  */
 declare function mcpGetTools(serverName: string): Promise<string>;
 
+// ================= Memory =================
+
+/**
+ * Сохранить одну заметку в долговременную память (файл <userData>/memory.md).
+ * Запись добавляется строкой "- [YYYY-MM-DD] текст".
+ * Используется для фактов о пользователе, его системе и устойчивых предпочтений.
+ * @param text короткая заметка (одна мысль); длиннее 2000 символов — обрезается
+ * @returns подтверждение с сохранённой строкой
+ * @throws text не строка/пустой, ошибка записи файла
+ */
+declare function memorySave(text: string): Promise<string>;
+
+/**
+ * Прочитать всю долговременную память (файл <userData>/memory.md).
+ * Вызывай, только если ответ зависит от данных о пользователе/его системе.
+ * @returns содержимое файла или "(память пуста)"
+ * @throws ошибка чтения файла
+ */
+declare function memoryRead(): Promise<string>;
+
+/**
+ * Полностью очистить долговременную память.
+ * Используй только по прямой просьбе пользователя.
+ * @returns подтверждение очистки
+ * @throws ошибка записи файла
+ */
+declare function memoryClear(): Promise<string>;
+
 // ================= Skill =================
 
 /**

@@ -1523,6 +1523,43 @@ function registerIpcHandlers() {
     }
   });
 
+  // ========== Память AI (userData/memory.md) ==========
+  // Файл заметок о пользователе/его системе; читается/пишется через
+  // инструменты memory_save / memory_read / memory_clear (tools/MemoryTool.js).
+  const memoryStore = require("./memory-store");
+
+  ipcMain.handle("cuckoo-memory-open-file", async () => {
+    try {
+      const file = memoryStore.ensureFile();
+      const errMsg = await shell.openPath(file);
+      if (errMsg) return { success: false, error: errMsg };
+      return { success: true, path: file };
+    } catch (err) {
+      console.error("[Cookie Code] открытие файла памяти失败:", err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("cuckoo-memory-clear", async () => {
+    try {
+      const r = memoryStore.clearMemory();
+      if (!r.ok) return { success: false, error: r.error };
+      return { success: true };
+    } catch (err) {
+      console.error("[Cookie Code] очистка памяти失败:", err.message);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle("cuckoo-memory-stats", async () => {
+    try {
+      const stats = memoryStore.getStats();
+      return { success: true, path: memoryStore.getMemoryPath(), ...stats };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // ========== Пользовательские шрифты (userData/fonts) ==========
   // Папка: <userData>/fonts — пользователь кладёт туда .ttf/.otf/.woff/.woff2,
   // они автоматически появляются в выборе шрифта в настройках.

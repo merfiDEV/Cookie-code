@@ -250,6 +250,22 @@ const STRINGS = {
     "tool.items": " пункт(ов)",
     "tool.allDone": "🎉 <b>Все задачи выполнены</b> ({n}/{n})",
 
+    // ===== Память (memory_save/read/clear) =====
+    "mem.readTitle": "🧠 <b>ИИ читает память</b>",
+    "mem.saveTitle": "🧠 <b>ИИ сохраняет в память</b>",
+    "mem.clearTitle": "🧠 <b>ИИ очищает память</b>",
+    "mem.readEmpty": "🧠 <b>Память пуста</b>",
+    "mem.saved": "Записано:",
+    "mem.cleared": "🗑 Память очищена",
+    "mem.content": "Содержимое памяти:",
+    "mem.count": "записей: {n}",
+
+    // ===== Время/локация (city_time) =====
+    "city.title": "🕒 <b>Время и местоположение</b>",
+    "city.time": "Время",
+    "city.tz": "Часовой пояс",
+    "city.place": "Город / страна",
+
     // ===== Approval =====
     "approval.title": "🔐 <b>Подтверждение команды</b>",
     "approval.jsScript": "JS-скрипт",
@@ -544,6 +560,22 @@ const STRINGS = {
     "tool.in": " in ",
     "tool.items": " item(s)",
     "tool.allDone": "🎉 <b>All tasks completed</b> ({n}/{n})",
+
+    // ===== Memory (memory_save/read/clear) =====
+    "mem.readTitle": "🧠 <b>AI reads memory</b>",
+    "mem.saveTitle": "🧠 <b>AI saves to memory</b>",
+    "mem.clearTitle": "🧠 <b>AI clears memory</b>",
+    "mem.readEmpty": "🧠 <b>Memory is empty</b>",
+    "mem.saved": "Saved:",
+    "mem.cleared": "🗑 Memory cleared",
+    "mem.content": "Memory content:",
+    "mem.count": "entries: {n}",
+
+    // ===== Time/location (city_time) =====
+    "city.title": "🕒 <b>Time & location</b>",
+    "city.time": "Time",
+    "city.tz": "Timezone",
+    "city.place": "City / country",
 
     // ===== Approval =====
     "approval.title": "🔐 <b>Command approval</b>",
