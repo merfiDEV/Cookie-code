@@ -2,8 +2,8 @@
  * Agent (субагент) — типы и документация.
  *
  * Формат: markdown-файл с frontmatter, размещённый в:
- *   - <projectDir>/.cuckoo/agents/<name>.md   (проектный, приоритет выше)
- *   - ~/.cuckoo/agents/<name>.md              (пользовательский)
+ *   - <projectDir>/cookie/agents/<name>.md   (проектный, приоритет выше)
+ *   - ~/cookie/agents/<name>.md              (пользовательский)
  *
  * Frontmatter-поля:
  *   - name        : имя агента (по умолчанию — имя файла без .md)

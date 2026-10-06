@@ -2,7 +2,7 @@
  * Сканер субагентов: проектные + пользовательские каталоги -> AgentMeta[].
  *
  * Правила:
- *  - Сканируется только <base>/.cuckoo/agents/ — один уровень, только .md
+ *  - Сканируется только <base>/cookie/agents/ — один уровень, только .md
  *  - Имя: frontmatter.name || basename(file, '.md')
  *  - Описание: frontmatter.description || первый непустой абзац тела
  *  - Без имени/описания — агент пропускается (нельзя показать в промпте)
@@ -26,7 +26,7 @@ function firstParagraph(body) {
 
 /**
  * Просканировать одну папку agents (без рекурсии).
- * @param {string} agentsDir абсолютный путь к .cuckoo/agents
+ * @param {string} agentsDir абсолютный путь к cookie/agents
  * @param {'project'|'user'} source
  * @returns {AgentMeta[]}
  */
@@ -106,10 +106,10 @@ function scanAgents(projectDir) {
     userHome = os.homedir();
   } catch (_) {}
   const user = userHome
-    ? scanAgentsRoot(path.join(userHome, ".cuckoo", "agents"), "user")
+    ? scanAgentsRoot(path.join(userHome, "cookie", "agents"), "user")
     : [];
   const project = projectDir
-    ? scanAgentsRoot(path.join(projectDir, ".cuckoo", "agents"), "project")
+    ? scanAgentsRoot(path.join(projectDir, "cookie", "agents"), "project")
     : [];
   return mergeAgents(project, user);
 }
