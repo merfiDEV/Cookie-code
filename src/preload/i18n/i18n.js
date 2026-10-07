@@ -922,6 +922,19 @@ const KEYS = {
   },
   "diff.error": { ru: "Ошибка", en: "Error" },
   "diff.errorPrefix": { ru: "Ошибка: {msg}", en: "Error: {msg}" },
+  "diff.btn.commitAll": { ru: "Коммит", en: "Commit" },
+  "diff.btn.commitAll.title": {
+    ru: "Вставить все diff в чат и попросить AI закоммитить",
+    en: "Paste all diffs to chat and ask AI to commit",
+  },
+  "diff.noDiff": {
+    ru: "Нет изменённых файлов для коммита",
+    en: "No changed files to commit",
+  },
+  "diff.commitAll.notReady": {
+    ru: "Не удалось собрать diff",
+    en: "Failed to collect diff",
+  },
 
   // ---- Todo-панель ----
   "todo.btn.hide": { ru: "Скрыть", en: "Hide" },

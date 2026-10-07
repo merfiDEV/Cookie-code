@@ -605,6 +605,12 @@ function bindEvents() {
   const diffCloseBtn = document.getElementById("cuckoo-diff-close");
   diffCloseBtn?.addEventListener("click", closeDiffPanel);
 
+  // Diff-панель: «Коммит» — вставить все diff в чат и попросить AI закоммитить
+  const diffCommitAllBtn = document.getElementById("cuckoo-diff-commit-all");
+  diffCommitAllBtn?.addEventListener("click", () => {
+    require("./diff-panel").commitAllToChat();
+  });
+
   // Diff-панель: обновить (в зависимости от активной вкладки)
   const diffRefreshBtn = document.getElementById("cuckoo-diff-refresh");
   diffRefreshBtn?.addEventListener("click", () => {

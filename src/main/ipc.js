@@ -1553,6 +1553,23 @@ function registerIpcHandlers() {
     }
   });
 
+  // Объединённый diff всех изменённых файлов (для кнопки «Вставить все diff в чат»).
+  ipcMain.handle("git-diff-all", async (event) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const projectDir =
+        ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir;
+      if (!projectDir)
+        return {
+          success: false,
+          reason: "git не найден: проект не инициализирован",
+        };
+      return await gitDiff.getAllDiff(projectDir);
+    } catch (err) {
+      return { success: false, reason: err.message };
+    }
+  });
+
   // ========== Git history (вкладка «История») ==========
   ipcMain.handle("git-log", async (event, { limit } = {}) => {
     try {

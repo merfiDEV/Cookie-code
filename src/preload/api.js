@@ -265,6 +265,9 @@ let electronAPI = {
   gitDiffFile: (filePath, status) => {
     return ipcRenderer.invoke("git-diff-file", { filePath, status });
   },
+  gitDiffAll: () => {
+    return ipcRenderer.invoke("git-diff-all");
+  },
   gitLog: (limit) => {
     return ipcRenderer.invoke("git-log", { limit });
   },
