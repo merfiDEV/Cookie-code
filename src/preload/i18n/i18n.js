@@ -546,8 +546,8 @@ const KEYS = {
   },
   "settings.memory.entries": { ru: "записей", en: "entries" },
   "settings.memory.hint": {
-    ru: "AI запоминает факты о вас и вашей системе. Файл памяти: <userData>/memory.md",
-    en: "The AI remembers facts about you and your system. Memory file: <userData>/memory.md",
+    ru: "AI запоминает факты о вас и вашей системе. Глобальная память: <userData>/memory.md; проектная: <projectDir>/.cuckoo/memory/ProjectMemory.md",
+    en: "The AI remembers facts about you and your system. Global memory: <userData>/memory.md; project memory: <projectDir>/.cuckoo/memory/ProjectMemory.md",
   },
   // ---- Шрифт ----
   "settings.section.font": { ru: "Шрифт", en: "Font" },

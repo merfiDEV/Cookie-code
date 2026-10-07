@@ -236,15 +236,16 @@ let electronAPI = {
   chromaKeyPet: (file, color, tolerance) => {
     return ipcRenderer.invoke("cuckoo-pets-chroma", { file, color, tolerance });
   },
-  // ========== Память AI (userData/memory.md) ==========
-  openMemoryFile: () => {
-    return ipcRenderer.invoke("cuckoo-memory-open-file");
+  // ========== Память AI (userData/memory.md + <projectDir>/.cuckoo/memory/) ==========
+  // scope: 'global' (по умолчанию) | 'project'
+  openMemoryFile: (scope) => {
+    return ipcRenderer.invoke("cuckoo-memory-open-file", { scope });
   },
-  clearMemory: () => {
-    return ipcRenderer.invoke("cuckoo-memory-clear");
+  clearMemory: (scope) => {
+    return ipcRenderer.invoke("cuckoo-memory-clear", { scope });
   },
-  getMemoryStats: () => {
-    return ipcRenderer.invoke("cuckoo-memory-stats");
+  getMemoryStats: (scope) => {
+    return ipcRenderer.invoke("cuckoo-memory-stats", { scope });
   },
   // ========== Todo-задачи ==========
   getTodos: () => {

@@ -188,6 +188,8 @@ log(r);
 
 {{SKILL_SECTION}}
 
+{{MEMORY_SECTION}}
+
 ---
 
 ## 当前项目目录

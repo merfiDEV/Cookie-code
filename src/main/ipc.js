@@ -184,6 +184,22 @@ function sessionIdOf(event) {
     : null;
 }
 
+/**
+ * Текущий projectDir окна (из его sessionStore). Может быть null.
+ * @param {Electron.IpcMainEvent|Electron.IpcMainInvokeEvent} event
+ * @returns {string|null}
+ */
+function getProjectDirBySender(sender) {
+  try {
+    const ctx = windowState.getContextByWebContents(sender);
+    return ctx && ctx.sessionStore && ctx.sessionStore.state
+      ? ctx.sessionStore.state.selectedProjectDir || null
+      : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function maybeNotifyAllDone(senderId) {
   try {
     const todos = todoStore.getList(senderId);
@@ -1716,9 +1732,25 @@ function registerIpcHandlers() {
   // инструменты memory_save / memory_read / memory_clear (tools/MemoryTool.js).
   const memoryStore = require("./memory-store");
 
-  ipcMain.handle("cuckoo-memory-open-file", async () => {
+  ipcMain.handle("cuckoo-memory-open-file", async (event, { scope } = {}) => {
     try {
-      const file = memoryStore.ensureFile();
+      const projectDir = getProjectDirBySender(event.sender);
+      const s = scope === "project" ? "project" : "global";
+      const file =
+        s === "project"
+          ? memoryStore.getProjectMemoryPath(projectDir)
+          : memoryStore.getGlobalMemoryPath();
+      if (!file)
+        return {
+          success: false,
+          error: "Проект не инициализирован (нет projectDir)",
+        };
+      memoryStore.ensureFile(
+        file,
+        s === "project"
+          ? "# Память проекта\n\nЗаметки о данном проекте: соглашения, архитектурные решения, важные пути.\nФормат: - [YYYY-MM-DD] текст\n\n"
+          : "# Память Cookie Code\n\nЗаметки о пользователе, его системе и предпочтениях.\nФормат: - [YYYY-MM-DD] текст\n\n",
+      );
       const errMsg = await shell.openPath(file);
       if (errMsg) return { success: false, error: errMsg };
       return { success: true, path: file };
@@ -1728,9 +1760,11 @@ function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("cuckoo-memory-clear", async () => {
+  ipcMain.handle("cuckoo-memory-clear", async (event, { scope } = {}) => {
     try {
-      const r = memoryStore.clearMemory();
+      const projectDir = getProjectDirBySender(event.sender);
+      const s = scope === "project" ? "project" : "global";
+      const r = memoryStore.clearMemory({ scope: s, projectDir });
       if (!r.ok) return { success: false, error: r.error };
       return { success: true };
     } catch (err) {
@@ -1739,10 +1773,12 @@ function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("cuckoo-memory-stats", async () => {
+  ipcMain.handle("cuckoo-memory-stats", async (event, { scope } = {}) => {
     try {
-      const stats = memoryStore.getStats();
-      return { success: true, path: memoryStore.getMemoryPath(), ...stats };
+      const projectDir = getProjectDirBySender(event.sender);
+      const s = scope === "project" ? "project" : "global";
+      const stats = memoryStore.getStats({ scope: s, projectDir });
+      return { success: true, ...stats };
     } catch (err) {
       return { success: false, error: err.message };
     }
