@@ -609,6 +609,7 @@ function bindEvents() {
   const diffCommitAllBtn = document.getElementById("cuckoo-diff-commit-all");
   diffCommitAllBtn?.addEventListener("click", () => {
     require("./diff-panel").commitAllToChat();
+    closeDiffPanel();
   });
 
   // Diff-панель: обновить (в зависимости от активной вкладки)
