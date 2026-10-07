@@ -315,6 +315,9 @@ let electronAPI = {
   openChangelogFile: () => {
     return ipcRenderer.invoke("whats-new-open-changelog");
   },
+  getCurrentChangelog: () => {
+    return ipcRenderer.invoke("whats-new-get-current");
+  },
   // ========== Диагностика интеграции (выполняется в контексте страницы) ==========
   runDiagnosticsText: async () => {
     const { runDiagnostics, formatReportText } = require("./dom/diagnostics");

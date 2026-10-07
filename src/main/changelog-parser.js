@@ -16,16 +16,20 @@
  * Не пытаемся быть универсальным парсером Keep a Changelog —
  * поддерживаем ровно тот формат, что лежит в нашем репо.
  */
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 /**
  * Сравнить две semver-строки.
  * @returns -1 | 0 | 1
  */
 function compareSemver(a, b) {
-  const pa = String(a || '0').split('.').map(n => parseInt(n, 10) || 0);
-  const pb = String(b || '0').split('.').map(n => parseInt(n, 10) || 0);
+  const pa = String(a || "0")
+    .split(".")
+    .map((n) => parseInt(n, 10) || 0);
+  const pb = String(b || "0")
+    .split(".")
+    .map((n) => parseInt(n, 10) || 0);
   for (let i = 0; i < 3; i++) {
     const x = pa[i] || 0;
     const y = pb[i] || 0;
@@ -41,7 +45,7 @@ function compareSemver(a, b) {
  * @returns {Array<{version: string, date: string|null, unreleased: boolean, sections: {title: string, items: string[]}[]}>}
  */
 function parseChangelog(md) {
-  if (!md || typeof md !== 'string') return [];
+  if (!md || typeof md !== "string") return [];
   const lines = md.split(/\r?\n/);
   const entries = [];
   let current = null;
@@ -52,7 +56,7 @@ function parseChangelog(md) {
   const ITEM_RE = /^\s*[-*]\s+(.+)$/;
 
   for (const raw of lines) {
-    const line = raw.replace(/\s+$/, '');
+    const line = raw.replace(/\s+$/, "");
     if (!line) continue;
 
     const mVer = line.match(VER_RE);
@@ -97,7 +101,7 @@ function extractSince(entries, from, to) {
   for (const e of entries) {
     if (e.unreleased) continue;
     // Приводим версию к чистому виду (без префикса v)
-    const v = String(e.version).replace(/^v/, '').trim();
+    const v = String(e.version).replace(/^v/, "").trim();
     if (!/^\d+\.\d+\.\d+/.test(v)) continue;
 
     if (from && compareSemver(v, from) <= 0) continue;
@@ -116,17 +120,17 @@ function extractSince(entries, from, to) {
  */
 function loadBuiltinChangelog() {
   const candidates = [
-    path.join(__dirname, '..', '..', 'CHANGELOG.md'),
-    path.join(process.resourcesPath || '', 'CHANGELOG.md'),
+    path.join(__dirname, "..", "..", "CHANGELOG.md"),
+    path.join(process.resourcesPath || "", "CHANGELOG.md"),
   ];
   for (const p of candidates) {
     try {
       if (fs.existsSync(p)) {
-        return fs.readFileSync(p, 'utf-8');
+        return fs.readFileSync(p, "utf-8");
       }
     } catch (_) {}
   }
-  return '';
+  return "";
 }
 
 /**
@@ -134,18 +138,58 @@ function loadBuiltinChangelog() {
  * Формат компактнее оригинального: версия → разделы → пункты.
  */
 function toMarkdown(entries) {
-  if (!entries || entries.length === 0) return '';
+  if (!entries || entries.length === 0) return "";
   const out = [];
   for (const e of entries) {
-    out.push('### v' + e.version + (e.date ? ' — ' + e.date : ''));
+    out.push("### v" + e.version + (e.date ? " — " + e.date : ""));
     for (const s of e.sections) {
       if (!s.items.length) continue;
-      out.push('**' + s.title + '**');
-      for (const it of s.items) out.push('- ' + it);
+      out.push("**" + s.title + "**");
+      for (const it of s.items) out.push("- " + it);
     }
-    out.push('');
+    out.push("");
   }
-  return out.join('\n').trim();
+  return out.join("\n").trim();
+}
+
+/**
+ * Вернуть сырой markdown последней версии из CHANGELOG (без потерь).
+ * В отличие от parseChangelog/toMarkdown сохраняет таблицы, цитаты, блоки кода.
+ * @param {string} md — содержимое CHANGELOG.md
+ * @returns {{version: string, markdown: string}|null}
+ */
+function getLatestRawMarkdown(md) {
+  if (!md || typeof md !== "string") return null;
+  const lines = md.split(/\r?\n/);
+  const VER_RE = /^##\s+\[([^\]]+)\](?:\s*-\s*(.+))?\s*$/;
+  let startIdx = -1;
+  let version = null;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(VER_RE);
+    if (m) {
+      startIdx = i;
+      version = m[1].trim();
+      break;
+    }
+  }
+  if (startIdx === -1) return null;
+  // Тело — до следующего '## [' того же уровня (следующая версия).
+  let endIdx = lines.length;
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    if (VER_RE.test(lines[i])) {
+      endIdx = i;
+      break;
+    }
+  }
+  // Заголовок превращаем в '### vX.Y.Z — дата' (формат, который понимает рендер).
+  const headerMatch = lines[startIdx].match(VER_RE);
+  const date = headerMatch && headerMatch[2] ? headerMatch[2].trim() : "";
+  const header = "### v" + version + (date ? " — " + date : "");
+  const body = lines
+    .slice(startIdx + 1, endIdx)
+    .join("\n")
+    .trim();
+  return { version, markdown: (header + "\n\n" + body).trim() };
 }
 
 module.exports = {
@@ -154,4 +198,5 @@ module.exports = {
   loadBuiltinChangelog,
   toMarkdown,
   compareSemver,
+  getLatestRawMarkdown,
 };

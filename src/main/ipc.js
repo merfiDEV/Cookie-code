@@ -447,6 +447,25 @@ function registerIpcHandlers() {
     },
   );
 
+  // Whats-new: получить текущий CHANGELOG для показа модалки (F1).
+  // Отдаём СЫРОЙ markdown последней версии — чтобы таблицы/цитаты/код не терялись.
+  ipcMain.handle("whats-new-get-current", async () => {
+    try {
+      const parser = require("./changelog-parser");
+      const raw = parser.loadBuiltinChangelog();
+      const latest = parser.getLatestRawMarkdown(raw);
+      if (!latest) {
+        return { success: false, error: "CHANGELOG.md пуст или не найден" };
+      }
+      return {
+        success: true,
+        payload: { from: null, to: latest.version, markdown: latest.markdown },
+      };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Whats-new: открыть CHANGELOG.md в системном редакторе (по кнопке в модалке)
   ipcMain.handle("whats-new-open-changelog", async () => {
     try {
