@@ -67,6 +67,8 @@ function buildAgentPrompt(agentSystemPrompt, task) {
   parts.push("---");
   parts.push("Задача: " + task);
   parts.push("");
+  parts.push("Используй 1-2 инструмент за раз а не целую кучу.");
+  parts.push("");
   parts.push(
     "Когда закончишь, дай сразу финальный результат (не вызывай больше инструментов).",
   );
