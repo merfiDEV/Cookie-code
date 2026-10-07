@@ -298,10 +298,16 @@ const _planCallbackTokens = new Map();
 const _longProcessTokens = new Map();
 let _cbTokenCounter = 0;
 let _onQuestionAnswered = null;
+let _onQuestionCancelled = null;
 
 /** Установить колбэк, вызываемый при ответе на вопрос из TG. */
 function setOnQuestionAnswered(fn) {
   _onQuestionAnswered = typeof fn === "function" ? fn : null;
+}
+
+/** Установить колбэк, вызываемый при отказе отвечать на вопрос из TG. */
+function setOnQuestionCancelled(fn) {
+  _onQuestionCancelled = typeof fn === "function" ? fn : null;
 }
 
 /** Экранирование для HTML в тексте вопроса. */
@@ -357,6 +363,11 @@ async function askQuestion(requestId, questions) {
       keyboard.push([{ text: qi + 1 + ") " + label, callback_data: token }]);
     });
   });
+  // Кнопка "Отказаться отвечать" — отменяет весь вопрос целиком.
+  entry.skipToken = "qs_" + requestId;
+  keyboard.push([
+    { text: _t("question.skip"), callback_data: entry.skipToken },
+  ]);
 
   const res = await telegramBot.sendMessage(text, {
     parseMode: "HTML",
@@ -461,6 +472,13 @@ async function _handleCallback(chatId, data, cbq) {
     await _handleLongProcessCallback(token, longProcRef, cbq);
     return;
   }
+
+  // Кнопка "Отказаться отвечать" — отменяет вопрос целиком.
+  if (token.startsWith("qs_")) {
+    await _handleQuestionSkip(token.slice(3), cbq);
+    return;
+  }
+
   const ref = _callbackTokens.get(token);
   if (!ref) {
     await telegramBot.answerCallbackQuery(cbq.id);
@@ -795,6 +813,48 @@ async function _handleLongProcessCallback(token, ref, cbq) {
 }
 
 /** Перерисовать сообщение с вопросами: отметить выбранное, убрать лишние кнопки. */
+/** Обработать нажатие "Отказаться отвечать": отменить вопрос целиком. */
+async function _handleQuestionSkip(requestId, cbq) {
+  const entry = _pendingQuestions.get(requestId);
+  await telegramBot.answerCallbackQuery(cbq.id, {
+    text: _t("question.skipped"),
+  });
+  if (!entry) return;
+
+  // Очищаем запись и все связанные токены.
+  _pendingQuestions.delete(requestId);
+  for (const row of entry.tokens || []) {
+    for (const t of row || []) _callbackTokens.delete(t);
+  }
+  if (entry.skipToken) _callbackTokens.delete(entry.skipToken);
+
+  // Обновляем сообщение: заголовок + пометка "отменено", кнопок больше нет.
+  if (entry.messageId) {
+    const lines = [_t("question.title")];
+    entry.questions.forEach((q, qi) => {
+      lines.push("");
+      lines.push(qi + 1 + ". " + _qEsc(q.question));
+    });
+    lines.push("");
+    lines.push("🚫 " + _t("question.skipped"));
+    try {
+      await telegramBot.editMessageText(entry.messageId, lines.join("\n"), {
+        parseMode: "HTML",
+        replyMarkup: { inline_keyboard: [] },
+      });
+    } catch (_) {}
+  }
+
+  // Сообщаем окну, что вопрос отменён (reject промиса).
+  if (typeof _onQuestionCancelled === "function") {
+    try {
+      _onQuestionCancelled(requestId);
+    } catch (err) {
+      _log("error", "onQuestionCancelled error:", err.message);
+    }
+  }
+}
+
 async function _refreshQuestionMessage(requestId, entry) {
   if (!entry.messageId) return;
   const lines = [_t("question.title")];
@@ -819,6 +879,12 @@ async function _refreshQuestionMessage(requestId, entry) {
       keyboard.push([{ text: qi + 1 + ") " + label, callback_data: token }]);
     });
   });
+  // Кнопка "Отказаться отвечать" остаётся, пока вопрос не закрыт.
+  if (entry.skipToken) {
+    keyboard.push([
+      { text: _t("question.skip"), callback_data: entry.skipToken },
+    ]);
+  }
 
   await telegramBot.editMessageText(entry.messageId, lines.join("\n"), {
     parseMode: "HTML",
@@ -1342,6 +1408,46 @@ async function _handleSettingsCallback(data, cbq) {
     return;
   }
 
+  // ---- Тумблеры DeepSeek ----
+  if (
+    data === "st_tg_search" ||
+    data === "st_tg_think" ||
+    data === "st_tg_refresh"
+  ) {
+    if (data === "st_tg_refresh") {
+      await telegramBot.answerCallbackQuery(cbq.id, {
+        text: _t("common.refresh"),
+      });
+      await _cmdToggles(chatId, msgId);
+      return;
+    }
+    const which = data === "st_tg_search" ? "search" : "think";
+    const name =
+      which === "search" ? _t("toggles.search") : _t("toggles.think");
+    const res = await _toggleDeepSeek(which);
+    if (!res.ok) {
+      await telegramBot.answerCallbackQuery(cbq.id, {
+        text: _t("toggles.failed", { err: res.error || "?" }),
+        showAlert: true,
+      });
+      return;
+    }
+    const st = res.after ? _t("toggles.on") : _t("toggles.off");
+    await telegramBot.answerCallbackQuery(cbq.id, {
+      text: _t("toggles.switched", { name: name, state: st }),
+    });
+    // Обновим клавиатуру с новым состоянием.
+    const state = await _readTogglesState();
+    if (msgId && state) {
+      const text = _t("toggles.title") + "\n\n" + _t("toggles.hint");
+      await telegramBot.editMessageText(msgId, text, {
+        parseMode: "HTML",
+        replyMarkup: _togglesKeyboard(state),
+      });
+    }
+    return;
+  }
+
   // ---- Выбор языка бота (/start) ----
   if (data.startsWith("st_lang_")) {
     const lang = i18n.normalizeLang(data.slice("st_lang_".length));
@@ -1777,6 +1883,139 @@ async function _cmdTodos(chatId, page) {
   return telegramBot.sendMessage(rendered.text, {
     parseMode: "HTML",
     replyMarkup: rendered.keyboard,
+  });
+}
+
+/**
+ * Прочитать состояние тумблеров DeepThink/Search через injectPageJS.
+ * Возвращает { search: bool|null, think: bool|null }.
+ */
+async function _readTogglesState() {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed()) return null;
+
+  const script = `(function(){
+    const find = (needle) => {
+      const all = document.querySelectorAll('.ds-toggle-button');
+      for (const el of all) {
+        const t = (el.textContent || '').trim().toLowerCase();
+        if (t.indexOf(needle) >= 0) return el;
+      }
+      return null;
+    };
+    const think = find('deepthink');
+    const search = find('search');
+    const state = (el) => el ? el.getAttribute('aria-pressed') === 'true' : null;
+    return { think: state(think), search: state(search) };
+  })()`;
+
+  try {
+    const res = await win.webContents.executeJavaScript(script, true);
+    return res || { think: null, search: null };
+  } catch (err) {
+    _log("error", "_readTogglesState error:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Переключить один тумблер. name: 'search' | 'think'.
+ * Возвращает { ok: bool, before: bool|null, after: bool|null, error?: string }.
+ */
+async function _toggleDeepSeek(name) {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed()) return { ok: false, error: "noWindow" };
+
+  const needle = name === "think" ? "deepthink" : "search";
+  const script = `(function(){
+    const find = (n) => {
+      const all = document.querySelectorAll('.ds-toggle-button');
+      for (const el of all) {
+        const t = (el.textContent || '').trim().toLowerCase();
+        if (t.indexOf(n) >= 0) return el;
+      }
+      return null;
+    };
+    const el = find('${needle}');
+    if (!el) return { ok: false, error: 'notFound' };
+    const before = el.getAttribute('aria-pressed') === 'true';
+    el.click();
+    return { ok: true, before: before };
+  })()`;
+
+  try {
+    const res = await win.webContents.executeJavaScript(script, true);
+    if (!res || !res.ok)
+      return { ok: false, error: (res && res.error) || "unknown" };
+    // Даём React время отрисовать новое состояние
+    await new Promise((r) => setTimeout(r, 250));
+    const st = await _readTogglesState();
+    const after = st ? (name === "think" ? st.think : st.search) : null;
+    return { ok: true, before: res.before, after: after };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+/** Inline-клавиатура с тумблерами. */
+function _togglesKeyboard(state) {
+  const fmt = (on) =>
+    on === true
+      ? "✅ " + _t("toggles.on")
+      : on === false
+        ? "⬜ " + _t("toggles.off")
+        : "❔ " + _t("toggles.unknown");
+  return {
+    inline_keyboard: [
+      [
+        {
+          text: _t("toggles.search") + ": " + fmt(state ? state.search : null),
+          callback_data: "st_tg_search",
+        },
+      ],
+      [
+        {
+          text: _t("toggles.think") + ": " + fmt(state ? state.think : null),
+          callback_data: "st_tg_think",
+        },
+      ],
+      [{ text: "🔄 " + _t("common.refresh"), callback_data: "st_tg_refresh" }],
+    ],
+  };
+}
+
+/** /toggles — показать текущее состояние тумблеров. */
+async function _cmdToggles(chatId, msgId) {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed()) {
+    return telegramBot.sendMessage(_t("toggles.noWindow"), {
+      parseMode: "HTML",
+    });
+  }
+  const state = await _readTogglesState();
+  if (!state || (state.search == null && state.think == null)) {
+    return telegramBot.sendMessage(_t("toggles.notFound"), {
+      parseMode: "HTML",
+    });
+  }
+  const text = _t("toggles.title") + "\n\n" + _t("toggles.hint");
+  const keyboard = _togglesKeyboard(state);
+  if (msgId) {
+    const r = await telegramBot.editMessageText(msgId, text, {
+      parseMode: "HTML",
+      replyMarkup: keyboard,
+    });
+    if (r && r.success) return r;
+  }
+  return telegramBot.sendMessage(text, {
+    parseMode: "HTML",
+    replyMarkup: keyboard,
   });
 }
 
@@ -2299,6 +2538,7 @@ async function _cmdHelp() {
     _t("help.cmd.files"),
     _t("help.cmd.todos"),
     _t("help.cmd.agents"),
+    _t("help.cmd.toggles"),
     _t("help.cmd.screen"),
     _t("help.cmd.cancel"),
     _t("help.cmd.help"),
@@ -2794,6 +3034,11 @@ async function _handleIncoming(chatId, text, msg) {
   // Команда /agents — список субагентов проекта.
   if (cmd === "/agents" || cmd === "/agent") {
     await _cmdAgents();
+    return;
+  }
+  // Команда /toggles — управление тумблерами DeepSeek (Search / DeepThink).
+  if (cmd === "/toggles" || cmd === "/toggle") {
+    await _cmdToggles(chatId);
     return;
   }
 
@@ -3684,6 +3929,7 @@ async function _registerCommands() {
       diagnostics: "диагностика",
       todos: "список задач",
       agents: "субагенты проекта",
+      toggles: "тумблеры DeepSeek",
       screen: "скриншот окна",
       cancel: "отменить ввод",
     },
@@ -3703,6 +3949,7 @@ async function _registerCommands() {
       diagnostics: "diagnostics",
       todos: "todo list",
       agents: "project subagents",
+      toggles: "DeepSeek toggles",
       screen: "window screenshot",
       cancel: "cancel",
     },
@@ -3795,6 +4042,7 @@ module.exports = {
   notifyLongProcess,
   askQuestion,
   setOnQuestionAnswered,
+  setOnQuestionCancelled,
   _handleIncoming,
   _handleCallback,
   _sendToChat,

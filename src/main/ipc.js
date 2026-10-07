@@ -68,6 +68,28 @@ function requestUserQuestion(sender, questions) {
  * Резолв вопроса, отвеченного в Telegram (вызывается из botsrc).
  * @returns {boolean} true, если нашли ожидающий вопрос.
  */
+/**
+ * Отмена вопроса из Telegram: пользователь нажал "Отказаться отвечать".
+ * Отклоняет ожидающий promise и просит окно закрыть диалог.
+ * @returns {boolean} true, если нашли ожидающий вопрос.
+ */
+function cancelUserQuestionFromTelegram(requestId) {
+  for (const [key, pending] of pendingUserQuestions) {
+    if (key.endsWith(":" + requestId)) {
+      pendingUserQuestions.delete(key);
+      try {
+        const senderId = Number(key.split(":")[0]);
+        const wc = require("electron").webContents.fromId(senderId);
+        if (wc && !wc.isDestroyed())
+          wc.send("ask-user-question-resolved", { requestId });
+      } catch (_) {}
+      pending.reject(new Error("Пользователь отменил вопрос"));
+      return true;
+    }
+  }
+  return false;
+}
+
 function resolveUserQuestionFromTelegram(requestId, answers) {
   for (const [key, pending] of pendingUserQuestions) {
     if (key.endsWith(":" + requestId)) {
@@ -351,6 +373,12 @@ function registerIpcHandlers() {
     if (typeof bot.setOnQuestionAnswered === "function") {
       bot.setOnQuestionAnswered((requestId, answers) => {
         resolveUserQuestionFromTelegram(requestId, answers);
+      });
+    }
+    // Мост Telegram → окно: отказ отвечать отклоняет тот же promise.
+    if (typeof bot.setOnQuestionCancelled === "function") {
+      bot.setOnQuestionCancelled((requestId) => {
+        cancelUserQuestionFromTelegram(requestId);
       });
     }
   } catch (_) {}
@@ -653,6 +681,99 @@ function registerIpcHandlers() {
         };
       }
       return { success: true, removed: !!result.removed };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Переименовать чат (DeepSeek и др. — через DOM сайдбара).
+  // Скрипт: находим ссылку a[href*="/a/chat/s/<id>"], открываем её меню,
+  // жмём первый пункт "Переименовать" (.ds-dropdown-menu-option:nth-child(1)),
+  // заполняем input.ds-input__input новым именем и подтверждаем (Enter).
+  // Селекторы подтверждены разведкой через MCP Playwright:
+  //   - кнопка меню:      div[role="button"].ds-button внутри ссылки
+  //   - меню:             div.ds-dropdown-menu[role="menu"]
+  //   - пункт Rename:     .ds-dropdown-menu-option:nth-child(1)
+  //   - input:            input.ds-input__input
+  //   - подтверждение:    Enter (кнопки Save в DOM нет)
+  ipcMain.handle("rename-session", async (event, { sessionId, title } = {}) => {
+    if (!sessionId) return { success: false, error: "缺少会话ID" };
+    if (!title || !String(title).trim()) {
+      return { success: false, error: "缺少新名称" };
+    }
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const win = ctx ? ctx.win : null;
+    if (!win || win.isDestroyed())
+      return { success: false, error: "窗口已关闭" };
+
+    const safeId = JSON.stringify(String(sessionId));
+    const safeTitle = JSON.stringify(String(title).trim());
+    const script = `(async function(){
+        const sid = ${safeId};
+        const newTitle = ${safeTitle};
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+        // 1) Найти ссылку сессии в сайдбаре.
+        const link = document.querySelector('a[href*="/a/chat/s/' + sid + '"]');
+        if (!link) return { success: false, error: "chat-link-not-found" };
+
+        // 2) Навести события hover — кнопка меню появляется только при hover.
+        try {
+          link.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+          link.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+          link.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+        } catch (_) {}
+        await sleep(200);
+
+        // 3) Открыть контекстное меню (кнопка "..." внутри ссылки).
+        const menuBtn = link.querySelector('div[role="button"]');
+        if (!menuBtn) return { success: false, error: "menu-button-not-found" };
+        menuBtn.click();
+        await sleep(400);
+
+        // 4) Пункт "Переименовать" — первый в меню (не зависит от языка).
+        const menu = document.querySelector('div.ds-dropdown-menu[role="menu"]');
+        if (!menu) return { success: false, error: "menu-not-found" };
+        const renameOpt = menu.querySelector('.ds-dropdown-menu-option');
+        if (!renameOpt) return { success: false, error: "rename-option-not-found" };
+        renameOpt.click();
+        await sleep(400);
+
+        // 5) Input для нового имени.
+        const input = document.querySelector('input.ds-input__input');
+        if (!input) return { success: false, error: "input-not-found" };
+        input.focus();
+        // Записываем через native setter, чтобы React заметил изменение.
+        const proto = Object.getPrototypeOf(input);
+        const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+        if (setter) setter.call(input, newTitle);
+        else input.value = newTitle;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        await sleep(150);
+
+        // 6) Подтверждение — Enter (кнопки Save нет).
+        const enterOpts = { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true };
+        input.dispatchEvent(new KeyboardEvent("keydown", enterOpts));
+        input.dispatchEvent(new KeyboardEvent("keypress", enterOpts));
+        input.dispatchEvent(new KeyboardEvent("keyup", enterOpts));
+        await sleep(500);
+
+        // 7) Проверка: прочитать новое имя ссылки.
+        const after = document.querySelector('a[href*="/a/chat/s/' + sid + '"]');
+        const finalName = after ? (after.textContent || "").trim() : null;
+        return { success: true, finalName: finalName };
+      })()`;
+
+    try {
+      const result = await win.webContents.executeJavaScript(script, true);
+      if (!result || result.success !== true) {
+        return {
+          success: false,
+          error: (result && result.error) || "rename-failed",
+        };
+      }
+      return { success: true, finalName: result.finalName || null };
     } catch (err) {
       return { success: false, error: err.message };
     }

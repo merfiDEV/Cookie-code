@@ -84,6 +84,11 @@ let electronAPI = {
   deleteChat: (sessionId) => {
     return ipcRenderer.invoke("chat-delete", { sessionId });
   },
+  // Переименовать чат. Возвращает { success, finalName } — имя, прочитанное
+  // из DOM после сохранения. title — новое название, sessionId — UUID.
+  renameSession: (sessionId, title) => {
+    return ipcRenderer.invoke("rename-session", { sessionId, title });
+  },
   // ========== Статистика использования ==========
   statsGetSummary: (days) => {
     return ipcRenderer.invoke("stats-get-summary", { days });

@@ -88,6 +88,101 @@ function createSessionStore(profileId, storeDir, windowState) {
       state.currentSessionId = sessionId;
       console.log("[Cookie Code][" + profileId + "] 当前会话ID: " + sessionId);
 
+      // Авто-переименование чата субагента: как только появился sessionId
+      // и в state лежит pendingLineage (kind=subagent) — переименовываем
+      // чат в "[SUB-AGENT] <agentName>" через IPC rename-session.
+      // Откладываем на 3 сек, чтобы страница успела отрисовать сайдбар
+      // и DeepSeek зарегистрировал новую сессию в списке.
+      try {
+        const lin = state.pendingLineage;
+        if (lin && lin.kind === "subagent" && lin.agentName) {
+          const newTitle = "[SUB-AGENT] " + lin.agentName;
+          const subWin = win;
+          console.log(
+            "[Cookie Code][" +
+              profileId +
+              "] Авто-переименование субагента: " +
+              newTitle +
+              " (" +
+              sessionId +
+              ")",
+          );
+          setTimeout(() => {
+            try {
+              if (!subWin || subWin.isDestroyed()) return;
+              // Ищем обработчик rename-session через ipcMain.handle —
+              // вызываем напрямую через webContents.executeJavaScript
+              // (тот же DOM-скрипт, что в ipc.js rename-session).
+              const safeId = JSON.stringify(String(sessionId));
+              const safeTitle = JSON.stringify(String(newTitle));
+              const script = `(async function(){
+                const sid = ${safeId};
+                const newTitle = ${safeTitle};
+                const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+                const link = document.querySelector('a[href*="/a/chat/s/' + sid + '"]');
+                if (!link) return { success: false, error: "chat-link-not-found" };
+                try {
+                  link.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+                  link.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+                  link.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+                } catch (_) {}
+                await sleep(200);
+                const menuBtn = link.querySelector('div[role="button"]');
+                if (!menuBtn) return { success: false, error: "menu-button-not-found" };
+                menuBtn.click();
+                await sleep(400);
+                const menu = document.querySelector('div.ds-dropdown-menu[role="menu"]');
+                if (!menu) return { success: false, error: "menu-not-found" };
+                const renameOpt = menu.querySelector('.ds-dropdown-menu-option');
+                if (!renameOpt) return { success: false, error: "rename-option-not-found" };
+                renameOpt.click();
+                await sleep(400);
+                const input = document.querySelector('input.ds-input__input');
+                if (!input) return { success: false, error: "input-not-found" };
+                input.focus();
+                const proto = Object.getPrototypeOf(input);
+                const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+                if (setter) setter.call(input, newTitle);
+                else input.value = newTitle;
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+                await sleep(150);
+                const enterOpts = { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true };
+                input.dispatchEvent(new KeyboardEvent("keydown", enterOpts));
+                input.dispatchEvent(new KeyboardEvent("keypress", enterOpts));
+                input.dispatchEvent(new KeyboardEvent("keyup", enterOpts));
+                await sleep(500);
+                const after = document.querySelector('a[href*="/a/chat/s/' + sid + '"]');
+                return { success: true, finalName: after ? (after.textContent || "").trim() : null };
+              })()`;
+              subWin.webContents
+                .executeJavaScript(script, true)
+                .then((r) => {
+                  if (r && r.success) {
+                    console.log(
+                      "[Cookie Code] Субагент переименован в: " +
+                        (r.finalName || newTitle),
+                    );
+                  } else {
+                    console.warn(
+                      "[Cookie Code] Не удалось переименовать субагента: " +
+                        ((r && r.error) || "unknown"),
+                    );
+                  }
+                })
+                .catch((err) => {
+                  console.warn(
+                    "[Cookie Code] rename subagent error:",
+                    err.message,
+                  );
+                });
+            } catch (_) {}
+          }, 3000);
+          // Чистим pendingLineage — переименование одноразовое.
+          state.pendingLineage = null;
+        }
+      } catch (_) {}
+
       if (state.pendingProjectDir) {
         saveSessionDirMapping(sessionId, state.pendingProjectDir);
         state.selectedProjectDir = state.pendingProjectDir;
