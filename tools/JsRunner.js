@@ -66,6 +66,8 @@ const BOOTSTRAP = [
   "  };",
   "",
   "  globalThis.projectDir = __projectDir;",
+  "  globalThis.memoryPath = __globalMemoryPath;",
+  "  globalThis.projectMemoryPath = __projectMemoryPath;",
   "",
   "  async function __call(name, args) {",
   "    var resText = await __hostBridge(name, JSON.stringify(args == null ? {} : args));",
@@ -190,14 +192,14 @@ const BOOTSTRAP = [
   "  globalThis.attachTelegram = async function (filePath, caption, comment) {",
   "    return await __call('attach_telegram', { filePath: filePath, caption: caption || '', comment: comment || '' });",
   "  };",
-  "  globalThis.memorySave = async function (text) {",
-  "    return await __call('memory_save', { text: text });",
+  "  globalThis.memorySave = async function (text, scope) {",
+  "    return await __call('memory_save', { text: text, scope: scope });",
   "  };",
-  "  globalThis.memoryRead = async function () {",
-  "    return await __call('memory_read', {});",
+  "  globalThis.memoryRead = async function (scope) {",
+  "    return await __call('memory_read', { scope: scope });",
   "  };",
-  "  globalThis.memoryClear = async function () {",
-  "    return await __call('memory_clear', {});",
+  "  globalThis.memoryClear = async function (scope) {",
+  "    return await __call('memory_clear', { scope: scope });",
   "  };",
   "  globalThis.runAgent = async function (name, task) {",
   "    return await __call('run_agent', { name: name, task: task });",
@@ -520,6 +522,28 @@ class JsRunner {
       writable: false,
       configurable: false,
     });
+    // Абсолютные пути к файлам памяти — доступны в скриптах как
+    // globalThis.memoryPath (глобальная) и globalThis.projectMemoryPath (проектная).
+    let __globalMemoryPath = null;
+    let __projectMemoryPath = null;
+    try {
+      const memoryStore = require("../src/main/memory-store");
+      __globalMemoryPath = memoryStore.getGlobalMemoryPath() || null;
+      __projectMemoryPath =
+        memoryStore.getProjectMemoryPath(projectDir) || null;
+    } catch (_) {}
+    Object.defineProperty(sandbox, "__globalMemoryPath", {
+      value: __globalMemoryPath,
+      enumerable: true,
+      writable: false,
+      configurable: false,
+    });
+    Object.defineProperty(sandbox, "__projectMemoryPath", {
+      value: __projectMemoryPath,
+      enumerable: true,
+      writable: false,
+      configurable: false,
+    });
     // 截断沙箱对象与桥接函数的原型链，阻止经 constructor/__proto__ 逃逸到宿主 realm
     try {
       Object.setPrototypeOf(sandbox, null);
@@ -543,6 +567,8 @@ class JsRunner {
       const fallback = {};
       fallback.__hostBridge = hostBridge;
       fallback.__projectDir = projectDir || null;
+      fallback.__globalMemoryPath = __globalMemoryPath;
+      fallback.__projectMemoryPath = __projectMemoryPath;
       context = vm.createContext(fallback, {
         codeGeneration: { strings: false, wasm: false },
         name: "cuckoo-js-sandbox",

@@ -239,8 +239,95 @@ function createWindow(profile) {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
   mainWindow.webContents.setUserAgent(userAgent);
 
+  // ========== Диагностика причин «белого окна» (особенно у субагентов) ==========
+  // Логируем в консоль main-процесса и в <userData>/wyp/log/<name>.diagnostics.log
+  const diagLog = (msg) => {
+    try {
+      const tag = profileData.isSubagent
+        ? "Subagent:" + (profileData.name || "?")
+        : "Window:" + (profileData.name || "?");
+      const line = "[" + new Date().toISOString() + "][" + tag + "] " + msg;
+      console.log("[Cookie Code][Diag] " + line);
+      if (RENDERER_LOG_DIR) {
+        fs.appendFileSync(
+          path.join(RENDERER_LOG_DIR, "diagnostics.log"),
+          line + "\n",
+          "utf-8",
+        );
+      }
+    } catch (_) {}
+  };
+
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (_e, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      diagLog(
+        "did-fail-load code=" +
+          errorCode +
+          " desc=" +
+          errorDescription +
+          " url=" +
+          validatedURL +
+          " mainFrame=" +
+          isMainFrame,
+      );
+    },
+  );
+  mainWindow.webContents.on("did-finish-load", () => {
+    diagLog("did-finish-load url=" + mainWindow.webContents.getURL());
+  });
+  mainWindow.webContents.on("preload-error", (_e, preloadPath, error) => {
+    diagLog(
+      "preload-error path=" +
+        preloadPath +
+        " msg=" +
+        (error && error.message ? error.message : String(error)),
+    );
+  });
+  mainWindow.webContents.on("render-process-gone", (_e, details) => {
+    diagLog(
+      "render-process-gone reason=" +
+        (details && details.reason) +
+        " exitCode=" +
+        (details && details.exitCode),
+    );
+  });
+  mainWindow.webContents.on("unresponsive", () => {
+    diagLog("unresponsive");
+  });
+  mainWindow.webContents.on("responsive", () => {
+    diagLog("responsive");
+  });
+  // Проверка, что preload вообще отработал: ждём первый console-message от рендера.
+  let preloadSeen = false;
+  mainWindow.webContents.on("console-message", (_e, _lvl, message) => {
+    if (!preloadSeen && /Preload script/i.test(message)) {
+      preloadSeen = true;
+      diagLog("preload executed (первое сообщение preload получено)");
+    }
+  });
+  // Таймер-страховка: если через 15с preload не подал признаков жизни — логируем.
+  setTimeout(() => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed() && !preloadSeen) {
+        diagLog(
+          "ВНИМАНИЕ: за 15с preload не отправил '[Cookie Code] Preload script 开始执行'. " +
+            "URL=" +
+            mainWindow.webContents.getURL() +
+            " loading=" +
+            mainWindow.webContents.isLoading(),
+        );
+      }
+    } catch (_) {}
+  }, 15000);
+
   // Всегда открываем homeUrl провайдера (DeepSeek). Выбор платформы отключён.
-  mainWindow.loadURL(provider.homeUrl);
+  diagLog("loadURL старт: " + provider.homeUrl);
+  mainWindow.loadURL(provider.homeUrl).catch((err) => {
+    diagLog(
+      "loadURL reject: " + (err && err.message ? err.message : String(err)),
+    );
+  });
 
   // Инжект перехватчика токенов в ОСНОВНОЙ мир: preload в изолированном мире
   // (contextIsolation: true) не видит window.fetch сайта, поэтому патч ставим

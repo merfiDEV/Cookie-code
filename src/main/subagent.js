@@ -67,6 +67,8 @@ function buildAgentPrompt(agentSystemPrompt, task) {
   parts.push("---");
   parts.push("Задача: " + task);
   parts.push("");
+  parts.push("Используй 1-2 инструмент за раз а не целую кучу.");
+  parts.push("");
   parts.push(
     "Когда закончишь, дай сразу финальный результат (не вызывай больше инструментов).",
   );
@@ -206,11 +208,14 @@ async function runAgent(opts) {
     name: "子代理: " + (opts.agentName || "agent"),
     partition: parent.partition,
     isSubagent: true,
+    // ВАЖНО: subagentConfig уходит в additionalArguments (argv) дочернего окна.
+    // Windows-лимит командной строки ~32 КБ, поэтому тяжёлые поля
+    // (systemPrompt, tools) здесь НЕ передаём — их доставим отдельно:
+    // systemPrompt — через initial-prompt, tools — через toolsWhitelist
+    // в контексте окна (см. ниже). Здесь только лёгкие идентификаторы.
     subagentConfig: {
       agentName: opts.agentName,
       task: opts.task,
-      systemPrompt: opts.systemPrompt,
-      tools: opts.tools || null,
       maxTurns: opts.maxTurns || null,
       projectDir: projectDir || null,
     },

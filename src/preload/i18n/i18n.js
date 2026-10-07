@@ -546,8 +546,8 @@ const KEYS = {
   },
   "settings.memory.entries": { ru: "записей", en: "entries" },
   "settings.memory.hint": {
-    ru: "AI запоминает факты о вас и вашей системе. Файл памяти: <userData>/memory.md",
-    en: "The AI remembers facts about you and your system. Memory file: <userData>/memory.md",
+    ru: "AI запоминает факты о вас и вашей системе. Глобальная память: <userData>/memory.md; проектная: <projectDir>/.cuckoo/memory/ProjectMemory.md",
+    en: "The AI remembers facts about you and your system. Global memory: <userData>/memory.md; project memory: <projectDir>/.cuckoo/memory/ProjectMemory.md",
   },
   // ---- Шрифт ----
   "settings.section.font": { ru: "Шрифт", en: "Font" },
@@ -922,6 +922,19 @@ const KEYS = {
   },
   "diff.error": { ru: "Ошибка", en: "Error" },
   "diff.errorPrefix": { ru: "Ошибка: {msg}", en: "Error: {msg}" },
+  "diff.btn.commitAll": { ru: "Коммит", en: "Commit" },
+  "diff.btn.commitAll.title": {
+    ru: "Вставить все diff в чат и попросить AI закоммитить",
+    en: "Paste all diffs to chat and ask AI to commit",
+  },
+  "diff.noDiff": {
+    ru: "Нет изменённых файлов для коммита",
+    en: "No changed files to commit",
+  },
+  "diff.commitAll.notReady": {
+    ru: "Не удалось собрать diff",
+    en: "Failed to collect diff",
+  },
 
   // ---- Todo-панель ----
   "todo.btn.hide": { ru: "Скрыть", en: "Hide" },

@@ -236,15 +236,16 @@ let electronAPI = {
   chromaKeyPet: (file, color, tolerance) => {
     return ipcRenderer.invoke("cuckoo-pets-chroma", { file, color, tolerance });
   },
-  // ========== Память AI (userData/memory.md) ==========
-  openMemoryFile: () => {
-    return ipcRenderer.invoke("cuckoo-memory-open-file");
+  // ========== Память AI (userData/memory.md + <projectDir>/.cuckoo/memory/) ==========
+  // scope: 'global' (по умолчанию) | 'project'
+  openMemoryFile: (scope) => {
+    return ipcRenderer.invoke("cuckoo-memory-open-file", { scope });
   },
-  clearMemory: () => {
-    return ipcRenderer.invoke("cuckoo-memory-clear");
+  clearMemory: (scope) => {
+    return ipcRenderer.invoke("cuckoo-memory-clear", { scope });
   },
-  getMemoryStats: () => {
-    return ipcRenderer.invoke("cuckoo-memory-stats");
+  getMemoryStats: (scope) => {
+    return ipcRenderer.invoke("cuckoo-memory-stats", { scope });
   },
   // ========== Todo-задачи ==========
   getTodos: () => {
@@ -264,6 +265,9 @@ let electronAPI = {
   },
   gitDiffFile: (filePath, status) => {
     return ipcRenderer.invoke("git-diff-file", { filePath, status });
+  },
+  gitDiffAll: () => {
+    return ipcRenderer.invoke("git-diff-all");
   },
   gitLog: (limit) => {
     return ipcRenderer.invoke("git-log", { limit });
@@ -310,6 +314,9 @@ let electronAPI = {
   },
   openChangelogFile: () => {
     return ipcRenderer.invoke("whats-new-open-changelog");
+  },
+  getCurrentChangelog: () => {
+    return ipcRenderer.invoke("whats-new-get-current");
   },
   // ========== Диагностика интеграции (выполняется в контексте страницы) ==========
   runDiagnosticsText: async () => {

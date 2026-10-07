@@ -10,6 +10,7 @@ const windowState = require("./window");
 const { toolRegistry } = require("./tool-registry");
 const mcpClient = require("./mcp-client");
 const { getSkillManager } = require("../main/skill-manager");
+const memoryStore = require("./memory-store");
 
 // 提示词模板目录
 const PROMPT_DIR = path.join(__dirname, "..", "prompt");
@@ -438,6 +439,35 @@ async function buildInitPrompt(selectedDir, providerId) {
     "Skill 位于 <projectDir>/.cuckoo/skills/<skill-name>/，其中 SKILL.md 为指令文件，tool.js 可选导出可执行函数。",
   ].join("\n");
 
+  // Память — абсолютные пути к файлам, чтобы AI знал, где они лежат.
+  let memorySection = "";
+  try {
+    const globalPath = memoryStore.getGlobalMemoryPath();
+    const projectPath = memoryStore.getProjectMemoryPath(selectedDir);
+    memorySection = [
+      "---",
+      "## Память",
+      "",
+      "У тебя есть долговременная память двух уровней. Файлы:",
+      "- Глобальная (факты о пользователе и его системе): " + globalPath,
+      "- Проектная (о текущем проекте): " + projectPath,
+      "",
+      "Пути также доступны в JS-скриптах: globalThis.memoryPath (глобальная) и globalThis.projectMemoryPath (проектная).",
+      "",
+      "Читай и пиши через инструменты:",
+      "- memorySave(text, scope?) — сохранить заметку. scope: 'project' | 'global' (по умолчанию project, если проект инициализирован).",
+      "- memoryRead(scope?) — прочитать. scope: 'all' (по умолчанию — обе), 'project', 'global'.",
+      "- memoryClear(scope?) — очистить. Только по прямой просьбе пользователя.",
+      "",
+      "Подробные правила — в секции инструмента memory_save выше.",
+    ].join("\n");
+  } catch (err) {
+    console.error(
+      "[Cookie Code] Не удалось собрать секцию памяти:",
+      err.message,
+    );
+  }
+
   // Agents (субагенты) — прогрессивное раскрытие: только name + description.
   // Сами определения (systemPrompt, tools, maxTurns) живут в .cuckoo/agents/*.md
   // и подгружаются в момент вызова run_agent.
@@ -461,6 +491,7 @@ async function buildInitPrompt(selectedDir, providerId) {
     "{{PROJECT_DIR}}": selectedDir,
     "{{PROJECT_INTRO_SECTION}}": projectIntroSection,
     "{{SKILL_SECTION}}": skillSection,
+    "{{MEMORY_SECTION}}": memorySection,
     "{{MCP_SECTION}}": mcpSection,
     "{{AGENTS_SECTION}}": agentsSection,
   };
