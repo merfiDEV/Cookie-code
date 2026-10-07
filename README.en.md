@@ -47,6 +47,7 @@ The AI can now:
 - 📊 **Manage tasks** — create, track, and complete todo lists
 - 🌐 **Fetch data** — HTTP requests, API calls, web scraping
 - 🔧 **MCP tools** — connect any MCP server for extended capabilities
+- 🧠 **Two-level memory** — AI remembers both you and the project: **global** memory (`<userData>/memory.md`) holds user/system facts, **project** memory (`<projectDir>/.cuckoo/memory/ProjectMemory.md`) holds conventions, architecture and key paths
 
 **How it works:**
 
@@ -135,6 +136,33 @@ Control everything from your phone:
 **Voice messages** → transcribed via local Whisper and sent to AI  
 **Photos/files** → attached to the chat input field
 
+### 🧠 **Two-Level Memory**
+
+The AI remembers **both you and the project** — memory is split into two independent levels:
+
+| Level     | Location                                       | What it remembers                                                      |
+| --------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
+| 🌍 Global | `<userData>/memory.md`                         | User and system facts: name, OS, GPU, code style preferences           |
+| 🗂 Project | `<projectDir>/.cuckoo/memory/ProjectMemory.md` | Conventions, architectural decisions, key paths, stack of this project |
+
+- Tools `memorySave(text, scope?)`, `memoryRead(scope?)`, `memoryClear(scope?)` accept `scope`: `'project'` | `'global'` (`memoryRead` also `'all'`).
+- By default `memorySave` writes to **project** memory if the project is initialized, otherwise to global.
+- Absolute paths to both files are injected into the system prompt and exposed in JS scripts as `globalThis.memoryPath` and `globalThis.projectMemoryPath`.
+- Files can be opened, cleared, and their stats viewed separately per level in **Settings → Cookie Code**.
+- Project memory lives in `.gitignore` — the AI's personal notes are never committed.
+
+### ⌨️ **Hotkeys**
+
+| Key              | Action                                      |
+| ---------------- | ------------------------------------------- |
+| **F1**           | Show the current CHANGELOG (What's New box) |
+| **F6 / F7**      | Statistics dashboard                        |
+| **F8–F11**       | Pet controls                                |
+| **Ctrl+Shift+C** | Toggle the Cookie Code overlay              |
+| **Esc**          | Close panels and modals                     |
+
+The What's New window (F1) is **draggable by its header** and adapts its width to the screen.
+
 ### 📊 **Git Integration**
 
 <p align="center">
@@ -148,6 +176,7 @@ Built-in diff viewer:
 - **Navigation** — jump between hunks, filter added/deleted lines
 - **Mini-map** — visual overview of changes
 - **Inline diff** — character-level highlighting for precise edits
+- **Commit button** — stitches the unified diff of **all** changed files and posts a ready message to the chat asking to commit (you can summon the `git-committer` agent or commit yourself)
 
 ### 📈 **Statistics Dashboard**
 
