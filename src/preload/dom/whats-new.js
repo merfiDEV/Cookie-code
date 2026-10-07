@@ -24,8 +24,11 @@ function ensureStyles() {
     "#" +
       MODAL_ID +
       " .wn-card { background: #141726; border: 1px solid rgba(139,147,255,0.35);",
-    "  border-radius: 14px; max-width: 640px; width: 92%; max-height: 80vh; display: flex;",
-    "  flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.6); color: #dde1ff; }",
+    "  border-radius: 14px; width: 92vw; max-width: 1100px; max-height: 85vh; display: flex;",
+    "  flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.6); color: #dde1ff;",
+    "  position: relative; }",
+    "#" + MODAL_ID + " .wn-head { cursor: grab; user-select: none; }",
+    "#" + MODAL_ID + " .wn-head:active { cursor: grabbing; }",
     "#" +
       MODAL_ID +
       " .wn-head { padding: 18px 22px; border-bottom: 1px solid rgba(255,255,255,0.07);",
@@ -540,6 +543,66 @@ function show(payload) {
       } catch (_) {}
     }
   });
+
+  // ---- Перетаскивание модалки за шапку ----
+  // Модалка позиционируется через transform (центрирование), поэтому при
+  // перетаскивании переводим её в абсолютные left/top и двигаем оттуда.
+  const headEl = modal.querySelector(".wn-head");
+  if (headEl) {
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    const onMove = (e) => {
+      if (!dragging) return;
+      const card = modal.querySelector(".wn-card");
+      if (!card) return;
+      let left = startLeft + (e.clientX - startX);
+      let top = startTop + (e.clientY - startY);
+      // Не выпускаем за пределы окна (оставляем шапку видимой).
+      const w = card.offsetWidth;
+      const h = card.offsetHeight;
+      const maxLeft = window.innerWidth - 40;
+      const maxTop = window.innerHeight - 40;
+      left = Math.max(-(w - 80), Math.min(maxLeft, left));
+      top = Math.max(0, Math.min(maxTop, top));
+      card.style.left = left + "px";
+      card.style.top = top + "px";
+    };
+
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+
+    headEl.addEventListener("mousedown", (e) => {
+      // Не начинать перетаскивание с кнопок в шапке.
+      if (e.target.closest("button")) return;
+      const card = modal.querySelector(".wn-card");
+      if (!card) return;
+      const rect = card.getBoundingClientRect();
+      // Фиксируем текущую позицию в left/top, снимаем центрирование.
+      card.style.position = "absolute";
+      card.style.left = rect.left + "px";
+      card.style.top = rect.top + "px";
+      card.style.margin = "0";
+      // Переводим контейнер из flex-центрирования в свободное позиционирование.
+      modal.style.alignItems = "flex-start";
+      modal.style.justifyContent = "flex-start";
+      dragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+      e.preventDefault();
+    });
+  }
 
   document.body.appendChild(modal);
 }

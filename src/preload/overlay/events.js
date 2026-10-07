@@ -879,6 +879,30 @@ function bindEvents() {
 
   // 键盘快捷键
   document.addEventListener("keydown", (e) => {
+    // F1 — показать модалку с текущим CHANGELOG.
+    if (e.key === "F1") {
+      e.preventDefault();
+      (async () => {
+        try {
+          const res = await window.electronAPI.getCurrentChangelog();
+          if (res && res.success && res.payload) {
+            require("../dom/whats-new").show(res.payload);
+          } else {
+            showToast(
+              (res && res.error) || "Не удалось открыть CHANGELOG",
+              3000,
+            );
+          }
+        } catch (err) {
+          showToast(
+            "Не удалось открыть CHANGELOG: " + (err.message || err),
+            3000,
+          );
+        }
+      })();
+      return;
+    }
+
     // Ctrl+Shift+C 切换覆盖层显示
     if (e.ctrlKey && e.shiftKey && (e.key === "C" || e.key === "c")) {
       e.preventDefault();
