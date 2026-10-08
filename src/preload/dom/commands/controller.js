@@ -225,6 +225,24 @@ function pick(idx) {
   }
 
   const isReviewCommand = activeKind === "command" && item.name === "review";
+  const isSendCommand = activeKind === "command" && item.name === "send";
+
+  // /send — команда-действие: сразу нажимаем кнопку отправки в активном окне,
+  // ничего не вставляя в поле ввода (на случай зависшей авто-отправки).
+  if (isSendCommand) {
+    closeMenu();
+    activeHit = null;
+    try {
+      const sent = sendCurrentInput();
+      console.log(
+        "[Cookie Code] /send: кнопка отправки " +
+          (sent ? "нажата" : "не найдена — пробую Enter"),
+      );
+    } catch (err) {
+      console.error("[Cookie Code] /send error:", err && err.message);
+    }
+    return;
+  }
 
   // Review отправляется после async-сбора diff. Не вставляем промежуточный
   // prompt в поле: событие input может повторно открыть меню и выбрать команду.
@@ -371,6 +389,50 @@ function setCaret(field, pos) {
   range.collapse(false);
   sel.removeAllRanges();
   sel.addRange(range);
+}
+
+/**
+ * Нажать кнопку отправки в активном окне чата.
+ * Сначала пробуем кликнуть кнопку рядом с полем ввода (автоопределение как в
+ * авто-отправке). Если кнопка не найдена/недоступна — шлём нативный Enter
+ * через main-процесс (chat-send-enter).
+ * @returns {boolean} true, если кнопка была нажата
+ */
+function sendCurrentInput() {
+  let clicked = false;
+  let input = null;
+  try {
+    input = chatInput.findInputArea();
+  } catch (_) {}
+
+  // 1) Кнопка отправки рядом с полем ввода.
+  try {
+    const scope =
+      (input &&
+        (input.closest("form") || input.parentElement?.parentElement)) ||
+      document;
+    const btn = scope.querySelector(
+      'button[type="submit"], button[aria-label*="send" i], button[aria-label*="отправ" i]',
+    );
+    if (btn && !btn.disabled) {
+      btn.click();
+      clicked = true;
+    }
+  } catch (_) {}
+
+  // 2) Fallback — нативный Enter в окно.
+  if (!clicked) {
+    try {
+      if (
+        window.electronAPI &&
+        typeof window.electronAPI.sendEnterToChat === "function"
+      ) {
+        window.electronAPI.sendEnterToChat().catch(() => {});
+        clicked = true;
+      }
+    } catch (_) {}
+  }
+  return clicked;
 }
 
 module.exports = {

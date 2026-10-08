@@ -806,6 +806,10 @@ const KEYS = {
     ru: "Сделать краткий итог текущей сессии",
     en: "Summarize the current session",
   },
+  "cmd.send.description": {
+    ru: "Нажать кнопку отправки в чате (если отправка зависла)",
+    en: "Click the send button in chat (if sending got stuck)",
+  },
   "plan.toggle.label": { ru: "План", en: "Plan" },
   "plan.dialog.title": { ru: "План на утверждение", en: "Plan for approval" },
   "plan.dialog.deny": { ru: "Отказать в плане", en: "Reject plan" },

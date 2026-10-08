@@ -1657,6 +1657,30 @@ async function _cmdScreen() {
   return send;
 }
 
+/**
+ * /send — нажать кнопку отправки в активном окне чата.
+ * Нужно, если авто-отправка зависла и сообщение осталось в поле ввода.
+ */
+async function _cmdSend() {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed()) {
+    await telegramBot.sendMessage(_t("send.noWindow"));
+    return { success: false, error: "noWindow" };
+  }
+  const res = await _sendInWindow(win);
+  if (res && res.success) {
+    await telegramBot.sendMessage(_t("send.done"));
+  } else {
+    await telegramBot.sendMessage(
+      _t("send.failed", { err: escapeHtml((res && res.error) || "unknown") }),
+      { parseMode: "HTML" },
+    );
+  }
+  return res;
+}
+
 async function _cmdStatus() {
   const cfg = _read();
   const lines = [_t("status.title"), ""];
@@ -2540,6 +2564,7 @@ async function _cmdHelp() {
     _t("help.cmd.agents"),
     _t("help.cmd.toggles"),
     _t("help.cmd.screen"),
+    _t("help.cmd.send"),
     _t("help.cmd.cancel"),
     _t("help.cmd.help"),
     "",
@@ -3031,6 +3056,11 @@ async function _handleIncoming(chatId, text, msg) {
     await _cmdScreen();
     return;
   }
+  // Команда /send — нажать кнопку отправки в активном окне.
+  if (cmd === "/send") {
+    await _cmdSend();
+    return;
+  }
   // Команда /agents — список субагентов проекта.
   if (cmd === "/agents" || cmd === "/agent") {
     await _cmdAgents();
@@ -3434,6 +3464,55 @@ function _techQueue(toolName, args, preview, agentName) {
 // общего 🔧 <label> <path>. Сообщение отправляется сразу (без батчинга).
 
 /**
+ * Красивое сообщение для todoWrite: заголовок + счётчик + чек-лист задач.
+ * Оформление в стиле карточек агентов (_renderCreateAgent).
+ * @returns {string|null}
+ */
+function _renderTodoWrite(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "todo_write" && name !== "todowrite") return null;
+  if (!ok) return null;
+
+  const a = args && typeof args === "object" ? args : {};
+  const items = Array.isArray(a.todos) ? a.todos : [];
+  if (items.length === 0) return _t("todo.empty");
+
+  const done = items.filter((t) => t && t.status === "completed").length;
+  const allDone = done === items.length;
+
+  // Заголовок: создание списка / обновление / всё выполнено.
+  const allPending = items.every((t) => !t || t.status === "pending");
+  let title;
+  if (allDone) title = _t("todo.doneTitle");
+  else if (allPending) title = _t("todo.createTitle");
+  else title = _t("todo.updateTitle");
+
+  const icon = { pending: "☐", in_progress: "◔", completed: "☑" };
+  const lines = items
+    .map(
+      (t) =>
+        (icon[(t && t.status) || "pending"] || "☐") +
+        " " +
+        escapeHtml((t && t.content) || ""),
+    )
+    .join("\n");
+
+  return (
+    title +
+    "\n\n" +
+    "☑ " +
+    escapeHtml(_t("todo.count", { total: items.length, done: done })) +
+    "\n" +
+    "<b>" +
+    escapeHtml(_t("todo.list")) +
+    "</b>\n" +
+    "<blockquote expandable>" +
+    lines +
+    "</blockquote>"
+  );
+}
+
+/**
  * Красивое сообщение для memory_save / memory_read / memory_clear.
  * @returns {string|null}  HTML-сообщение или null, если не наш инструмент
  */
@@ -3821,6 +3900,19 @@ async function notifyToolResult(toolName, ok, detail) {
     }
   }
 
+  // Задачи (todoWrite): собственная карточка со списком задач — ДО ignore-фильтра,
+  // чтобы красивое уведомление приходило всегда (см. решение пользователя).
+  if (ok) {
+    try {
+      const todoMsg = _renderTodoWrite(toolName, ok, args, preview);
+      if (todoMsg) {
+        return telegramBot.sendMessage(todoMsg, { parseMode: "HTML" });
+      }
+    } catch (err) {
+      console.error("[bot] todo render failed:", err.message);
+    }
+  }
+
   // Умные уведомления: пропускаем инструменты из списка исключений.
   if (cfg.notifyIgnore.length > 0 && cfg.notifyIgnore.includes(_toolLower)) {
     return { success: false, skipped: true };
@@ -3931,6 +4023,7 @@ async function _registerCommands() {
       agents: "субагенты проекта",
       toggles: "тумблеры DeepSeek",
       screen: "скриншот окна",
+      send: "нажать кнопку отправки",
       cancel: "отменить ввод",
     },
     en: {
@@ -3951,6 +4044,7 @@ async function _registerCommands() {
       agents: "project subagents",
       toggles: "DeepSeek toggles",
       screen: "window screenshot",
+      send: "press send button",
       cancel: "cancel",
     },
   }[lang];

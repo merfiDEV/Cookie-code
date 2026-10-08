@@ -61,7 +61,9 @@ const DEFAULTS = {
   // Актуально только при включённом telegramNotifyTools.
   // "read"/"readLines" здесь НЕ исключаем: чтение файлов — заметное действие,
   // и в компактных уведомлениях оно показывается как «📖 Reading <path>».
-  telegramToolNotifyIgnore: ["glob", "grep", "todoWrite"],
+  // todoWrite исключён из ignore: у него своя красивая карточка со списком задач
+  // в боте (см. _renderTodoWrite в botsrc/index.js).
+  telegramToolNotifyIgnore: ["glob", "grep"],
   telegramChatFeed: false, // принимать сообщения из TG в чат DeepSeek
   // ===== Распознавание голосовых (локальный Whisper, botsrc/whisper.js) =====
   telegramVoiceEnabled: false, // распознавать голосовые из TG локальным Whisper

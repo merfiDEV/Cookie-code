@@ -47,6 +47,7 @@ const STRINGS = {
     "help.cmd.agents": "/agents      — список субагентов проекта",
     "help.cmd.toggles": "/toggles     — тумблеры поиска и раздумий DeepSeek",
     "help.cmd.screen": "/screen      — скриншот активного окна",
+    "help.cmd.send": "/send        — нажать кнопку отправки в окне",
     "help.cmd.cancel": "/cancel      — отменить ввод / подтверждение",
     "help.cmd.help": "/help        — эта справка",
     "help.features": "<b>Возможности</b>",
@@ -252,6 +253,14 @@ const STRINGS = {
     "tool.items": " пункт(ов)",
     "tool.allDone": "🎉 <b>Все задачи выполнены</b> ({n}/{n})",
 
+    // ===== Задачи (todoWrite) =====
+    "todo.createTitle": "📋 <b>ИИ создаёт список задач</b>",
+    "todo.updateTitle": "📋 <b>ИИ обновляет список задач</b>",
+    "todo.doneTitle": "🎉 <b>Все задачи выполнены</b>",
+    "todo.count": "Задач: {total} · выполнено: {done}",
+    "todo.list": "Задачи:",
+    "todo.empty": "☑ Список задач пуст.",
+
     // ===== Память (memory_save/read/clear) =====
     "mem.readTitle": "🧠 <b>ИИ читает память</b>",
     "mem.saveTitle": "🧠 <b>ИИ сохраняет в память</b>",
@@ -337,6 +346,11 @@ const STRINGS = {
     "plan.closed": "Запрос уже закрыт",
 
     // ===== Скриншот =====
+    // ===== Send button (/send) =====
+    "send.done": "📨 Кнопка отправки нажата",
+    "send.failed": "⚠ Не удалось отправить: {err}",
+    "send.noWindow": "нет активного окна",
+
     "screen.capturing": "📸 Делаю скриншот окна...",
     "screen.caption": "📸 Скриншот активного окна",
     "screen.noWindow": "Нет активного окна",
@@ -405,6 +419,7 @@ const STRINGS = {
     "help.cmd.agents": "/agents      — project subagents list",
     "help.cmd.toggles": "/toggles     — DeepSeek search & deep-think toggles",
     "help.cmd.screen": "/screen      — screenshot of the active window",
+    "help.cmd.send": "/send        — press the send button in the window",
     "help.cmd.cancel": "/cancel      — cancel input / approval",
     "help.cmd.help": "/help        — this help",
     "help.features": "<b>Features</b>",
@@ -611,6 +626,14 @@ const STRINGS = {
     "tool.items": " item(s)",
     "tool.allDone": "🎉 <b>All tasks completed</b> ({n}/{n})",
 
+    // ===== Tasks (todoWrite) =====
+    "todo.createTitle": "📋 <b>AI creates a task list</b>",
+    "todo.updateTitle": "📋 <b>AI updates the task list</b>",
+    "todo.doneTitle": "🎉 <b>All tasks completed</b>",
+    "todo.count": "Tasks: {total} · done: {done}",
+    "todo.list": "Tasks:",
+    "todo.empty": "☑ Task list is empty.",
+
     // ===== Memory (memory_save/read/clear) =====
     "mem.readTitle": "🧠 <b>AI reads memory</b>",
     "mem.saveTitle": "🧠 <b>AI saves to memory</b>",
@@ -696,6 +719,11 @@ const STRINGS = {
     "plan.closed": "Request already closed",
 
     // ===== Screenshot =====
+    // ===== Send button (/send) =====
+    "send.done": "📨 Send button pressed",
+    "send.failed": "⚠ Failed to send: {err}",
+    "send.noWindow": "no active window",
+
     "screen.capturing": "📸 Capturing window screenshot...",
     "screen.caption": "📸 Active window screenshot",
     "screen.noWindow": "No active window",
