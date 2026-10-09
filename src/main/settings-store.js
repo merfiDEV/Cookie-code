@@ -39,7 +39,9 @@ const DEFAULTS = {
   sidebarOpacity: 45, // % — плотность фона сайдбара (0 = прозрачно)
   toolBlockOpacity: 55, // % — плотность фона tool-блоков в чате
   toolBlockBlur: 0, // px — стекло tool-блоков в чате
-  rgbUsername: true, // RGB-переливание ника пользователя (по умолчанию вкл)
+  rgbUsername: true, // Переливание ника пользователя (по умолчанию вкл)
+  // Стиль переливания ника: 'rgb' (радуга) | 'blood' (чёрно-красный «кровь»).
+  rgbUsernameStyle: "rgb",
   dangerousPatterns: DEFAULT_DANGEROUS_PATTERNS, // список regex-паттернов опасных команд
   language: "ru", // язык UI: 'ru' | 'en'
   formattersEnabled: true, // авто-форматирование после write/edit (prettier/gofmt/ruff/...)

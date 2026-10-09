@@ -401,7 +401,10 @@ async function loadAndApply() {
     const bgId = (settings && settings.background) || DEFAULT_ID;
     apply(bgId);
     applyBlur(settings);
-    applyRgbUsername(settings ? settings.rgbUsername : true);
+    applyRgbUsername(
+      settings ? settings.rgbUsername : true,
+      settings ? settings.rgbUsernameStyle : "rgb",
+    );
     applyInputGlassEnabled(
       Boolean(settings && settings.inputGlassEnabled === true),
     );
@@ -409,7 +412,7 @@ async function loadAndApply() {
     console.error("[Cookie Code] Не удалось загрузить настройки:", err.message);
     apply(DEFAULT_ID);
     applyBlur(null);
-    applyRgbUsername(true);
+    applyRgbUsername(true, "rgb");
     applyInputGlassEnabled(false);
   }
 }
@@ -427,6 +430,7 @@ const RESET_DEFAULTS = {
   toolBlockOpacity: 55,
   toolBlockBlur: 0,
   rgbUsername: true,
+  rgbUsernameStyle: "rgb",
   inputGlassEnabled: false,
   overlayOpacity: 72,
   overlayBlur: 12,
@@ -444,7 +448,7 @@ const RESET_DEFAULTS = {
 async function resetAll() {
   apply(RESET_DEFAULTS.background);
   applyBlur(RESET_DEFAULTS);
-  applyRgbUsername(RESET_DEFAULTS.rgbUsername);
+  applyRgbUsername(RESET_DEFAULTS.rgbUsername, RESET_DEFAULTS.rgbUsernameStyle);
   applyInputGlassEnabled(RESET_DEFAULTS.inputGlassEnabled);
   try {
     for (const key of Object.keys(RESET_DEFAULTS)) {
@@ -510,14 +514,18 @@ function applyInputGlassEnabled(enabled) {
  * Применить настройку RGB-переливания ника.
  * Если enabled=false — на <body> вешается класс cuckoo-rgb-off.
  */
-function applyRgbUsername(enabled) {
+function applyRgbUsername(enabled, style) {
   try {
-    if (enabled === false || enabled === "false" || enabled === 0) {
+    const off = enabled === false || enabled === "false" || enabled === 0;
+    if (off) {
       document.body.classList.add("cuckoo-rgb-off");
     } else {
       document.body.classList.remove("cuckoo-rgb-off");
     }
-    console.log("[Cookie Code] RGB-ник:", enabled === false ? "выкл" : "вкл");
+    // Стиль переливания: 'rgb' (радуга) | 'blood' (чёрно-красный).
+    const s = style === "blood" ? "blood" : "rgb";
+    document.body.classList.toggle("cuckoo-rgb-blood", !off && s === "blood");
+    console.log("[Cookie Code] RGB-ник:", off ? "выкл" : "вкл (" + s + ")");
   } catch (err) {
     console.error("[Cookie Code] Не удалось применить RGB-ник:", err.message);
   }

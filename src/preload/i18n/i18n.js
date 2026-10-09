@@ -740,8 +740,20 @@ const KEYS = {
 
   // ---- Настройки: эффекты ----
   "settings.effect.rgb": {
-    ru: "RGB-переливание ника",
-    en: "RGB animated username",
+    ru: "Переливание ника",
+    en: "Animated username",
+  },
+  "settings.effect.rgbStyle": {
+    ru: "Стиль переливания",
+    en: "Animation style",
+  },
+  "settings.effect.rgbStyle.rgb": {
+    ru: "RGB (радуга)",
+    en: "RGB (rainbow)",
+  },
+  "settings.effect.rgbStyle.blood": {
+    ru: "Кровь (чёрно-красный)",
+    en: "Blood (black-red)",
   },
 
   // ---- Настройки: опасные команды ----
