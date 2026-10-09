@@ -210,11 +210,62 @@ function _activeSenderId() {
 }
 
 /**
- * Жёстко сфокусировать активное окно, сделать скриншот и отпустить.
+ * Живые окна субагентов (не destroyed).
+ * Возвращает массив контекстов { win, subagentConfig, ... }.
+ */
+function _liveSubagentWindows() {
+  const ctxs = windowState.getAllContexts ? windowState.getAllContexts() : [];
+  const out = [];
+  for (const ctx of ctxs) {
+    if (!ctx || !ctx.isSubagent) continue;
+    if (!ctx.win || ctx.win.isDestroyed()) continue;
+    out.push(ctx);
+  }
+  return out;
+}
+
+/** Родительское (не-субагентское) живое окно или null. */
+function _mainWindowOrNull() {
+  const ctxs = windowState.getAllContexts ? windowState.getAllContexts() : [];
+  let fallback = null;
+  for (const ctx of ctxs) {
+    if (!ctx || ctx.isSubagent) continue;
+    if (!ctx.win || ctx.win.isDestroyed()) continue;
+    fallback = ctx.win;
+  }
+  if (fallback) return fallback;
+  const w = windowState.getMainWindow();
+  return w && !w.isDestroyed() ? w : null;
+}
+
+/** Отображаемое имя окна-субагента (agentName с суффиксом при дублях). */
+function _subagentDisplayNames(subs) {
+  const counts = new Map();
+  for (const ctx of subs) {
+    const name =
+      (ctx.subagentConfig && ctx.subagentConfig.agentName) || "agent";
+    counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  const seen = new Map();
+  return subs.map((ctx) => {
+    const name =
+      (ctx.subagentConfig && ctx.subagentConfig.agentName) || "agent";
+    if (counts.get(name) > 1) {
+      const n = (seen.get(name) || 0) + 1;
+      seen.set(name, n);
+      return name + " #" + n;
+    }
+    return name;
+  });
+}
+
+/**
+ * Жёстко сфокусировать окно, сделать скриншот и отпустить.
+ * @param {object} [targetWin] — конкретное окно; по умолчанию мэйн-окно.
  * Возвращает путь к временному PNG или { error }.
  */
-async function _captureActiveWindow() {
-  const win = windowState.getMainWindow();
+async function _captureActiveWindow(targetWin) {
+  const win = targetWin || windowState.getMainWindow();
   if (!win || win.isDestroyed()) return { error: "noWindow" };
   const { app } = require("electron");
   const fs = require("fs");
@@ -296,6 +347,11 @@ const _planCallbackTokens = new Map();
  * key = token ('k<number>') → { pid, messageId }
  */
 const _longProcessTokens = new Map();
+/**
+ * Реестр callback-кнопок выбора окна для /screen.
+ * key = token ('sc_<n>' без префикса — храним 's<n>'), value = windowId.
+ */
+const _screenCallbackTokens = new Map();
 let _cbTokenCounter = 0;
 let _onQuestionAnswered = null;
 let _onQuestionCancelled = null;
@@ -453,6 +509,16 @@ async function _handleCallback(chatId, data, cbq) {
       await _handleSettingsCallback(token, cbq);
     } catch (err) {
       _log("error", "settings callback error:", err.message);
+    }
+    return;
+  }
+
+  // Кнопки выбора окна для /screen.
+  if (token.startsWith("sc_")) {
+    try {
+      await _handleScreenCallback(token.slice(3), cbq);
+    } catch (err) {
+      _log("error", "screen callback error:", err.message);
     }
     return;
   }
@@ -1619,22 +1685,14 @@ async function _cmdStop() {
 
 /** /status — окно, проект, процессы, версия, polling. */
 
-/** /screen — жёстко сфокусировать активное окно, сделать скриншот и отправить в TG. */
-async function _cmdScreen() {
-  const cfg = _read();
-  if (!cfg.enabled || !cfg.token || !cfg.chatId)
-    return { success: false, skipped: true };
-
-  const win = windowState.getParentWindow
-    ? windowState.getParentWindow()
-    : windowState.getMainWindow();
-  if (!win || win.isDestroyed()) {
-    await telegramBot.sendMessage(_t("screen.noWindow"));
-    return { success: false, error: "noWindow" };
-  }
-
+/**
+ * Сделать скриншот указанного окна и отправить в TG.
+ * @param {object} [win] — целевое окно; по умолчанию мэйн-окно.
+ * @param {string} [caption] — подпись к фото.
+ */
+async function _sendWindowScreenshot(win, caption) {
   await telegramBot.sendMessage(_t("screen.capturing"));
-  const res = await _captureActiveWindow();
+  const res = await _captureActiveWindow(win);
   if (res.error === "noWindow") {
     await telegramBot.sendMessage(_t("screen.noWindow"));
     return { success: false, error: "noWindow" };
@@ -1646,15 +1704,103 @@ async function _cmdScreen() {
     );
     return { success: false, error: res.error };
   }
-
   const send = await telegramBot.sendPhoto(res.path, {
-    caption: _t("screen.caption"),
+    caption: caption || _t("screen.caption"),
   });
   // Удаляем временный файл.
   try {
     require("fs").unlinkSync(res.path);
   } catch (_) {}
   return send;
+}
+
+/**
+ * /screen — снять мэйн-окно. Если запущены живые субагенты — показать меню
+ * выбора: [Main] + кнопка на каждого субагента (по agentName).
+ */
+async function _cmdScreen() {
+  const cfg = _read();
+  if (!cfg.enabled || !cfg.token || !cfg.chatId)
+    return { success: false, skipped: true };
+
+  const mainWin = _mainWindowOrNull();
+  const subs = _liveSubagentWindows();
+
+  // Живых субагентов нет — ведём себя как раньше: сразу снимаем мэйн.
+  if (subs.length === 0) {
+    if (!mainWin) {
+      await telegramBot.sendMessage(_t("screen.noWindow"));
+      return { success: false, error: "noWindow" };
+    }
+    return _sendWindowScreenshot(mainWin, _t("screen.caption"));
+  }
+
+  // Есть субагенты — меню выбора окна.
+  const names = _subagentDisplayNames(subs);
+  const keyboard = [];
+  const mainRow = [];
+  if (mainWin) {
+    const mTok = "s" + ++_cbTokenCounter;
+    _screenCallbackTokens.set(mTok, mainWin.id);
+    mainRow.push({ text: _t("screen.btnMain"), callback_data: "sc_" + mTok });
+  }
+  if (mainRow.length) keyboard.push(mainRow);
+  for (let i = 0; i < subs.length; i++) {
+    const tok = "s" + ++_cbTokenCounter;
+    _screenCallbackTokens.set(tok, subs[i].win.id);
+    keyboard.push([{ text: names[i], callback_data: "sc_" + tok }]);
+  }
+
+  await telegramBot.sendMessage(_t("screen.choose"), {
+    parseMode: "HTML",
+    replyMarkup: { inline_keyboard: keyboard },
+  });
+  return { success: true, choosing: true };
+}
+
+/**
+ * Обработка нажатия кнопки выбора окна для /screen.
+ * @param {string} token — короткий токен ('s<n>', без префикса 'sc_').
+ * @param {object} cbq — callback query объект Telegram.
+ */
+async function _handleScreenCallback(token, cbq) {
+  const msgId = cbq && cbq.message && cbq.message.message_id;
+  const windowId = _screenCallbackTokens.get(token);
+  _screenCallbackTokens.delete(token);
+
+  await telegramBot.answerCallbackQuery(cbq.id);
+
+  // Заменяем меню на статус и убираем клавиатуру.
+  if (msgId) {
+    try {
+      await telegramBot.editMessageText(msgId, _t("screen.capturing"), {
+        replyMarkup: { inline_keyboard: [] },
+      });
+    } catch (_) {}
+  }
+
+  if (windowId == null) {
+    await telegramBot.sendMessage(_t("screen.noWindow"));
+    return { success: false, error: "noWindow" };
+  }
+  const ctx = windowState.getWindowContext
+    ? windowState.getWindowContext(windowId)
+    : null;
+  const win = ctx && ctx.win && !ctx.win.isDestroyed() ? ctx.win : null;
+  if (!win) {
+    await telegramBot.sendMessage(_t("screen.noWindow"));
+    return { success: false, error: "noWindow" };
+  }
+
+  // Подпись: имя субагента, если это субагент; иначе дефолтная.
+  let caption = _t("screen.caption");
+  const agentName =
+    ctx && ctx.isSubagent && ctx.subagentConfig
+      ? ctx.subagentConfig.agentName
+      : null;
+  if (agentName) caption = _t("screen.captionSub", { name: agentName });
+
+  return _sendWindowScreenshot(win, caption);
 }
 
 /**

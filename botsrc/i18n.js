@@ -353,6 +353,9 @@ const STRINGS = {
 
     "screen.capturing": "📸 Делаю скриншот окна...",
     "screen.caption": "📸 Скриншот активного окна",
+    "screen.captionSub": "📸 Скриншот: {name}",
+    "screen.choose": "📸 <b>Выберите окно для скриншота</b>",
+    "screen.btnMain": "🖥 Main",
     "screen.noWindow": "Нет активного окна",
     "screen.error": "Не удалось сделать скриншот: {err}",
 
@@ -726,6 +729,9 @@ const STRINGS = {
 
     "screen.capturing": "📸 Capturing window screenshot...",
     "screen.caption": "📸 Active window screenshot",
+    "screen.captionSub": "📸 Screenshot: {name}",
+    "screen.choose": "📸 <b>Choose a window to capture</b>",
+    "screen.btnMain": "🖥 Main",
     "screen.noWindow": "No active window",
     "screen.error": "Failed to capture screenshot: {err}",
 
