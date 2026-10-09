@@ -187,6 +187,13 @@ function closeActive() {
  * @param {() => void} [opts.onClick] — клик по карточке (фокус окна)
  */
 function show(opts = {}) {
+  // Если окно приложения уже в фокусе — не показываем: пользователь и так
+  // смотрит на чат (актуально для уведомлений о субагенте/AI).
+  const focusTarget = opts.mainWindow;
+  if (focusTarget && !focusTarget.isDestroyed() && focusTarget.isFocused()) {
+    return null;
+  }
+
   // Одно уведомление за раз — предыдущее закрываем.
   closeActive();
 
@@ -258,6 +265,22 @@ function show(opts = {}) {
       clearTimeout(hideTimer);
       hideTimer = null;
     }
+  });
+
+  // Если пользователь сфокусировался на главном окне — уведомление больше
+  // не нужно: мгновенно закрываем (например, вернулся к чату после субагента).
+  const mainWin = focusTarget;
+  const onMainFocus = () => {
+    if (activeWin === win) closeActive();
+  };
+  if (mainWin && !mainWin.isDestroyed()) {
+    mainWin.on("focus", onMainFocus);
+  }
+  win.on("closed", () => {
+    try {
+      if (mainWin && !mainWin.isDestroyed())
+        mainWin.removeListener("focus", onMainFocus);
+    } catch (_) {}
   });
 
   // Запросы из preload уведомления.
