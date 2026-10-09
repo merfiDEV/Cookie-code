@@ -316,6 +316,55 @@ async function getAllDiff(projectDir) {
   return { success: true, diff: parts.join("\n\n"), files };
 }
 
+/**
+ * Список веток репозитория (локальные + удалённые).
+ * @param {string} projectDir
+ * @returns {Promise<{success:boolean, branches?:Array<{name:string, remote:boolean, current:boolean}>, reason?:string}>}
+ */
+async function listBranches(projectDir) {
+  const repo = await checkRepo(projectDir);
+  if (!repo.isRepo)
+    return { success: false, reason: "git не найден: " + (repo.reason || "") };
+  const r = await git(repo.root, [
+    "branch",
+    "-a",
+    "--no-color",
+    "--format=%(HEAD)%(refname)",
+  ]);
+  if (!r.ok)
+    return { success: false, reason: r.stderr.trim() || "git branch failed" };
+  const branches = [];
+  const seen = new Set();
+  for (const raw of r.stdout.split(/\r?\n/)) {
+    if (!raw.trim()) continue;
+    const current = raw[0] === "*";
+    let ref = raw.slice(1).trim();
+    const remote = ref.startsWith("refs/remotes/");
+    if (ref.startsWith("refs/heads/")) ref = ref.slice("refs/heads/".length);
+    else if (remote) ref = ref.slice("refs/remotes/".length);
+    // Пропускаем симлинк HEAD удалённых (origin/HEAD).
+    if (ref.endsWith("/HEAD")) continue;
+    if (!ref || seen.has(ref)) continue;
+    seen.add(ref);
+    branches.push({ name: ref, remote, current });
+  }
+  return { success: true, root: repo.root, branches };
+}
+
+/**
+ * Текущая ветка репозитория.
+ * @param {string} projectDir
+ * @returns {Promise<{success:boolean, branch?:string, reason?:string}>}
+ */
+async function currentBranch(projectDir) {
+  const repo = await checkRepo(projectDir);
+  if (!repo.isRepo)
+    return { success: false, reason: "git не найден: " + (repo.reason || "") };
+  const r = await git(repo.root, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  if (!r.ok) return { success: false, reason: r.stderr.trim() || "git failed" };
+  return { success: true, branch: r.stdout.trim() };
+}
+
 module.exports = {
   checkRepo,
   getStatus,
@@ -326,4 +375,6 @@ module.exports = {
   getCommitDiff,
   getCommitFiles,
   getCommitFileDiff,
+  listBranches,
+  currentBranch,
 };

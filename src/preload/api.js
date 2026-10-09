@@ -281,6 +281,12 @@ let electronAPI = {
   gitCommitDiff: (hash) => {
     return ipcRenderer.invoke("git-commit-diff", { hash });
   },
+  gitListBranches: () => {
+    return ipcRenderer.invoke("git-list-branches");
+  },
+  gitCurrentBranch: () => {
+    return ipcRenderer.invoke("git-current-branch");
+  },
   exportChat: (payload) => {
     return ipcRenderer.invoke("cuckoo-chat-export", payload);
   },

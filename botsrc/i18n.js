@@ -167,6 +167,18 @@ const STRINGS = {
     "diff.none": "✅ Изменений нет.",
     "diff.header": "📝 <b>Изменения ({n})</b>",
     "diff.unavailable": "(diff недоступен)",
+    "diff.fileCaption": "📄 <b>{path}</b> · {status}",
+    "diff.renderFailed": "⚠️ Не удалось отрисовать diff для {path}",
+    "diff.commitBtn": "✅ Попросить коммит и пуш",
+    "diff.branchTitle": "🌿 <b>Выберите ветку</b>",
+    "diff.branchHint": "<i>Куда коммитить и пушить?</i>",
+    "diff.branchCurrent": "🌿 Текущая ветка: <code>{branch}</code>",
+    "diff.branchNone": "⚠️ Ветки не найдены.",
+    "diff.promptSent":
+      "✅ Запрос отправлен в Cookie Code: коммит и пуш в ветку <code>{branch}</code>.",
+    "diff.promptFailed": "⚠️ Не удалось отправить запрос: {err}",
+    "diff.commitPrompt":
+      "Закоммить все текущие изменения и запушь в ветку {branch}. Сначала посмотри git status и git diff, сформируй осмысленное сообщение коммита (Conventional Commits), затем git commit и git push в указанную ветку.",
 
     // ===== /diagnostics =====
     "diag.title": "🩺 <b>Диагностика</b>",
@@ -543,6 +555,18 @@ const STRINGS = {
     "diff.none": "✅ No changes.",
     "diff.header": "📝 <b>Changes ({n})</b>",
     "diff.unavailable": "(diff unavailable)",
+    "diff.fileCaption": "📄 <b>{path}</b> · {status}",
+    "diff.renderFailed": "⚠️ Failed to render diff for {path}",
+    "diff.commitBtn": "✅ Ask to commit and push",
+    "diff.branchTitle": "🌿 <b>Choose a branch</b>",
+    "diff.branchHint": "<i>Where to commit and push?</i>",
+    "diff.branchCurrent": "🌿 Current branch: <code>{branch}</code>",
+    "diff.branchNone": "⚠️ No branches found.",
+    "diff.promptSent":
+      "✅ Request sent to Cookie Code: commit and push to <code>{branch}</code>.",
+    "diff.promptFailed": "⚠️ Failed to send request: {err}",
+    "diff.commitPrompt":
+      "Commit all current changes and push to branch {branch}. First check git status and git diff, craft a meaningful commit message (Conventional Commits), then git commit and git push to the specified branch.",
 
     // ===== /diagnostics =====
     "diag.title": "🩺 <b>Diagnostics</b>",

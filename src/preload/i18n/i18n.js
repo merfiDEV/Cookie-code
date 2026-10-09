@@ -931,6 +931,19 @@ const KEYS = {
     ru: "Вставить все diff в чат и попросить AI закоммитить",
     en: "Paste all diffs to chat and ask AI to commit",
   },
+  "diff.btn.commitBranch": { ru: "Ветка", en: "Branch" },
+  "diff.btn.commitBranch.title": {
+    ru: "Выбрать ветку и попросить AI закоммитить и запушить в неё",
+    en: "Pick a branch and ask AI to commit and push to it",
+  },
+  "diff.branch.title": { ru: "Выбор ветки", en: "Choose branch" },
+  "diff.branch.current": { ru: "Текущая: ", en: "Current: " },
+  "diff.branch.loading": { ru: "Загрузка веток…", en: "Loading branches…" },
+  "diff.branch.none": { ru: "Ветки не найдены", en: "No branches found" },
+  "diff.branch.selectFailed": {
+    ru: "Не удалось получить список веток",
+    en: "Failed to fetch branches",
+  },
   "diff.noDiff": {
     ru: "Нет изменённых файлов для коммита",
     en: "No changed files to commit",

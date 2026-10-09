@@ -1452,6 +1452,19 @@ async function _handleSettingsCallback(data, cbq) {
   const msgId = cbq.message && cbq.message.message_id;
   const state = _settingsState.get(chatId) || { page: "root" };
 
+  // ---- /diff: кнопка «Попросить коммит и пуш» и выбор ветки ----
+  if (data === "st_diffcommit") {
+    await telegramBot.answerCallbackQuery(cbq.id);
+    await _cmdDiffBranches(chatId, msgId);
+    return;
+  }
+  if (data.startsWith("st_diffbr_")) {
+    const idx = parseInt(data.slice("st_diffbr_".length), 10);
+    await telegramBot.answerCallbackQuery(cbq.id);
+    await _cmdDiffCommit(chatId, idx);
+    return;
+  }
+
   // ---- Пагинация списков (/sessions, /log) ----
   if (data.startsWith("st_pg_")) {
     const rest = data.slice("st_pg_".length);
@@ -1933,10 +1946,126 @@ async function _cmdNew() {
   return telegramBot.sendMessage(_t("new.done"));
 }
 
-/** /diff [page] — показать текущие изменения (git diff) в проекте (с пагинацией). */
+/**
+ * Отрисовать diff одного файла в PNG через offscreen BrowserWindow.
+ * Возвращает { success, path } или { success:false, error }.
+ * @param {string} diffText — unified diff
+ * @param {string} filePath — путь файла (для заголовка)
+ * @param {string} status — статус (modified/added/…)
+ */
+async function _renderDiffImage(diffText, filePath, status) {
+  const { BrowserWindow, app } = require("electron");
+  const fs = require("fs");
+  const path = require("path");
+  const text = String(diffText || "");
+  if (!text.trim()) return { success: false, error: "empty diff" };
+
+  // Экранируем и раскрашиваем строки по префиксу.
+  const esc = (s) =>
+    String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  const lines = text.split(/\r?\n/);
+  const rows = lines
+    .map((ln) => {
+      let cls = "ctx";
+      if (ln.startsWith("+") && !ln.startsWith("+++")) cls = "add";
+      else if (ln.startsWith("-") && !ln.startsWith("---")) cls = "del";
+      else if (ln.startsWith("@@")) cls = "hunk";
+      else if (
+        ln.startsWith("diff ") ||
+        ln.startsWith("index ") ||
+        ln.startsWith("+++") ||
+        ln.startsWith("---") ||
+        ln.startsWith("new file") ||
+        ln.startsWith("deleted file") ||
+        ln.startsWith("similarity") ||
+        ln.startsWith("rename ")
+      )
+        cls = "meta";
+      return '<div class="ln ' + cls + '">' + (esc(ln) || "&nbsp;") + "</div>";
+    })
+    .join("");
+
+  const html =
+    "<!DOCTYPE html><html><head><meta charset='utf-8'><style>" +
+    "* { margin:0; padding:0; box-sizing:border-box; }" +
+    "html, body { overflow:hidden; }" +
+    "body { background:#0d0f1a; color:#dde1ff; font-family:'Consolas','Menlo',monospace; font-size:13px; line-height:1.5; padding:18px 20px; width:100%; max-width:1600px; }" +
+    ".head { font-family:-apple-system,'Segoe UI',sans-serif; font-size:15px; font-weight:700; color:#e8eaff; margin-bottom:4px; word-break:break-all; }" +
+    ".sub { font-family:-apple-system,'Segoe UI',sans-serif; font-size:11px; color:#8a90b8; margin-bottom:12px; }" +
+    ".code { background:rgba(255,255,255,0.03); border:1px solid rgba(139,147,255,0.18); border-radius:10px; padding:10px 0; overflow:hidden; }" +
+    ".ln { padding:1px 14px; white-space:pre-wrap; word-break:break-all; }" +
+    ".ln.add { background:rgba(74,222,128,0.12); color:#b8f5cf; }" +
+    ".ln.del { background:rgba(248,113,113,0.12); color:#ffc4c4; }" +
+    ".ln.hunk { color:#8b93ff; background:rgba(139,147,255,0.08); }" +
+    ".ln.meta { color:#8a90b8; }" +
+    "</style></head><body>" +
+    '<div class="head">' +
+    esc(filePath) +
+    "</div>" +
+    '<div class="sub">' +
+    esc(status || "") +
+    "</div>" +
+    '<div class="code">' +
+    rows +
+    "</div>" +
+    "</body></html>";
+
+  let win = null;
+  try {
+    win = new BrowserWindow({
+      show: false,
+      width: 1000,
+      height: 800,
+      webPreferences: {
+        sandbox: true,
+        paintWhenInitiallyHidden: true,
+        backgroundThrottling: false,
+      },
+    });
+    await win.loadURL(
+      "data:text/html;charset=utf-8," + encodeURIComponent(html),
+    );
+    // Ждём отрисовку.
+    await new Promise((r) => setTimeout(r, 300));
+    const wc = win.webContents;
+    const size = await wc.executeJavaScript(
+      "({ w: document.body.scrollWidth, h: document.body.scrollHeight })",
+      true,
+    );
+    const width = Math.max(400, Math.min(1600, (size && size.w) || 1000));
+    const height = Math.max(120, Math.min(4000, (size && size.h) || 800));
+    win.setContentSize(width, height);
+    await new Promise((r) => setTimeout(r, 250));
+    const image = await wc.capturePage();
+    const png = image.toPNG();
+    const outPath = path.join(
+      app.getPath("temp"),
+      "cuckoo-diff-" +
+        Date.now() +
+        "-" +
+        Math.random().toString(36).slice(2, 7) +
+        ".png",
+    );
+    fs.writeFileSync(outPath, png);
+    return { success: true, path: outPath };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    try {
+      if (win && !win.isDestroyed()) win.destroy();
+    } catch (_) {}
+  }
+}
+
+/** Реестр веток для кнопок выбора (chatId → { branches, page }). */
+const _diffBranchState = new Map();
+
+/** /diff — показать изменения: по одной картинке на файл + кнопка коммита. */
 async function _cmdDiff(chatId, page) {
   const projectDir = _projectDir();
-  // Проект не выбран: предлагаем выбрать кнопками.
   if (!projectDir)
     return telegramBot.sendMessage(
       escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"),
@@ -1962,30 +2091,10 @@ async function _cmdDiff(chatId, page) {
   pager.page = cur;
   const slice = files.slice((cur - 1) * size, cur * size);
 
-  const chunks = [];
-  let total = 0;
-  const MAX_TOTAL = 3000;
-  for (const f of slice) {
-    if (total >= MAX_TOTAL) break;
-    const d = await gitDiff.getFileDiff(projectDir, f.path, f.status);
-    if (!d.success || !d.diff) continue;
-    const text = d.diff.slice(0, MAX_TOTAL - total);
-    chunks.push("===== " + f.path + " =====\n" + text);
-    total += text.length;
-  }
-
+  // Заголовок со списком файлов и пагинацией.
   const header =
-    _t("diff.header", { n: files.length }) + " (" + cur + "/" + pages + ")\n";
+    _t("diff.header", { n: files.length }) + " (" + cur + "/" + pages + ")";
   const fileList = slice.map((f) => "• " + escapeHtml(f.path)).join("\n");
-  const body = chunks.join("\n\n") || _t("diff.unavailable");
-  const msg =
-    header +
-    "<blockquote>" +
-    escapeHtml(fileList) +
-    "</blockquote>\n<pre>" +
-    escapeHtml(body) +
-    "</pre>";
-  const keyboard = [];
   const nav = [];
   if (cur > 1)
     nav.push({
@@ -1997,11 +2106,160 @@ async function _cmdDiff(chatId, page) {
       text: _t("page.next"),
       callback_data: "st_pg_diff_" + (cur + 1),
     });
-  if (nav.length) keyboard.push(nav);
-  return telegramBot.sendMessage(msg, {
+  const headerKeyboard = [];
+  if (nav.length) headerKeyboard.push(nav);
+  // Кнопка «попросить коммит и пуш» — на заголовочном сообщении.
+  headerKeyboard.push([
+    { text: _t("diff.commitBtn"), callback_data: "st_diffcommit" },
+  ]);
+  await telegramBot.sendMessage(
+    header + "\n<blockquote>" + fileList + "</blockquote>",
+    { parseMode: "HTML", replyMarkup: { inline_keyboard: headerKeyboard } },
+  );
+
+  // Рендерим картинки параллельно (ограниченный пул — не более 3 окон
+  // одновременно, чтобы не перегружать систему), затем шлём альбомами по 10.
+  const renderOne = async (f) => {
+    try {
+      const d = await gitDiff.getFileDiff(projectDir, f.path, f.status);
+      if (!d.success || !d.diff || !d.diff.trim()) return null;
+      const r = await _renderDiffImage(d.diff, f.path, f.status);
+      if (!r.success) return { error: f.path };
+      return {
+        path: r.path,
+        caption: _t("diff.fileCaption", {
+          path: escapeHtml(f.path),
+          status: escapeHtml(f.status),
+        }),
+        parseMode: "HTML",
+      };
+    } catch (_) {
+      return null;
+    }
+  };
+  const CONCURRENCY = 3;
+  const rendered = [];
+  for (let i = 0; i < slice.length; i += CONCURRENCY) {
+    const batch = slice.slice(i, i + CONCURRENCY);
+    const part = await Promise.all(batch.map(renderOne));
+    rendered.push(...part);
+  }
+
+  const failed = rendered.filter((r) => r && r.error);
+  const ok = rendered.filter((r) => r && r.path);
+
+  // Отправляем пачками по 10 (лимит Telegram для sendMediaGroup).
+  const CHUNK = 10;
+  for (let i = 0; i < ok.length; i += CHUNK) {
+    const batch = ok.slice(i, i + CHUNK);
+    const res = await telegramBot.sendMediaGroup(batch);
+    // Если альбом не прошёл — шлём по одному как fallback.
+    if (!res || !res.success) {
+      for (const it of batch) {
+        await telegramBot.sendPhoto(it.path, {
+          caption: it.caption,
+          parseMode: it.parseMode,
+        });
+      }
+    }
+  }
+
+  // Сообщения об ошибках рендера (если были).
+  for (const f of failed) {
+    await telegramBot.sendMessage(
+      _t("diff.renderFailed", { path: escapeHtml(f.error) }),
+      { parseMode: "HTML" },
+    );
+  }
+
+  // Удаляем временные файлы.
+  for (const it of ok) {
+    try {
+      require("fs").unlinkSync(it.path);
+    } catch (_) {}
+  }
+}
+
+/** Показать список веток кнопками (после нажатия «Попросить коммит и пуш»). */
+async function _cmdDiffBranches(chatId, msgId) {
+  const projectDir = _projectDir();
+  if (!projectDir) {
+    await telegramBot.sendMessage(_t("diff.noProject"));
+    return;
+  }
+  const gitDiff = require("../src/main/git-diff");
+  const res = await gitDiff.listBranches(projectDir);
+  if (!res.success) {
+    await telegramBot.sendMessage(
+      _t("diff.gitUnavailable", {
+        reason: escapeHtml(res.reason || _t("diff.gitDefault")),
+      }),
+    );
+    return;
+  }
+  const branches = res.branches || [];
+  if (branches.length === 0) {
+    await telegramBot.sendMessage(_t("diff.branchNone"));
+    return;
+  }
+  // Локальные — первыми.
+  branches.sort((a, b) => {
+    if (a.remote !== b.remote) return a.remote ? 1 : -1;
+    if (a.current !== b.current) return a.current ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+  _diffBranchState.set(chatId, { branches });
+  const cur = await gitDiff.currentBranch(projectDir);
+  const keyboard = [];
+  branches.forEach((b, i) => {
+    const mark = b.current ? "✓ " : b.remote ? "☁ " : "• ";
+    keyboard.push([{ text: mark + b.name, callback_data: "st_diffbr_" + i }]);
+  });
+  const title =
+    _t("diff.branchTitle") +
+    "\n" +
+    (cur && cur.success
+      ? _t("diff.branchCurrent", { branch: escapeHtml(cur.branch) })
+      : "") +
+    "\n" +
+    _t("diff.branchHint");
+  if (msgId) {
+    const r = await telegramBot.editMessageText(msgId, title, {
+      parseMode: "HTML",
+      replyMarkup: { inline_keyboard: keyboard },
+    });
+    if (r && r.success) return;
+  }
+  await telegramBot.sendMessage(title, {
     parseMode: "HTML",
     replyMarkup: { inline_keyboard: keyboard },
   });
+}
+
+/** Выбрана ветка — сформировать промпт и отправить в чат Cookie Code. */
+async function _cmdDiffCommit(chatId, branchIdx) {
+  const state = _diffBranchState.get(chatId);
+  const branches = state ? state.branches : [];
+  const b = branches[branchIdx];
+  if (!b) {
+    await telegramBot.sendMessage(_t("diff.branchNone"));
+    return;
+  }
+  const prompt = _t("diff.commitPrompt", { branch: b.name });
+  const r = await _sendToChat(prompt);
+  if (r && r.success) {
+    await telegramBot.sendMessage(
+      _t("diff.promptSent", { branch: escapeHtml(b.name) }),
+      { parseMode: "HTML" },
+    );
+  } else {
+    await telegramBot.sendMessage(
+      _t("diff.promptFailed", {
+        err: escapeHtml((r && r.error) || "unknown"),
+      }),
+      { parseMode: "HTML" },
+    );
+  }
 }
 
 /** /diagnostics — отчёт диагностики интеграции. */

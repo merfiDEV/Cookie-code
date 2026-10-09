@@ -1673,6 +1673,40 @@ function registerIpcHandlers() {
     }
   });
 
+  // Список веток (локальные + удалённые) для выбора ветки перед коммитом/пушем.
+  ipcMain.handle("git-list-branches", async (event) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const projectDir =
+        ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir;
+      if (!projectDir)
+        return {
+          success: false,
+          reason: "git не найден: проект не инициализирован",
+        };
+      return await gitDiff.listBranches(projectDir);
+    } catch (err) {
+      return { success: false, reason: err.message };
+    }
+  });
+
+  // Текущая ветка.
+  ipcMain.handle("git-current-branch", async (event) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const projectDir =
+        ctx && ctx.sessionStore && ctx.sessionStore.state.selectedProjectDir;
+      if (!projectDir)
+        return {
+          success: false,
+          reason: "git не найден: проект не инициализирован",
+        };
+      return await gitDiff.currentBranch(projectDir);
+    } catch (err) {
+      return { success: false, reason: err.message };
+    }
+  });
+
   // Открыть файл настроек (cuckoo-settings.json) системным редактором.
   // Если файла ещё нет — создаём его с дефолтами, чтобы редактор не ругался.
   ipcMain.handle("cuckoo-settings-open-file", async () => {
