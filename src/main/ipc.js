@@ -2,7 +2,7 @@
  * IPC 处理器注册（渲染进程 → 主进程）
  * 多窗口版：按 event.sender 路由到对应窗口的 profile 上下文。
  */
-const { app, dialog, ipcMain, Notification, shell } = require("electron");
+const { app, dialog, ipcMain, shell } = require("electron");
 const { exec } = require("child_process");
 const path = require("path");
 
@@ -1206,20 +1206,24 @@ function registerIpcHandlers() {
           },
         }[lang];
 
-        const notification = new Notification({
-          title: windowName + " - " + notifText.title,
-          body: notifText.body,
-          icon: require("path").join(
+        // Кастомное MD3-уведомление (frameless-окно), вместо системного Notification API.
+        let iconDataUrl = "";
+        try {
+          const fs = require("fs");
+          const p = require("path").join(
             __dirname,
             "..",
             "..",
             "build",
-            process.platform === "win32" ? "icon.ico" : "icon.png",
-          ),
-        });
+            "icon.png",
+          );
+          if (fs.existsSync(p)) {
+            iconDataUrl =
+              "data:image/png;base64," + fs.readFileSync(p).toString("base64");
+          }
+        } catch (_) {}
 
-        // Клик по уведомлению — сфокусировать окно (восстановить из свёрнутого/трея).
-        notification.on("click", () => {
+        const focusMainWindow = () => {
           try {
             if (!win || win.isDestroyed()) return;
             if (win.isMinimized()) win.restore();
@@ -1232,9 +1236,16 @@ function registerIpcHandlers() {
               err.message,
             );
           }
-        });
+        };
 
-        notification.show();
+        const notificationWindow = require("./notification-window");
+        notificationWindow.show({
+          title: windowName + " — " + notifText.title,
+          body: notifText.body,
+          iconDataUrl,
+          onClick: focusMainWindow,
+          mainWindow: win,
+        });
 
         win.flashFrame(true);
         win.once("focus", () => {
