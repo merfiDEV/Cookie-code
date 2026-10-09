@@ -1,4 +1,8 @@
-# Cookie Code
+# Cookie Code 🍪
+
+<p align="center">
+  <img src="build/icon.png" alt="Cookie Code" width="128">
+</p>
 
 <p align="center">
   <a href="https://github.com/merfiDEV/Cookie-code/releases/latest"><img src="https://img.shields.io/github/v/release/wangyongpeng90/cuckoo-code?style=flat-square&color=8b93ff" alt="Latest Release"></a>
@@ -139,13 +143,9 @@ AI помнит **и вас, и проект** — память разделен
 
 ### Горячие клавиши
 
-| Клавиша          | Действие                                     |
-| ---------------- | -------------------------------------------- |
-| **F1**           | Показать текущий CHANGELOG (окно What's New) |
-| **F6 / F7**      | Дашборд статистики                           |
-| **F8–F11**       | Управление петом                             |
-| **Ctrl+Shift+C** | Показать/скрыть оверлей Cookie Code          |
-| **Esc**          | Закрыть панели и модалки                     |
+| Клавиша | Действие                                     |
+| ------- | -------------------------------------------- |
+| **F1**  | Показать текущий CHANGELOG (окно What's New) |
 
 Окно What's New (F1) можно **перетаскивать за шапку** и оно адаптируется по ширине под экран.
 

@@ -1,6 +1,10 @@
 # Cookie Code 🍪
 
 <p align="center">
+  <img src="build/icon.png" alt="Cookie Code" width="128">
+</p>
+
+<p align="center">
   <a href="https://github.com/merfiDEV/Cookie-code/releases/latest"><img src="https://img.shields.io/github/v/release/merfiDEV/Cookie-code?style=flat-square&color=8b93ff" alt="Latest Release"></a>
   <a href="https://github.com/merfiDEV/Cookie-code/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
   <a href="https://github.com/merfiDEV/Cookie-code"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8b93ff?style=flat-square" alt="Platform"></a>
@@ -145,13 +149,9 @@ maxTurns: 20
 
 ### ⌨️ **Горячие клавиши**
 
-| Клавиша          | Действие                                     |
-| ---------------- | -------------------------------------------- |
-| **F1**           | Показать текущий CHANGELOG (окно What's New) |
-| **F6 / F7**      | Дашборд статистики                           |
-| **F8–F11**       | Управление петом                             |
-| **Ctrl+Shift+C** | Показать/скрыть оверлей Cookie Code          |
-| **Esc**          | Закрыть панели и модалки                     |
+| Клавиша | Действие                                     |
+| ------- | -------------------------------------------- |
+| **F1**  | Показать текущий CHANGELOG (окно What's New) |
 
 ### 📈 **Дашборд статистики**
 
