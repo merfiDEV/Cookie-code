@@ -387,6 +387,12 @@ const STRINGS = {
     "question.accepted": "Принято: {answer}",
     "question.skip": "🚫 Отказаться отвечать",
     "question.skipped": "Вопрос отменён",
+    "question.custom": "✍️ Свой ответ",
+    "question.customPrompt":
+      "✍️ Отправьте свой ответ текстом следующим сообщением.",
+    "question.customEmpty":
+      "⚠️ Пустой ответ. Отправьте текст или нажмите «Отказаться».",
+    "question.busy": "⚠️ Сначала ответьте на текущий вопрос.",
 
     // ===== Уведомление об ответе AI =====
     "ai.truncated": "…(обрезано, всего {n} симв.)",
@@ -775,6 +781,10 @@ const STRINGS = {
     "question.accepted": "Accepted: {answer}",
     "question.skip": "🚫 Refuse to answer",
     "question.skipped": "Question cancelled",
+    "question.custom": "✍️ Custom answer",
+    "question.customPrompt": "✍️ Send your answer as a text message.",
+    "question.customEmpty": '⚠️ Empty answer. Send text or tap "Refuse".',
+    "question.busy": "⚠️ Answer the current question first.",
 
     // ===== AI response notification =====
     "ai.truncated": "…(truncated, {n} chars total)",

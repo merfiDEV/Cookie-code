@@ -408,6 +408,7 @@ async function askQuestion(requestId, questions) {
   // Клавиатура: по строке на каждый вариант каждого вопроса.
   // callback_data — короткий токен 't<number>', привязанный к (requestId, qi, oi).
   const keyboard = [];
+  entry.manualTokens = [];
   items.forEach((q, qi) => {
     const opts = Array.isArray(q.options) ? q.options : [];
     entry.tokens[qi] = [];
@@ -418,6 +419,14 @@ async function askQuestion(requestId, questions) {
       entry.tokens[qi][oi] = token;
       keyboard.push([{ text: qi + 1 + ") " + label, callback_data: token }]);
     });
+    // Кнопка "Свой ответ" для каждого вопроса — переводит бота в режим
+    // ожидания текста и записывает ответ в slot qi.
+    const mtoken = "tm_" + ++_cbTokenCounter;
+    _callbackTokens.set(mtoken, { requestId, qi, oi: -1, manual: true });
+    entry.manualTokens[qi] = mtoken;
+    keyboard.push([
+      { text: qi + 1 + ") " + _t("question.custom"), callback_data: mtoken },
+    ]);
   });
   // Кнопка "Отказаться отвечать" — отменяет весь вопрос целиком.
   entry.skipToken = "qs_" + requestId;
@@ -560,6 +569,16 @@ async function _handleCallback(chatId, data, cbq) {
     return;
   }
 
+  // Кнопка "Свой ответ": переводим бота в режим ожидания текста для (qi).
+  if (ref.manual) {
+    _questionWaiting.set(chatId, { requestId, qi });
+    await telegramBot.answerCallbackQuery(cbq.id);
+    await telegramBot.sendMessage(_t("question.customPrompt"), {
+      parseMode: "HTML",
+    });
+    return;
+  }
+
   const q = entry.questions[qi];
   const opt = (q.options || [])[oi];
   if (!opt) {
@@ -579,20 +598,64 @@ async function _handleCallback(chatId, data, cbq) {
   // Обновляем сообщение: показываем выбранные ответы, убираем использованные кнопки.
   _refreshQuestionMessage(requestId, entry);
 
-  // Если все вопросы отвечены — резолвим и чистим токены.
-  if (entry.answers.every((a) => a && a.answer)) {
-    _pendingQuestions.delete(requestId);
-    for (const row of entry.tokens) {
-      for (const t of row || []) _callbackTokens.delete(t);
-    }
-    if (typeof _onQuestionAnswered === "function") {
-      try {
-        _onQuestionAnswered(requestId, entry.answers.slice());
-      } catch (err) {
-        _log("error", "onQuestionAnswered error:", err.message);
-      }
+  _finishIfAllAnswered(requestId, entry);
+}
+
+/**
+ * Если все вопросы отвечены — резолвим промис и чистим токены/ожидание.
+ * Используется и при выборе кнопки, и при вводе своего ответа текстом.
+ */
+function _finishIfAllAnswered(requestId, entry) {
+  if (!entry.answers.every((a) => a && a.answer)) return;
+  _pendingQuestions.delete(requestId);
+  for (const row of entry.tokens || []) {
+    for (const t of row || []) _callbackTokens.delete(t);
+  }
+  for (const t of entry.manualTokens || []) {
+    if (t) _callbackTokens.delete(t);
+  }
+  if (entry.skipToken) _callbackTokens.delete(entry.skipToken);
+  // Снимаем режим ожидания текста для этого requestId (любой чат).
+  for (const [cid, w] of Array.from(_questionWaiting.entries())) {
+    if (w && w.requestId === requestId) _questionWaiting.delete(cid);
+  }
+  if (typeof _onQuestionAnswered === "function") {
+    try {
+      _onQuestionAnswered(requestId, entry.answers.slice());
+    } catch (err) {
+      _log("error", "onQuestionAnswered error:", err.message);
     }
   }
+}
+
+/**
+ * Обработать текстовый ввод пользователя как «свой ответ» на вопрос.
+ * @returns {Promise<boolean>} true, если ввод был использован как ответ.
+ */
+async function _handleQuestionInput(chatId, text) {
+  const w = _questionWaiting.get(chatId);
+  if (!w) return false;
+  const { requestId, qi } = w;
+  const entry = _pendingQuestions.get(requestId);
+  if (!entry || entry.answers[qi] != null) {
+    _questionWaiting.delete(chatId);
+    await telegramBot.sendMessage(_t("question.closed"));
+    return true;
+  }
+  const answer = String(text == null ? "" : text).trim();
+  if (!answer) {
+    // Не сбрасываем ожидание — ждём непустой текст.
+    await telegramBot.sendMessage(_t("question.customEmpty"));
+    return true;
+  }
+  _questionWaiting.delete(chatId);
+  entry.answers[qi] = {
+    question: entry.questions[qi].question,
+    answer,
+  };
+  await _refreshQuestionMessage(requestId, entry);
+  _finishIfAllAnswered(requestId, entry);
+  return true;
 }
 
 /** Отправить запрос подтверждения tool-вызова в Telegram. */
@@ -892,7 +955,14 @@ async function _handleQuestionSkip(requestId, cbq) {
   for (const row of entry.tokens || []) {
     for (const t of row || []) _callbackTokens.delete(t);
   }
+  for (const t of entry.manualTokens || []) {
+    if (t) _callbackTokens.delete(t);
+  }
   if (entry.skipToken) _callbackTokens.delete(entry.skipToken);
+  // Снимаем режим ожидания текста для этого requestId.
+  for (const [cid, w] of Array.from(_questionWaiting.entries())) {
+    if (w && w.requestId === requestId) _questionWaiting.delete(cid);
+  }
 
   // Обновляем сообщение: заголовок + пометка "отменено", кнопок больше нет.
   if (entry.messageId) {
@@ -933,6 +1003,7 @@ async function _refreshQuestionMessage(requestId, entry) {
 
   // Оставляем кнопки только для неотвеченных вопросов.
   const keyboard = [];
+  if (!entry.manualTokens) entry.manualTokens = [];
   entry.questions.forEach((q, qi) => {
     if (entry.answers[qi]) return;
     const opts = Array.isArray(q.options) ? q.options : [];
@@ -944,6 +1015,14 @@ async function _refreshQuestionMessage(requestId, entry) {
         _callbackTokens.set(token, { requestId, qi, oi });
       keyboard.push([{ text: qi + 1 + ") " + label, callback_data: token }]);
     });
+    // Кнопка "Свой ответ" для неотвеченного вопроса.
+    const mtoken = entry.manualTokens[qi] || "tm_" + ++_cbTokenCounter;
+    entry.manualTokens[qi] = mtoken;
+    if (!_callbackTokens.has(mtoken))
+      _callbackTokens.set(mtoken, { requestId, qi, oi: -1, manual: true });
+    keyboard.push([
+      { text: qi + 1 + ") " + _t("question.custom"), callback_data: mtoken },
+    ]);
   });
   // Кнопка "Отказаться отвечать" остаётся, пока вопрос не закрыт.
   if (entry.skipToken) {
@@ -2534,6 +2613,9 @@ const _lastListMsg = new Map();
 // Режим ручного ввода пути к проекту: chatId → true (ждём абсолютный путь).
 const _projectWaiting = new Set();
 
+// Ожидание «своего ответа» на вопрос: chatId → { requestId, qi }.
+const _questionWaiting = new Map();
+
 // Известные проекты: берём из session-dir-map активного профиля + текущий.
 function _knownProjects() {
   const dirs = new Set();
@@ -3437,13 +3519,15 @@ async function _handleIncoming(chatId, text, msg) {
   }
   if (cmd === "/cancel") {
     const hadSettings = _settingsWaiting.delete(chatId);
+    const hadQuestion = _questionWaiting.delete(chatId);
     // Отменяем все ожидающие approval (AI больше не ждёт подтверждения).
     let cancelledApprovals = 0;
     for (const id of Array.from(_pendingApprovals.keys())) {
       const r = cancelApproval(id);
       if (r && r.success && !r.skipped) cancelledApprovals++;
     }
-    if (hadSettings) await telegramBot.sendMessage(_t("input.cancelled"));
+    if (hadSettings || hadQuestion)
+      await telegramBot.sendMessage(_t("input.cancelled"));
     else if (cancelledApprovals > 0)
       await telegramBot.sendMessage(
         _t("input.approvalsCancelled", { n: cancelledApprovals }),
@@ -3474,6 +3558,12 @@ async function _handleIncoming(chatId, text, msg) {
   if (cmd === "/toggles" || cmd === "/toggle") {
     await _cmdToggles(chatId);
     return;
+  }
+
+  // ---- Ожидание «своего ответа» на вопрос от ИИ ----
+  if (_questionWaiting.has(chatId)) {
+    const handled = await _handleQuestionInput(chatId, raw);
+    if (handled) return;
   }
 
   // ---- Ожидание ввода значения настройки ----
