@@ -210,11 +210,62 @@ function _activeSenderId() {
 }
 
 /**
- * Жёстко сфокусировать активное окно, сделать скриншот и отпустить.
+ * Живые окна субагентов (не destroyed).
+ * Возвращает массив контекстов { win, subagentConfig, ... }.
+ */
+function _liveSubagentWindows() {
+  const ctxs = windowState.getAllContexts ? windowState.getAllContexts() : [];
+  const out = [];
+  for (const ctx of ctxs) {
+    if (!ctx || !ctx.isSubagent) continue;
+    if (!ctx.win || ctx.win.isDestroyed()) continue;
+    out.push(ctx);
+  }
+  return out;
+}
+
+/** Родительское (не-субагентское) живое окно или null. */
+function _mainWindowOrNull() {
+  const ctxs = windowState.getAllContexts ? windowState.getAllContexts() : [];
+  let fallback = null;
+  for (const ctx of ctxs) {
+    if (!ctx || ctx.isSubagent) continue;
+    if (!ctx.win || ctx.win.isDestroyed()) continue;
+    fallback = ctx.win;
+  }
+  if (fallback) return fallback;
+  const w = windowState.getMainWindow();
+  return w && !w.isDestroyed() ? w : null;
+}
+
+/** Отображаемое имя окна-субагента (agentName с суффиксом при дублях). */
+function _subagentDisplayNames(subs) {
+  const counts = new Map();
+  for (const ctx of subs) {
+    const name =
+      (ctx.subagentConfig && ctx.subagentConfig.agentName) || "agent";
+    counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  const seen = new Map();
+  return subs.map((ctx) => {
+    const name =
+      (ctx.subagentConfig && ctx.subagentConfig.agentName) || "agent";
+    if (counts.get(name) > 1) {
+      const n = (seen.get(name) || 0) + 1;
+      seen.set(name, n);
+      return name + " #" + n;
+    }
+    return name;
+  });
+}
+
+/**
+ * Жёстко сфокусировать окно, сделать скриншот и отпустить.
+ * @param {object} [targetWin] — конкретное окно; по умолчанию мэйн-окно.
  * Возвращает путь к временному PNG или { error }.
  */
-async function _captureActiveWindow() {
-  const win = windowState.getMainWindow();
+async function _captureActiveWindow(targetWin) {
+  const win = targetWin || windowState.getMainWindow();
   if (!win || win.isDestroyed()) return { error: "noWindow" };
   const { app } = require("electron");
   const fs = require("fs");
@@ -296,6 +347,11 @@ const _planCallbackTokens = new Map();
  * key = token ('k<number>') → { pid, messageId }
  */
 const _longProcessTokens = new Map();
+/**
+ * Реестр callback-кнопок выбора окна для /screen.
+ * key = token ('sc_<n>' без префикса — храним 's<n>'), value = windowId.
+ */
+const _screenCallbackTokens = new Map();
 let _cbTokenCounter = 0;
 let _onQuestionAnswered = null;
 let _onQuestionCancelled = null;
@@ -352,6 +408,7 @@ async function askQuestion(requestId, questions) {
   // Клавиатура: по строке на каждый вариант каждого вопроса.
   // callback_data — короткий токен 't<number>', привязанный к (requestId, qi, oi).
   const keyboard = [];
+  entry.manualTokens = [];
   items.forEach((q, qi) => {
     const opts = Array.isArray(q.options) ? q.options : [];
     entry.tokens[qi] = [];
@@ -362,6 +419,14 @@ async function askQuestion(requestId, questions) {
       entry.tokens[qi][oi] = token;
       keyboard.push([{ text: qi + 1 + ") " + label, callback_data: token }]);
     });
+    // Кнопка "Свой ответ" для каждого вопроса — переводит бота в режим
+    // ожидания текста и записывает ответ в slot qi.
+    const mtoken = "tm_" + ++_cbTokenCounter;
+    _callbackTokens.set(mtoken, { requestId, qi, oi: -1, manual: true });
+    entry.manualTokens[qi] = mtoken;
+    keyboard.push([
+      { text: qi + 1 + ") " + _t("question.custom"), callback_data: mtoken },
+    ]);
   });
   // Кнопка "Отказаться отвечать" — отменяет весь вопрос целиком.
   entry.skipToken = "qs_" + requestId;
@@ -457,6 +522,16 @@ async function _handleCallback(chatId, data, cbq) {
     return;
   }
 
+  // Кнопки выбора окна для /screen.
+  if (token.startsWith("sc_")) {
+    try {
+      await _handleScreenCallback(token.slice(3), cbq);
+    } catch (err) {
+      _log("error", "screen callback error:", err.message);
+    }
+    return;
+  }
+
   const planRef = _planCallbackTokens.get(token);
   if (planRef) {
     await _handlePlanCallback(planRef, cbq);
@@ -494,6 +569,16 @@ async function _handleCallback(chatId, data, cbq) {
     return;
   }
 
+  // Кнопка "Свой ответ": переводим бота в режим ожидания текста для (qi).
+  if (ref.manual) {
+    _questionWaiting.set(chatId, { requestId, qi });
+    await telegramBot.answerCallbackQuery(cbq.id);
+    await telegramBot.sendMessage(_t("question.customPrompt"), {
+      parseMode: "HTML",
+    });
+    return;
+  }
+
   const q = entry.questions[qi];
   const opt = (q.options || [])[oi];
   if (!opt) {
@@ -513,20 +598,64 @@ async function _handleCallback(chatId, data, cbq) {
   // Обновляем сообщение: показываем выбранные ответы, убираем использованные кнопки.
   _refreshQuestionMessage(requestId, entry);
 
-  // Если все вопросы отвечены — резолвим и чистим токены.
-  if (entry.answers.every((a) => a && a.answer)) {
-    _pendingQuestions.delete(requestId);
-    for (const row of entry.tokens) {
-      for (const t of row || []) _callbackTokens.delete(t);
-    }
-    if (typeof _onQuestionAnswered === "function") {
-      try {
-        _onQuestionAnswered(requestId, entry.answers.slice());
-      } catch (err) {
-        _log("error", "onQuestionAnswered error:", err.message);
-      }
+  _finishIfAllAnswered(requestId, entry);
+}
+
+/**
+ * Если все вопросы отвечены — резолвим промис и чистим токены/ожидание.
+ * Используется и при выборе кнопки, и при вводе своего ответа текстом.
+ */
+function _finishIfAllAnswered(requestId, entry) {
+  if (!entry.answers.every((a) => a && a.answer)) return;
+  _pendingQuestions.delete(requestId);
+  for (const row of entry.tokens || []) {
+    for (const t of row || []) _callbackTokens.delete(t);
+  }
+  for (const t of entry.manualTokens || []) {
+    if (t) _callbackTokens.delete(t);
+  }
+  if (entry.skipToken) _callbackTokens.delete(entry.skipToken);
+  // Снимаем режим ожидания текста для этого requestId (любой чат).
+  for (const [cid, w] of Array.from(_questionWaiting.entries())) {
+    if (w && w.requestId === requestId) _questionWaiting.delete(cid);
+  }
+  if (typeof _onQuestionAnswered === "function") {
+    try {
+      _onQuestionAnswered(requestId, entry.answers.slice());
+    } catch (err) {
+      _log("error", "onQuestionAnswered error:", err.message);
     }
   }
+}
+
+/**
+ * Обработать текстовый ввод пользователя как «свой ответ» на вопрос.
+ * @returns {Promise<boolean>} true, если ввод был использован как ответ.
+ */
+async function _handleQuestionInput(chatId, text) {
+  const w = _questionWaiting.get(chatId);
+  if (!w) return false;
+  const { requestId, qi } = w;
+  const entry = _pendingQuestions.get(requestId);
+  if (!entry || entry.answers[qi] != null) {
+    _questionWaiting.delete(chatId);
+    await telegramBot.sendMessage(_t("question.closed"));
+    return true;
+  }
+  const answer = String(text == null ? "" : text).trim();
+  if (!answer) {
+    // Не сбрасываем ожидание — ждём непустой текст.
+    await telegramBot.sendMessage(_t("question.customEmpty"));
+    return true;
+  }
+  _questionWaiting.delete(chatId);
+  entry.answers[qi] = {
+    question: entry.questions[qi].question,
+    answer,
+  };
+  await _refreshQuestionMessage(requestId, entry);
+  _finishIfAllAnswered(requestId, entry);
+  return true;
 }
 
 /** Отправить запрос подтверждения tool-вызова в Telegram. */
@@ -826,7 +955,14 @@ async function _handleQuestionSkip(requestId, cbq) {
   for (const row of entry.tokens || []) {
     for (const t of row || []) _callbackTokens.delete(t);
   }
+  for (const t of entry.manualTokens || []) {
+    if (t) _callbackTokens.delete(t);
+  }
   if (entry.skipToken) _callbackTokens.delete(entry.skipToken);
+  // Снимаем режим ожидания текста для этого requestId.
+  for (const [cid, w] of Array.from(_questionWaiting.entries())) {
+    if (w && w.requestId === requestId) _questionWaiting.delete(cid);
+  }
 
   // Обновляем сообщение: заголовок + пометка "отменено", кнопок больше нет.
   if (entry.messageId) {
@@ -867,6 +1003,7 @@ async function _refreshQuestionMessage(requestId, entry) {
 
   // Оставляем кнопки только для неотвеченных вопросов.
   const keyboard = [];
+  if (!entry.manualTokens) entry.manualTokens = [];
   entry.questions.forEach((q, qi) => {
     if (entry.answers[qi]) return;
     const opts = Array.isArray(q.options) ? q.options : [];
@@ -878,6 +1015,14 @@ async function _refreshQuestionMessage(requestId, entry) {
         _callbackTokens.set(token, { requestId, qi, oi });
       keyboard.push([{ text: qi + 1 + ") " + label, callback_data: token }]);
     });
+    // Кнопка "Свой ответ" для неотвеченного вопроса.
+    const mtoken = entry.manualTokens[qi] || "tm_" + ++_cbTokenCounter;
+    entry.manualTokens[qi] = mtoken;
+    if (!_callbackTokens.has(mtoken))
+      _callbackTokens.set(mtoken, { requestId, qi, oi: -1, manual: true });
+    keyboard.push([
+      { text: qi + 1 + ") " + _t("question.custom"), callback_data: mtoken },
+    ]);
   });
   // Кнопка "Отказаться отвечать" остаётся, пока вопрос не закрыт.
   if (entry.skipToken) {
@@ -1386,6 +1531,19 @@ async function _handleSettingsCallback(data, cbq) {
   const msgId = cbq.message && cbq.message.message_id;
   const state = _settingsState.get(chatId) || { page: "root" };
 
+  // ---- /diff: кнопка «Попросить коммит и пуш» и выбор ветки ----
+  if (data === "st_diffcommit") {
+    await telegramBot.answerCallbackQuery(cbq.id);
+    await _cmdDiffBranches(chatId, msgId);
+    return;
+  }
+  if (data.startsWith("st_diffbr_")) {
+    const idx = parseInt(data.slice("st_diffbr_".length), 10);
+    await telegramBot.answerCallbackQuery(cbq.id);
+    await _cmdDiffCommit(chatId, idx);
+    return;
+  }
+
   // ---- Пагинация списков (/sessions, /log) ----
   if (data.startsWith("st_pg_")) {
     const rest = data.slice("st_pg_".length);
@@ -1619,22 +1777,14 @@ async function _cmdStop() {
 
 /** /status — окно, проект, процессы, версия, polling. */
 
-/** /screen — жёстко сфокусировать активное окно, сделать скриншот и отправить в TG. */
-async function _cmdScreen() {
-  const cfg = _read();
-  if (!cfg.enabled || !cfg.token || !cfg.chatId)
-    return { success: false, skipped: true };
-
-  const win = windowState.getParentWindow
-    ? windowState.getParentWindow()
-    : windowState.getMainWindow();
-  if (!win || win.isDestroyed()) {
-    await telegramBot.sendMessage(_t("screen.noWindow"));
-    return { success: false, error: "noWindow" };
-  }
-
+/**
+ * Сделать скриншот указанного окна и отправить в TG.
+ * @param {object} [win] — целевое окно; по умолчанию мэйн-окно.
+ * @param {string} [caption] — подпись к фото.
+ */
+async function _sendWindowScreenshot(win, caption) {
   await telegramBot.sendMessage(_t("screen.capturing"));
-  const res = await _captureActiveWindow();
+  const res = await _captureActiveWindow(win);
   if (res.error === "noWindow") {
     await telegramBot.sendMessage(_t("screen.noWindow"));
     return { success: false, error: "noWindow" };
@@ -1646,15 +1796,127 @@ async function _cmdScreen() {
     );
     return { success: false, error: res.error };
   }
-
   const send = await telegramBot.sendPhoto(res.path, {
-    caption: _t("screen.caption"),
+    caption: caption || _t("screen.caption"),
   });
   // Удаляем временный файл.
   try {
     require("fs").unlinkSync(res.path);
   } catch (_) {}
   return send;
+}
+
+/**
+ * /screen — снять мэйн-окно. Если запущены живые субагенты — показать меню
+ * выбора: [Main] + кнопка на каждого субагента (по agentName).
+ */
+async function _cmdScreen() {
+  const cfg = _read();
+  if (!cfg.enabled || !cfg.token || !cfg.chatId)
+    return { success: false, skipped: true };
+
+  const mainWin = _mainWindowOrNull();
+  const subs = _liveSubagentWindows();
+
+  // Живых субагентов нет — ведём себя как раньше: сразу снимаем мэйн.
+  if (subs.length === 0) {
+    if (!mainWin) {
+      await telegramBot.sendMessage(_t("screen.noWindow"));
+      return { success: false, error: "noWindow" };
+    }
+    return _sendWindowScreenshot(mainWin, _t("screen.caption"));
+  }
+
+  // Есть субагенты — меню выбора окна.
+  const names = _subagentDisplayNames(subs);
+  const keyboard = [];
+  const mainRow = [];
+  if (mainWin) {
+    const mTok = "s" + ++_cbTokenCounter;
+    _screenCallbackTokens.set(mTok, mainWin.id);
+    mainRow.push({ text: _t("screen.btnMain"), callback_data: "sc_" + mTok });
+  }
+  if (mainRow.length) keyboard.push(mainRow);
+  for (let i = 0; i < subs.length; i++) {
+    const tok = "s" + ++_cbTokenCounter;
+    _screenCallbackTokens.set(tok, subs[i].win.id);
+    keyboard.push([{ text: names[i], callback_data: "sc_" + tok }]);
+  }
+
+  await telegramBot.sendMessage(_t("screen.choose"), {
+    parseMode: "HTML",
+    replyMarkup: { inline_keyboard: keyboard },
+  });
+  return { success: true, choosing: true };
+}
+
+/**
+ * Обработка нажатия кнопки выбора окна для /screen.
+ * @param {string} token — короткий токен ('s<n>', без префикса 'sc_').
+ * @param {object} cbq — callback query объект Telegram.
+ */
+async function _handleScreenCallback(token, cbq) {
+  const msgId = cbq && cbq.message && cbq.message.message_id;
+  const windowId = _screenCallbackTokens.get(token);
+  _screenCallbackTokens.delete(token);
+
+  await telegramBot.answerCallbackQuery(cbq.id);
+
+  // Заменяем меню на статус и убираем клавиатуру.
+  if (msgId) {
+    try {
+      await telegramBot.editMessageText(msgId, _t("screen.capturing"), {
+        replyMarkup: { inline_keyboard: [] },
+      });
+    } catch (_) {}
+  }
+
+  if (windowId == null) {
+    await telegramBot.sendMessage(_t("screen.noWindow"));
+    return { success: false, error: "noWindow" };
+  }
+  const ctx = windowState.getWindowContext
+    ? windowState.getWindowContext(windowId)
+    : null;
+  const win = ctx && ctx.win && !ctx.win.isDestroyed() ? ctx.win : null;
+  if (!win) {
+    await telegramBot.sendMessage(_t("screen.noWindow"));
+    return { success: false, error: "noWindow" };
+  }
+
+  // Подпись: имя субагента, если это субагент; иначе дефолтная.
+  let caption = _t("screen.caption");
+  const agentName =
+    ctx && ctx.isSubagent && ctx.subagentConfig
+      ? ctx.subagentConfig.agentName
+      : null;
+  if (agentName) caption = _t("screen.captionSub", { name: agentName });
+
+  return _sendWindowScreenshot(win, caption);
+}
+
+/**
+ * /send — нажать кнопку отправки в активном окне чата.
+ * Нужно, если авто-отправка зависла и сообщение осталось в поле ввода.
+ */
+async function _cmdSend() {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed()) {
+    await telegramBot.sendMessage(_t("send.noWindow"));
+    return { success: false, error: "noWindow" };
+  }
+  const res = await _sendInWindow(win);
+  if (res && res.success) {
+    await telegramBot.sendMessage(_t("send.done"));
+  } else {
+    await telegramBot.sendMessage(
+      _t("send.failed", { err: escapeHtml((res && res.error) || "unknown") }),
+      { parseMode: "HTML" },
+    );
+  }
+  return res;
 }
 
 async function _cmdStatus() {
@@ -1763,10 +2025,126 @@ async function _cmdNew() {
   return telegramBot.sendMessage(_t("new.done"));
 }
 
-/** /diff [page] — показать текущие изменения (git diff) в проекте (с пагинацией). */
+/**
+ * Отрисовать diff одного файла в PNG через offscreen BrowserWindow.
+ * Возвращает { success, path } или { success:false, error }.
+ * @param {string} diffText — unified diff
+ * @param {string} filePath — путь файла (для заголовка)
+ * @param {string} status — статус (modified/added/…)
+ */
+async function _renderDiffImage(diffText, filePath, status) {
+  const { BrowserWindow, app } = require("electron");
+  const fs = require("fs");
+  const path = require("path");
+  const text = String(diffText || "");
+  if (!text.trim()) return { success: false, error: "empty diff" };
+
+  // Экранируем и раскрашиваем строки по префиксу.
+  const esc = (s) =>
+    String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  const lines = text.split(/\r?\n/);
+  const rows = lines
+    .map((ln) => {
+      let cls = "ctx";
+      if (ln.startsWith("+") && !ln.startsWith("+++")) cls = "add";
+      else if (ln.startsWith("-") && !ln.startsWith("---")) cls = "del";
+      else if (ln.startsWith("@@")) cls = "hunk";
+      else if (
+        ln.startsWith("diff ") ||
+        ln.startsWith("index ") ||
+        ln.startsWith("+++") ||
+        ln.startsWith("---") ||
+        ln.startsWith("new file") ||
+        ln.startsWith("deleted file") ||
+        ln.startsWith("similarity") ||
+        ln.startsWith("rename ")
+      )
+        cls = "meta";
+      return '<div class="ln ' + cls + '">' + (esc(ln) || "&nbsp;") + "</div>";
+    })
+    .join("");
+
+  const html =
+    "<!DOCTYPE html><html><head><meta charset='utf-8'><style>" +
+    "* { margin:0; padding:0; box-sizing:border-box; }" +
+    "html, body { overflow:hidden; }" +
+    "body { background:#0d0f1a; color:#dde1ff; font-family:'Consolas','Menlo',monospace; font-size:13px; line-height:1.5; padding:18px 20px; width:100%; max-width:1600px; }" +
+    ".head { font-family:-apple-system,'Segoe UI',sans-serif; font-size:15px; font-weight:700; color:#e8eaff; margin-bottom:4px; word-break:break-all; }" +
+    ".sub { font-family:-apple-system,'Segoe UI',sans-serif; font-size:11px; color:#8a90b8; margin-bottom:12px; }" +
+    ".code { background:rgba(255,255,255,0.03); border:1px solid rgba(139,147,255,0.18); border-radius:10px; padding:10px 0; overflow:hidden; }" +
+    ".ln { padding:1px 14px; white-space:pre-wrap; word-break:break-all; }" +
+    ".ln.add { background:rgba(74,222,128,0.12); color:#b8f5cf; }" +
+    ".ln.del { background:rgba(248,113,113,0.12); color:#ffc4c4; }" +
+    ".ln.hunk { color:#8b93ff; background:rgba(139,147,255,0.08); }" +
+    ".ln.meta { color:#8a90b8; }" +
+    "</style></head><body>" +
+    '<div class="head">' +
+    esc(filePath) +
+    "</div>" +
+    '<div class="sub">' +
+    esc(status || "") +
+    "</div>" +
+    '<div class="code">' +
+    rows +
+    "</div>" +
+    "</body></html>";
+
+  let win = null;
+  try {
+    win = new BrowserWindow({
+      show: false,
+      width: 1000,
+      height: 800,
+      webPreferences: {
+        sandbox: true,
+        paintWhenInitiallyHidden: true,
+        backgroundThrottling: false,
+      },
+    });
+    await win.loadURL(
+      "data:text/html;charset=utf-8," + encodeURIComponent(html),
+    );
+    // Ждём отрисовку.
+    await new Promise((r) => setTimeout(r, 300));
+    const wc = win.webContents;
+    const size = await wc.executeJavaScript(
+      "({ w: document.body.scrollWidth, h: document.body.scrollHeight })",
+      true,
+    );
+    const width = Math.max(400, Math.min(1600, (size && size.w) || 1000));
+    const height = Math.max(120, Math.min(4000, (size && size.h) || 800));
+    win.setContentSize(width, height);
+    await new Promise((r) => setTimeout(r, 250));
+    const image = await wc.capturePage();
+    const png = image.toPNG();
+    const outPath = path.join(
+      app.getPath("temp"),
+      "cuckoo-diff-" +
+        Date.now() +
+        "-" +
+        Math.random().toString(36).slice(2, 7) +
+        ".png",
+    );
+    fs.writeFileSync(outPath, png);
+    return { success: true, path: outPath };
+  } catch (err) {
+    return { success: false, error: err.message };
+  } finally {
+    try {
+      if (win && !win.isDestroyed()) win.destroy();
+    } catch (_) {}
+  }
+}
+
+/** Реестр веток для кнопок выбора (chatId → { branches, page }). */
+const _diffBranchState = new Map();
+
+/** /diff — показать изменения: по одной картинке на файл + кнопка коммита. */
 async function _cmdDiff(chatId, page) {
   const projectDir = _projectDir();
-  // Проект не выбран: предлагаем выбрать кнопками.
   if (!projectDir)
     return telegramBot.sendMessage(
       escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"),
@@ -1792,30 +2170,10 @@ async function _cmdDiff(chatId, page) {
   pager.page = cur;
   const slice = files.slice((cur - 1) * size, cur * size);
 
-  const chunks = [];
-  let total = 0;
-  const MAX_TOTAL = 3000;
-  for (const f of slice) {
-    if (total >= MAX_TOTAL) break;
-    const d = await gitDiff.getFileDiff(projectDir, f.path, f.status);
-    if (!d.success || !d.diff) continue;
-    const text = d.diff.slice(0, MAX_TOTAL - total);
-    chunks.push("===== " + f.path + " =====\n" + text);
-    total += text.length;
-  }
-
+  // Заголовок со списком файлов и пагинацией.
   const header =
-    _t("diff.header", { n: files.length }) + " (" + cur + "/" + pages + ")\n";
+    _t("diff.header", { n: files.length }) + " (" + cur + "/" + pages + ")";
   const fileList = slice.map((f) => "• " + escapeHtml(f.path)).join("\n");
-  const body = chunks.join("\n\n") || _t("diff.unavailable");
-  const msg =
-    header +
-    "<blockquote>" +
-    escapeHtml(fileList) +
-    "</blockquote>\n<pre>" +
-    escapeHtml(body) +
-    "</pre>";
-  const keyboard = [];
   const nav = [];
   if (cur > 1)
     nav.push({
@@ -1827,11 +2185,160 @@ async function _cmdDiff(chatId, page) {
       text: _t("page.next"),
       callback_data: "st_pg_diff_" + (cur + 1),
     });
-  if (nav.length) keyboard.push(nav);
-  return telegramBot.sendMessage(msg, {
+  const headerKeyboard = [];
+  if (nav.length) headerKeyboard.push(nav);
+  // Кнопка «попросить коммит и пуш» — на заголовочном сообщении.
+  headerKeyboard.push([
+    { text: _t("diff.commitBtn"), callback_data: "st_diffcommit" },
+  ]);
+  await telegramBot.sendMessage(
+    header + "\n<blockquote>" + fileList + "</blockquote>",
+    { parseMode: "HTML", replyMarkup: { inline_keyboard: headerKeyboard } },
+  );
+
+  // Рендерим картинки параллельно (ограниченный пул — не более 3 окон
+  // одновременно, чтобы не перегружать систему), затем шлём альбомами по 10.
+  const renderOne = async (f) => {
+    try {
+      const d = await gitDiff.getFileDiff(projectDir, f.path, f.status);
+      if (!d.success || !d.diff || !d.diff.trim()) return null;
+      const r = await _renderDiffImage(d.diff, f.path, f.status);
+      if (!r.success) return { error: f.path };
+      return {
+        path: r.path,
+        caption: _t("diff.fileCaption", {
+          path: escapeHtml(f.path),
+          status: escapeHtml(f.status),
+        }),
+        parseMode: "HTML",
+      };
+    } catch (_) {
+      return null;
+    }
+  };
+  const CONCURRENCY = 3;
+  const rendered = [];
+  for (let i = 0; i < slice.length; i += CONCURRENCY) {
+    const batch = slice.slice(i, i + CONCURRENCY);
+    const part = await Promise.all(batch.map(renderOne));
+    rendered.push(...part);
+  }
+
+  const failed = rendered.filter((r) => r && r.error);
+  const ok = rendered.filter((r) => r && r.path);
+
+  // Отправляем пачками по 10 (лимит Telegram для sendMediaGroup).
+  const CHUNK = 10;
+  for (let i = 0; i < ok.length; i += CHUNK) {
+    const batch = ok.slice(i, i + CHUNK);
+    const res = await telegramBot.sendMediaGroup(batch);
+    // Если альбом не прошёл — шлём по одному как fallback.
+    if (!res || !res.success) {
+      for (const it of batch) {
+        await telegramBot.sendPhoto(it.path, {
+          caption: it.caption,
+          parseMode: it.parseMode,
+        });
+      }
+    }
+  }
+
+  // Сообщения об ошибках рендера (если были).
+  for (const f of failed) {
+    await telegramBot.sendMessage(
+      _t("diff.renderFailed", { path: escapeHtml(f.error) }),
+      { parseMode: "HTML" },
+    );
+  }
+
+  // Удаляем временные файлы.
+  for (const it of ok) {
+    try {
+      require("fs").unlinkSync(it.path);
+    } catch (_) {}
+  }
+}
+
+/** Показать список веток кнопками (после нажатия «Попросить коммит и пуш»). */
+async function _cmdDiffBranches(chatId, msgId) {
+  const projectDir = _projectDir();
+  if (!projectDir) {
+    await telegramBot.sendMessage(_t("diff.noProject"));
+    return;
+  }
+  const gitDiff = require("../src/main/git-diff");
+  const res = await gitDiff.listBranches(projectDir);
+  if (!res.success) {
+    await telegramBot.sendMessage(
+      _t("diff.gitUnavailable", {
+        reason: escapeHtml(res.reason || _t("diff.gitDefault")),
+      }),
+    );
+    return;
+  }
+  const branches = res.branches || [];
+  if (branches.length === 0) {
+    await telegramBot.sendMessage(_t("diff.branchNone"));
+    return;
+  }
+  // Локальные — первыми.
+  branches.sort((a, b) => {
+    if (a.remote !== b.remote) return a.remote ? 1 : -1;
+    if (a.current !== b.current) return a.current ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+  _diffBranchState.set(chatId, { branches });
+  const cur = await gitDiff.currentBranch(projectDir);
+  const keyboard = [];
+  branches.forEach((b, i) => {
+    const mark = b.current ? "✓ " : b.remote ? "☁ " : "• ";
+    keyboard.push([{ text: mark + b.name, callback_data: "st_diffbr_" + i }]);
+  });
+  const title =
+    _t("diff.branchTitle") +
+    "\n" +
+    (cur && cur.success
+      ? _t("diff.branchCurrent", { branch: escapeHtml(cur.branch) })
+      : "") +
+    "\n" +
+    _t("diff.branchHint");
+  if (msgId) {
+    const r = await telegramBot.editMessageText(msgId, title, {
+      parseMode: "HTML",
+      replyMarkup: { inline_keyboard: keyboard },
+    });
+    if (r && r.success) return;
+  }
+  await telegramBot.sendMessage(title, {
     parseMode: "HTML",
     replyMarkup: { inline_keyboard: keyboard },
   });
+}
+
+/** Выбрана ветка — сформировать промпт и отправить в чат Cookie Code. */
+async function _cmdDiffCommit(chatId, branchIdx) {
+  const state = _diffBranchState.get(chatId);
+  const branches = state ? state.branches : [];
+  const b = branches[branchIdx];
+  if (!b) {
+    await telegramBot.sendMessage(_t("diff.branchNone"));
+    return;
+  }
+  const prompt = _t("diff.commitPrompt", { branch: b.name });
+  const r = await _sendToChat(prompt);
+  if (r && r.success) {
+    await telegramBot.sendMessage(
+      _t("diff.promptSent", { branch: escapeHtml(b.name) }),
+      { parseMode: "HTML" },
+    );
+  } else {
+    await telegramBot.sendMessage(
+      _t("diff.promptFailed", {
+        err: escapeHtml((r && r.error) || "unknown"),
+      }),
+      { parseMode: "HTML" },
+    );
+  }
 }
 
 /** /diagnostics — отчёт диагностики интеграции. */
@@ -2105,6 +2612,9 @@ const _lastListMsg = new Map();
 
 // Режим ручного ввода пути к проекту: chatId → true (ждём абсолютный путь).
 const _projectWaiting = new Set();
+
+// Ожидание «своего ответа» на вопрос: chatId → { requestId, qi }.
+const _questionWaiting = new Map();
 
 // Известные проекты: берём из session-dir-map активного профиля + текущий.
 function _knownProjects() {
@@ -2540,6 +3050,7 @@ async function _cmdHelp() {
     _t("help.cmd.agents"),
     _t("help.cmd.toggles"),
     _t("help.cmd.screen"),
+    _t("help.cmd.send"),
     _t("help.cmd.cancel"),
     _t("help.cmd.help"),
     "",
@@ -3008,13 +3519,15 @@ async function _handleIncoming(chatId, text, msg) {
   }
   if (cmd === "/cancel") {
     const hadSettings = _settingsWaiting.delete(chatId);
+    const hadQuestion = _questionWaiting.delete(chatId);
     // Отменяем все ожидающие approval (AI больше не ждёт подтверждения).
     let cancelledApprovals = 0;
     for (const id of Array.from(_pendingApprovals.keys())) {
       const r = cancelApproval(id);
       if (r && r.success && !r.skipped) cancelledApprovals++;
     }
-    if (hadSettings) await telegramBot.sendMessage(_t("input.cancelled"));
+    if (hadSettings || hadQuestion)
+      await telegramBot.sendMessage(_t("input.cancelled"));
     else if (cancelledApprovals > 0)
       await telegramBot.sendMessage(
         _t("input.approvalsCancelled", { n: cancelledApprovals }),
@@ -3031,6 +3544,11 @@ async function _handleIncoming(chatId, text, msg) {
     await _cmdScreen();
     return;
   }
+  // Команда /send — нажать кнопку отправки в активном окне.
+  if (cmd === "/send") {
+    await _cmdSend();
+    return;
+  }
   // Команда /agents — список субагентов проекта.
   if (cmd === "/agents" || cmd === "/agent") {
     await _cmdAgents();
@@ -3040,6 +3558,12 @@ async function _handleIncoming(chatId, text, msg) {
   if (cmd === "/toggles" || cmd === "/toggle") {
     await _cmdToggles(chatId);
     return;
+  }
+
+  // ---- Ожидание «своего ответа» на вопрос от ИИ ----
+  if (_questionWaiting.has(chatId)) {
+    const handled = await _handleQuestionInput(chatId, raw);
+    if (handled) return;
   }
 
   // ---- Ожидание ввода значения настройки ----
@@ -3434,6 +3958,55 @@ function _techQueue(toolName, args, preview, agentName) {
 // общего 🔧 <label> <path>. Сообщение отправляется сразу (без батчинга).
 
 /**
+ * Красивое сообщение для todoWrite: заголовок + счётчик + чек-лист задач.
+ * Оформление в стиле карточек агентов (_renderCreateAgent).
+ * @returns {string|null}
+ */
+function _renderTodoWrite(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "todo_write" && name !== "todowrite") return null;
+  if (!ok) return null;
+
+  const a = args && typeof args === "object" ? args : {};
+  const items = Array.isArray(a.todos) ? a.todos : [];
+  if (items.length === 0) return _t("todo.empty");
+
+  const done = items.filter((t) => t && t.status === "completed").length;
+  const allDone = done === items.length;
+
+  // Заголовок: создание списка / обновление / всё выполнено.
+  const allPending = items.every((t) => !t || t.status === "pending");
+  let title;
+  if (allDone) title = _t("todo.doneTitle");
+  else if (allPending) title = _t("todo.createTitle");
+  else title = _t("todo.updateTitle");
+
+  const icon = { pending: "☐", in_progress: "◔", completed: "☑" };
+  const lines = items
+    .map(
+      (t) =>
+        (icon[(t && t.status) || "pending"] || "☐") +
+        " " +
+        escapeHtml((t && t.content) || ""),
+    )
+    .join("\n");
+
+  return (
+    title +
+    "\n\n" +
+    "☑ " +
+    escapeHtml(_t("todo.count", { total: items.length, done: done })) +
+    "\n" +
+    "<b>" +
+    escapeHtml(_t("todo.list")) +
+    "</b>\n" +
+    "<blockquote expandable>" +
+    lines +
+    "</blockquote>"
+  );
+}
+
+/**
  * Красивое сообщение для memory_save / memory_read / memory_clear.
  * @returns {string|null}  HTML-сообщение или null, если не наш инструмент
  */
@@ -3821,6 +4394,19 @@ async function notifyToolResult(toolName, ok, detail) {
     }
   }
 
+  // Задачи (todoWrite): собственная карточка со списком задач — ДО ignore-фильтра,
+  // чтобы красивое уведомление приходило всегда (см. решение пользователя).
+  if (ok) {
+    try {
+      const todoMsg = _renderTodoWrite(toolName, ok, args, preview);
+      if (todoMsg) {
+        return telegramBot.sendMessage(todoMsg, { parseMode: "HTML" });
+      }
+    } catch (err) {
+      console.error("[bot] todo render failed:", err.message);
+    }
+  }
+
   // Умные уведомления: пропускаем инструменты из списка исключений.
   if (cfg.notifyIgnore.length > 0 && cfg.notifyIgnore.includes(_toolLower)) {
     return { success: false, skipped: true };
@@ -3931,6 +4517,7 @@ async function _registerCommands() {
       agents: "субагенты проекта",
       toggles: "тумблеры DeepSeek",
       screen: "скриншот окна",
+      send: "нажать кнопку отправки",
       cancel: "отменить ввод",
     },
     en: {
@@ -3951,6 +4538,7 @@ async function _registerCommands() {
       agents: "project subagents",
       toggles: "DeepSeek toggles",
       screen: "window screenshot",
+      send: "press send button",
       cancel: "cancel",
     },
   }[lang];

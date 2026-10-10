@@ -396,6 +396,17 @@ function registerIpcListeners() {
       } catch (e) {}
     }
   });
+
+  // Ответ из окна кастомного уведомления — сразу вставляем в чат и отправляем.
+  ipcRenderer.on("cuckoo-notif-reply", (_event, text) => {
+    const msg = String(text || "").trim();
+    if (!msg) return;
+    try {
+      sendToChat(msg, "notif-reply");
+    } catch (e) {
+      console.error("[Cookie Code] notif-reply send error:", e.message);
+    }
+  });
 }
 
 module.exports = {

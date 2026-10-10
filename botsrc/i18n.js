@@ -47,6 +47,7 @@ const STRINGS = {
     "help.cmd.agents": "/agents      — список субагентов проекта",
     "help.cmd.toggles": "/toggles     — тумблеры поиска и раздумий DeepSeek",
     "help.cmd.screen": "/screen      — скриншот активного окна",
+    "help.cmd.send": "/send        — нажать кнопку отправки в окне",
     "help.cmd.cancel": "/cancel      — отменить ввод / подтверждение",
     "help.cmd.help": "/help        — эта справка",
     "help.features": "<b>Возможности</b>",
@@ -166,6 +167,18 @@ const STRINGS = {
     "diff.none": "✅ Изменений нет.",
     "diff.header": "📝 <b>Изменения ({n})</b>",
     "diff.unavailable": "(diff недоступен)",
+    "diff.fileCaption": "📄 <b>{path}</b> · {status}",
+    "diff.renderFailed": "⚠️ Не удалось отрисовать diff для {path}",
+    "diff.commitBtn": "✅ Попросить коммит и пуш",
+    "diff.branchTitle": "🌿 <b>Выберите ветку</b>",
+    "diff.branchHint": "<i>Куда коммитить и пушить?</i>",
+    "diff.branchCurrent": "🌿 Текущая ветка: <code>{branch}</code>",
+    "diff.branchNone": "⚠️ Ветки не найдены.",
+    "diff.promptSent":
+      "✅ Запрос отправлен в Cookie Code: коммит и пуш в ветку <code>{branch}</code>.",
+    "diff.promptFailed": "⚠️ Не удалось отправить запрос: {err}",
+    "diff.commitPrompt":
+      "Закоммить все текущие изменения и запушь в ветку {branch}. Сначала посмотри git status и git diff, сформируй осмысленное сообщение коммита (Conventional Commits), затем git commit и git push в указанную ветку.",
 
     // ===== /diagnostics =====
     "diag.title": "🩺 <b>Диагностика</b>",
@@ -252,6 +265,14 @@ const STRINGS = {
     "tool.items": " пункт(ов)",
     "tool.allDone": "🎉 <b>Все задачи выполнены</b> ({n}/{n})",
 
+    // ===== Задачи (todoWrite) =====
+    "todo.createTitle": "📋 <b>ИИ создаёт список задач</b>",
+    "todo.updateTitle": "📋 <b>ИИ обновляет список задач</b>",
+    "todo.doneTitle": "🎉 <b>Все задачи выполнены</b>",
+    "todo.count": "Задач: {total} · выполнено: {done}",
+    "todo.list": "Задачи:",
+    "todo.empty": "☑ Список задач пуст.",
+
     // ===== Память (memory_save/read/clear) =====
     "mem.readTitle": "🧠 <b>ИИ читает память</b>",
     "mem.saveTitle": "🧠 <b>ИИ сохраняет в память</b>",
@@ -337,8 +358,16 @@ const STRINGS = {
     "plan.closed": "Запрос уже закрыт",
 
     // ===== Скриншот =====
+    // ===== Send button (/send) =====
+    "send.done": "📨 Кнопка отправки нажата",
+    "send.failed": "⚠ Не удалось отправить: {err}",
+    "send.noWindow": "нет активного окна",
+
     "screen.capturing": "📸 Делаю скриншот окна...",
     "screen.caption": "📸 Скриншот активного окна",
+    "screen.captionSub": "📸 Скриншот: {name}",
+    "screen.choose": "📸 <b>Выберите окно для скриншота</b>",
+    "screen.btnMain": "🖥 Main",
     "screen.noWindow": "Нет активного окна",
     "screen.error": "Не удалось сделать скриншот: {err}",
 
@@ -358,6 +387,12 @@ const STRINGS = {
     "question.accepted": "Принято: {answer}",
     "question.skip": "🚫 Отказаться отвечать",
     "question.skipped": "Вопрос отменён",
+    "question.custom": "✍️ Свой ответ",
+    "question.customPrompt":
+      "✍️ Отправьте свой ответ текстом следующим сообщением.",
+    "question.customEmpty":
+      "⚠️ Пустой ответ. Отправьте текст или нажмите «Отказаться».",
+    "question.busy": "⚠️ Сначала ответьте на текущий вопрос.",
 
     // ===== Уведомление об ответе AI =====
     "ai.truncated": "…(обрезано, всего {n} симв.)",
@@ -405,6 +440,7 @@ const STRINGS = {
     "help.cmd.agents": "/agents      — project subagents list",
     "help.cmd.toggles": "/toggles     — DeepSeek search & deep-think toggles",
     "help.cmd.screen": "/screen      — screenshot of the active window",
+    "help.cmd.send": "/send        — press the send button in the window",
     "help.cmd.cancel": "/cancel      — cancel input / approval",
     "help.cmd.help": "/help        — this help",
     "help.features": "<b>Features</b>",
@@ -525,6 +561,18 @@ const STRINGS = {
     "diff.none": "✅ No changes.",
     "diff.header": "📝 <b>Changes ({n})</b>",
     "diff.unavailable": "(diff unavailable)",
+    "diff.fileCaption": "📄 <b>{path}</b> · {status}",
+    "diff.renderFailed": "⚠️ Failed to render diff for {path}",
+    "diff.commitBtn": "✅ Ask to commit and push",
+    "diff.branchTitle": "🌿 <b>Choose a branch</b>",
+    "diff.branchHint": "<i>Where to commit and push?</i>",
+    "diff.branchCurrent": "🌿 Current branch: <code>{branch}</code>",
+    "diff.branchNone": "⚠️ No branches found.",
+    "diff.promptSent":
+      "✅ Request sent to Cookie Code: commit and push to <code>{branch}</code>.",
+    "diff.promptFailed": "⚠️ Failed to send request: {err}",
+    "diff.commitPrompt":
+      "Commit all current changes and push to branch {branch}. First check git status and git diff, craft a meaningful commit message (Conventional Commits), then git commit and git push to the specified branch.",
 
     // ===== /diagnostics =====
     "diag.title": "🩺 <b>Diagnostics</b>",
@@ -611,6 +659,14 @@ const STRINGS = {
     "tool.items": " item(s)",
     "tool.allDone": "🎉 <b>All tasks completed</b> ({n}/{n})",
 
+    // ===== Tasks (todoWrite) =====
+    "todo.createTitle": "📋 <b>AI creates a task list</b>",
+    "todo.updateTitle": "📋 <b>AI updates the task list</b>",
+    "todo.doneTitle": "🎉 <b>All tasks completed</b>",
+    "todo.count": "Tasks: {total} · done: {done}",
+    "todo.list": "Tasks:",
+    "todo.empty": "☑ Task list is empty.",
+
     // ===== Memory (memory_save/read/clear) =====
     "mem.readTitle": "🧠 <b>AI reads memory</b>",
     "mem.saveTitle": "🧠 <b>AI saves to memory</b>",
@@ -696,8 +752,16 @@ const STRINGS = {
     "plan.closed": "Request already closed",
 
     // ===== Screenshot =====
+    // ===== Send button (/send) =====
+    "send.done": "📨 Send button pressed",
+    "send.failed": "⚠ Failed to send: {err}",
+    "send.noWindow": "no active window",
+
     "screen.capturing": "📸 Capturing window screenshot...",
     "screen.caption": "📸 Active window screenshot",
+    "screen.captionSub": "📸 Screenshot: {name}",
+    "screen.choose": "📸 <b>Choose a window to capture</b>",
+    "screen.btnMain": "🖥 Main",
     "screen.noWindow": "No active window",
     "screen.error": "Failed to capture screenshot: {err}",
 
@@ -717,6 +781,10 @@ const STRINGS = {
     "question.accepted": "Accepted: {answer}",
     "question.skip": "🚫 Refuse to answer",
     "question.skipped": "Question cancelled",
+    "question.custom": "✍️ Custom answer",
+    "question.customPrompt": "✍️ Send your answer as a text message.",
+    "question.customEmpty": '⚠️ Empty answer. Send text or tap "Refuse".',
+    "question.busy": "⚠️ Answer the current question first.",
 
     // ===== AI response notification =====
     "ai.truncated": "…(truncated, {n} chars total)",

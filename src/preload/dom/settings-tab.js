@@ -443,6 +443,19 @@ function buildContentHTML() {
     "</div>" +
     '    <input type="checkbox" id="cuckoo-rgb-username" checked>' +
     "  </label>" +
+    '  <div class="ck-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
+    '    <div class="ck-row-title">' +
+    t("settings.effect.rgbStyle") +
+    "</div>" +
+    '    <select id="cuckoo-rgb-style" class="cuckoo-input" style="min-width:150px;">' +
+    '      <option value="rgb">' +
+    t("settings.effect.rgbStyle.rgb") +
+    "</option>" +
+    '      <option value="blood">' +
+    t("settings.effect.rgbStyle.blood") +
+    "</option>" +
+    "    </select>" +
+    "  </div>" +
     "  </div>" +
     "</div>" +
     '<div data-cat="theme">' +
@@ -2724,28 +2737,46 @@ function bindResetButton() {
  */
 function bindRgbCheckbox() {
   const cb = document.getElementById("cuckoo-rgb-username");
-  if (!cb) return;
-  cb.addEventListener("change", async () => {
-    const enabled = cb.checked;
-    background.applyRgbUsername(enabled);
-    try {
-      const res = await window.electronAPI.setCuckooSetting(
-        "rgbUsername",
-        enabled,
-      );
-      if (!res || !res.success) {
+  const sel = document.getElementById("cuckoo-rgb-style");
+  const currentStyle = () => (sel && sel.value) || "rgb";
+  if (cb) {
+    cb.addEventListener("change", async () => {
+      const enabled = cb.checked;
+      background.applyRgbUsername(enabled, currentStyle());
+      try {
+        const res = await window.electronAPI.setCuckooSetting(
+          "rgbUsername",
+          enabled,
+        );
+        if (!res || !res.success) {
+          console.error(
+            "[Cookie Code] Не удалось сохранить rgbUsername:",
+            res && res.error,
+          );
+        }
+      } catch (err) {
         console.error(
-          "[Cookie Code] Не удалось сохранить rgbUsername:",
-          res && res.error,
+          "[Cookie Code] Ошибка сохранения rgbUsername:",
+          err.message,
         );
       }
-    } catch (err) {
-      console.error(
-        "[Cookie Code] Ошибка сохранения rgbUsername:",
-        err.message,
-      );
-    }
-  });
+    });
+  }
+  if (sel) {
+    sel.addEventListener("change", async () => {
+      const style = sel.value === "blood" ? "blood" : "rgb";
+      const enabled = cb ? cb.checked : true;
+      background.applyRgbUsername(enabled, style);
+      try {
+        await window.electronAPI.setCuckooSetting("rgbUsernameStyle", style);
+      } catch (err) {
+        console.error(
+          "[Cookie Code] Ошибка сохранения rgbUsernameStyle:",
+          err.message,
+        );
+      }
+    });
+  }
 }
 
 function bindCustomizationToggle() {
@@ -3152,6 +3183,9 @@ async function refreshRgbCheckbox() {
     const s = await window.electronAPI.getCuckooSettings();
     const cb = document.getElementById("cuckoo-rgb-username");
     if (cb) cb.checked = s && s.rgbUsername !== false;
+    const sel = document.getElementById("cuckoo-rgb-style");
+    if (sel)
+      sel.value = (s && s.rgbUsernameStyle) === "blood" ? "blood" : "rgb";
   } catch (_) {}
 }
 

@@ -232,9 +232,9 @@ function buildOverlayHTML() {
     '      <button id="cuckoo-diff-refresh" class="cuckoo-btn-refresh-sessions" title="' +
       t("diff.btn.refresh") +
       '"><svg viewBox="0 0 513.806 513.806" width="14" height="14" fill="currentColor" style="display:block"><path d="M66.074,228.731C81.577,123.379,179.549,50.542,284.901,66.045c35.944,5.289,69.662,20.626,97.27,44.244l-24.853,24.853c-8.33,8.332-8.328,21.84,0.005,30.17c3.999,3.998,9.423,6.245,15.078,6.246h97.835c11.782,0,21.333-9.551,21.333-21.333V52.39c-0.003-11.782-9.556-21.331-21.338-21.329c-5.655,0.001-11.079,2.248-15.078,6.246L427.418,65.04C321.658-29.235,159.497-19.925,65.222,85.835c-33.399,37.467-55.073,83.909-62.337,133.573c-2.864,17.607,9.087,34.202,26.693,37.066c1.586,0.258,3.188,0.397,4.795,0.417C50.481,256.717,64.002,244.706,66.074,228.731z"/><path d="M479.429,256.891c-16.108,0.174-29.629,12.185-31.701,28.16C432.225,390.403,334.253,463.24,228.901,447.738c-35.944-5.289-69.662-20.626-97.27-44.244l24.853-24.853c8.33-8.332,8.328-21.84-0.005-30.17c-3.999-3.998-9.423-6.245-15.078-6.246H43.568c-11.782,0-21.333,9.551-21.333,21.333v97.835c0.003,11.782,9.556,21.331,21.338,21.329c5.655-0.001,11.079-2.248,15.078-6.246l27.733-27.733c105.735,94.285,267.884,85.004,362.17-20.732c33.417-37.475,55.101-83.933,62.363-133.615c2.876-17.605-9.064-34.208-26.668-37.084C482.655,257.051,481.044,256.91,479.429,256.891z"/></svg></button>',
-    '      <button id="cuckoo-diff-commit-all" class="cuckoo-btn-refresh-sessions" title="' +
-      t("diff.btn.commitAll.title") +
-      '"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="display:block"><path d="M19.5,24a1,1,0,0,1-.929-.628l-.844-2.113-2.116-.891a1.007,1.007,0,0,1,.035-1.857l2.088-.791.837-2.092a1.008,1.008,0,0,1,1.858,0l.841,2.1,2.1.841a1.007,1.007,0,0,1,0,1.858l-2.1.841-.841,2.1A1,1,0,0,1,19.5,24ZM10,21a2,2,0,0,1-1.936-1.413L6.45,14.54,1.387,12.846a2.032,2.032,0,0,1,.052-3.871L6.462,7.441,8.154,2.387A1.956,1.956,0,0,1,10.108,1a2,2,0,0,1,1.917,1.439l1.532,5.015,5.03,1.61a2.042,2.042,0,0,1,0,3.872h0l-5.039,1.612-1.612,5.039A2,2,0,0,1,10,21Zm.112-17.977L8.2,8.564a1,1,0,0,1-.656.64L2.023,10.888l5.541,1.917a1,1,0,0,1,.636.643l1.77,5.53,1.83-5.53a1,1,0,0,1,.648-.648l5.53-1.769a.072.072,0,0,0,.02-.009L12.448,9.2a1,1,0,0,1-.652-.661Zm8.17,8.96h0ZM20.5,7a1,1,0,0,1-.97-.757l-.357-1.43L17.74,4.428a1,1,0,0,1,.034-1.94l1.4-.325L19.53.757a1,1,0,0,1,1.94,0l.354,1.418,1.418.355a1,1,0,0,1,0,1.94l-1.418.355L21.47,6.243A1,1,0,0,1,20.5,7Z"/></svg></button>',
+    '      <button id="cuckoo-diff-commit-branch" class="cuckoo-btn-refresh-sessions" title="' +
+      t("diff.btn.commitBranch.title") +
+      '"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" style="display:block"><circle cx="4.5" cy="3.5" r="1.8"/><circle cx="4.5" cy="12.5" r="1.8"/><circle cx="11.5" cy="6.5" r="1.8"/><path d="M4.5 5.3v5.4M6.3 3.5h2.2a3 3 0 0 1 3 3v0"/></svg></button>',
     '      <button id="cuckoo-diff-close" class="cuckoo-btn-icon" title="' +
       t("diff.btn.close") +
       '">×</button>',
@@ -967,14 +967,23 @@ const OVERLAY_CSS = [
   // Переливание включается, если у <body> нет класса `cuckoo-rgb-off`.
   // Управляется настройкой rgbUsername из settings.json.
   "body:not(.cuckoo-rgb-off) ._9d8da05 {",
-  "  background: linear-gradient(90deg, #ff4d4d, #ffa64d, #ffee4d, #4dff88, #4dd2ff, #8a4dff, #ff4dd2, #ff4d4d);",
-  "  background-size: 400% 100%;",
-  "  -webkit-background-clip: text;",
-  "  background-clip: text;",
-  "  -webkit-text-fill-color: transparent;",
-  "  color: transparent;",
-  "  animation: cuckoo-rgb-username 5s linear infinite;",
-  "  font-weight: 600;",
+  "  background-image: linear-gradient(90deg, #ff4d4d, #ffa64d, #ffee4d, #4dff88, #4dd2ff, #8a4dff, #ff4dd2, #ff4d4d) !important;",
+  "  background-size: 400% 100% !important;",
+  "  -webkit-background-clip: text !important;",
+  "  background-clip: text !important;",
+  "  -webkit-text-fill-color: transparent !important;",
+  "  color: transparent !important;",
+  "  animation: cuckoo-rgb-username 5s linear infinite !important;",
+  "  font-weight: 600 !important;",
+  "}",
+  // «Кровавый» вариант: чёрный → тёмное бордо → алый → тёмный → чёрный.
+  "body:not(.cuckoo-rgb-off).cuckoo-rgb-blood ._9d8da05 {",
+  "  background-image: linear-gradient(90deg, #0a0a0a, #4a0a0a, #8b0000, #c81e1e, #ff2d2d, #8b0000, #4a0a0a, #0a0a0a) !important;",
+  "  background-size: 400% 100% !important;",
+  "  -webkit-background-clip: text !important;",
+  "  background-clip: text !important;",
+  "  -webkit-text-fill-color: transparent !important;",
+  "  color: transparent !important;",
   "}",
   "@keyframes cuckoo-rgb-username {",
   "  0% { background-position: 0% 50%; }",

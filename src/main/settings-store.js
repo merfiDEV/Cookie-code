@@ -39,7 +39,9 @@ const DEFAULTS = {
   sidebarOpacity: 45, // % — плотность фона сайдбара (0 = прозрачно)
   toolBlockOpacity: 55, // % — плотность фона tool-блоков в чате
   toolBlockBlur: 0, // px — стекло tool-блоков в чате
-  rgbUsername: true, // RGB-переливание ника пользователя (по умолчанию вкл)
+  rgbUsername: true, // Переливание ника пользователя (по умолчанию вкл)
+  // Стиль переливания ника: 'rgb' (радуга) | 'blood' (чёрно-красный «кровь»).
+  rgbUsernameStyle: "rgb",
   dangerousPatterns: DEFAULT_DANGEROUS_PATTERNS, // список regex-паттернов опасных команд
   language: "ru", // язык UI: 'ru' | 'en'
   formattersEnabled: true, // авто-форматирование после write/edit (prettier/gofmt/ruff/...)
@@ -61,7 +63,9 @@ const DEFAULTS = {
   // Актуально только при включённом telegramNotifyTools.
   // "read"/"readLines" здесь НЕ исключаем: чтение файлов — заметное действие,
   // и в компактных уведомлениях оно показывается как «📖 Reading <path>».
-  telegramToolNotifyIgnore: ["glob", "grep", "todoWrite"],
+  // todoWrite исключён из ignore: у него своя красивая карточка со списком задач
+  // в боте (см. _renderTodoWrite в botsrc/index.js).
+  telegramToolNotifyIgnore: ["glob", "grep"],
   telegramChatFeed: false, // принимать сообщения из TG в чат DeepSeek
   // ===== Распознавание голосовых (локальный Whisper, botsrc/whisper.js) =====
   telegramVoiceEnabled: false, // распознавать голосовые из TG локальным Whisper

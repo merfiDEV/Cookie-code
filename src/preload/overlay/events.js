@@ -605,11 +605,13 @@ function bindEvents() {
   const diffCloseBtn = document.getElementById("cuckoo-diff-close");
   diffCloseBtn?.addEventListener("click", closeDiffPanel);
 
-  // Diff-панель: «Коммит» — вставить все diff в чат и попросить AI закоммитить
-  const diffCommitAllBtn = document.getElementById("cuckoo-diff-commit-all");
-  diffCommitAllBtn?.addEventListener("click", () => {
-    require("./diff-panel").commitAllToChat();
+  // Diff-панель: «Коммит и пуш» — выбрать ветку, затем попросить коммит и пуш
+  const diffCommitBranchBtn = document.getElementById(
+    "cuckoo-diff-commit-branch",
+  );
+  diffCommitBranchBtn?.addEventListener("click", () => {
     closeDiffPanel();
+    require("./diff-panel").showBranchPicker();
   });
 
   // Diff-панель: обновить (в зависимости от активной вкладки)

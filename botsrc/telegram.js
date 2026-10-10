@@ -202,6 +202,64 @@ class TelegramBot {
     return this._sendFile("sendPhoto", "photo", filePath, opts);
   }
 
+  /**
+   * Отправить альбом фото (sendMediaGroup). До 10 фото в одном сообщении.
+   * @param {Array<{path:string, caption?:string, parseMode?:string}>} items
+   * @param {{chatId?:string}} [opts]
+   * @returns {Promise<{success:boolean, messageIds?:number[], error?:string}>}
+   */
+  async sendMediaGroup(items, opts = {}) {
+    if (!this.token) return { success: false, error: "token не задан" };
+    const chatId = opts.chatId || this.chatId;
+    if (!chatId) return { success: false, error: "chat_id не задан" };
+    const list = Array.isArray(items)
+      ? items.filter((it) => it && it.path)
+      : [];
+    if (list.length === 0) return { success: false, error: "нет файлов" };
+    try {
+      const fs = require("fs");
+      const path = require("path");
+      const form = new FormData();
+      form.append("chat_id", String(chatId));
+      const media = [];
+      list.forEach((it, i) => {
+        if (!fs.existsSync(it.path)) return;
+        const attach = "file" + i;
+        const name = path.basename(it.path);
+        const buf = fs.readFileSync(it.path);
+        form.append(attach, new Blob([buf]), name);
+        const item = { type: "photo", media: "attach://" + attach };
+        if (it.caption) {
+          item.caption = String(it.caption);
+          if (it.parseMode) item.parse_mode = String(it.parseMode);
+        }
+        media.push(item);
+      });
+      if (media.length === 0) return { success: false, error: "нет файлов" };
+      form.append("media", JSON.stringify(media));
+
+      const res = await fetch(this._apiUrl("sendMediaGroup"), {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        const err = (data && data.description) || "HTTP " + res.status;
+        this._lastError = err;
+        return { success: false, error: err };
+      }
+      this._lastError = null;
+      const arr = Array.isArray(data.result) ? data.result : [];
+      return {
+        success: true,
+        messageIds: arr.map((m) => m && m.message_id).filter(Boolean),
+      };
+    } catch (err) {
+      this._lastError = err.message;
+      return { success: false, error: err.message };
+    }
+  }
+
   /** Общая реализация отправки файла через multipart/form-data. */
   async _sendFile(method, field, filePath, opts = {}) {
     if (!this.token) return { success: false, error: "token не задан" };
@@ -216,6 +274,7 @@ class TelegramBot {
       const form = new FormData();
       form.append("chat_id", String(chatId));
       if (opts.caption) form.append("caption", String(opts.caption));
+      if (opts.parseMode) form.append("parse_mode", String(opts.parseMode));
       const name = opts.fileName || path.basename(filePath);
       form.append(field, new Blob([buf]), name);
 

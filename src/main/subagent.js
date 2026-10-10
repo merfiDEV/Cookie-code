@@ -141,6 +141,81 @@ function waitForDone(windowId, timeoutMs) {
 }
 
 /**
+ * Показать кастомное уведомление о результате субагента.
+ * @param {object} parentCtx — контекст родительского окна (нужен win)
+ * @param {string} agentName
+ * @param {string|null} errorText — текст ошибки/таймаута, если есть
+ * @param {boolean} isError
+ */
+function showSubagentNotification(parentCtx, agentName, errorText, isError) {
+  try {
+    const lang =
+      require("./settings-store").getSetting("language") === "en" ? "en" : "ru";
+    const name = agentName || "agent";
+    let title;
+    let body;
+    if (isError) {
+      title = {
+        ru: "Субагент " + name + " — ошибка",
+        en: "Subagent " + name + " — error",
+      }[lang];
+      body =
+        errorText ||
+        { ru: "Не удалось получить результат", en: "Failed to get result" }[
+          lang
+        ];
+    } else {
+      title = {
+        ru: "Субагент " + name + " вернул результат",
+        en: "Subagent " + name + " returned a result",
+      }[lang];
+      body = { ru: "Результат добавлен в чат", en: "Result added to the chat" }[
+        lang
+      ];
+    }
+
+    let iconDataUrl = "";
+    try {
+      const fs = require("fs");
+      const p = require("path").join(
+        __dirname,
+        "..",
+        "..",
+        "build",
+        "icon.png",
+      );
+      if (fs.existsSync(p)) {
+        iconDataUrl =
+          "data:image/png;base64," + fs.readFileSync(p).toString("base64");
+      }
+    } catch (_) {}
+
+    const parentWin = parentCtx ? parentCtx.win : null;
+    const focusParent = () => {
+      try {
+        if (!parentWin || parentWin.isDestroyed()) return;
+        if (parentWin.isMinimized()) parentWin.restore();
+        if (!parentWin.isVisible()) parentWin.show();
+        parentWin.focus();
+      } catch (_) {}
+    };
+
+    require("./notification-window").show({
+      title,
+      body,
+      iconDataUrl,
+      onClick: focusParent,
+      mainWindow: parentWin,
+    });
+  } catch (err) {
+    console.error(
+      "[Subagent] не удалось показать уведомление:",
+      err && err.message,
+    );
+  }
+}
+
+/**
  * Запустить субагента.
  * @param {Object} opts
  * @param {string} opts.parentProfileId  — profileId родителя (общий partition)
@@ -280,8 +355,17 @@ async function runAgent(opts) {
     await sendInitPromptWhenReady(subWin, projectDir, extra, timeoutMs);
 
     const text = await waitForDone(windowId, timeoutMs);
-    if (text === "__SUBAGENT_TIMEOUT__")
+    if (text === "__SUBAGENT_TIMEOUT__") {
+      showSubagentNotification(
+        parentCtx,
+        opts.agentName,
+        "Субагент не ответил за отведённое время",
+        true,
+      );
       throw new Error("Субагент не ответил за отведённое время");
+    }
+    // Уведомляем о готовом результате субагента (кастомное MD3-уведомление).
+    showSubagentNotification(parentCtx, opts.agentName, null, false);
     return text;
   } finally {
     decRunning(opts.parentProfileId);

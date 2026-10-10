@@ -168,7 +168,7 @@ async function renderDiffList() {
  * вместе с просьбой закоммитить (через агента или самому).
  * Минималистичная кнопка ✓ в шапке панели diff.
  */
-async function commitAllToChat() {
+async function commitAllToChat(branch) {
   const { t } = require("../i18n/i18n");
   const { sendMessageToChat } = require("../dom/chat-input");
   try {
@@ -183,12 +183,19 @@ async function commitAllToChat() {
       return;
     }
     const filesCount = (res.files || []).length;
+    const branchLine = branch
+      ? "Закоммить изменения и запушь в ветку " + branch + "."
+      : "Закоммить изменения.";
+    const pushLine = branch
+      ? "Осмысленный commit message в Conventional Commits, затем git commit и git push в ветку " +
+        branch +
+        "."
+      : "Осмысленный commit message в Conventional Commits, затем push.";
     const msg = [
-      "Закоммить изменения.",
+      branchLine,
       "",
       "Можешь вызвать агента (git-committer) и поручить коммит ему,",
-      "или сделай коммит сам — как удобнее. Осмысленный commit message",
-      "в Conventional Commits, затем push.",
+      "или сделай коммит сам — как удобнее. " + pushLine,
       "",
       "Изменённые файлы (" + filesCount + "):",
       (res.files || [])
@@ -202,6 +209,120 @@ async function commitAllToChat() {
     sendMessageToChat(msg, "commit-all");
   } catch (err) {
     showToast(t("diff.commitAll.notReady") + ": " + (err.message || err), 3000);
+  }
+}
+
+/**
+ * Показать выбор ветки: открывает оверлей поверх панели diff со списком веток.
+ * По выбору — вызывает commitAllToChat(branch) и закрывает панель.
+ */
+async function showBranchPicker() {
+  const { t } = require("../i18n/i18n");
+  const overlayId = "cuckoo-branch-picker";
+  let overlay = document.getElementById(overlayId);
+  if (overlay) overlay.remove();
+
+  overlay = document.createElement("div");
+  overlay.id = overlayId;
+  overlay.style.cssText =
+    "position:fixed;inset:0;z-index:2147483600;display:flex;" +
+    "align-items:center;justify-content:center;background:rgba(0,0,0,0.45);" +
+    "backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);";
+
+  const box = document.createElement("div");
+  box.style.cssText =
+    "width:min(420px,90vw);max-height:70vh;display:flex;flex-direction:column;" +
+    "background:rgba(22,24,44,0.98);border:1px solid rgba(139,147,255,0.35);" +
+    "border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,0.55);overflow:hidden;" +
+    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;";
+
+  const header = document.createElement("div");
+  header.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;" +
+    "padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.08);" +
+    "color:#e8eaff;font-size:14px;font-weight:600;";
+  header.innerHTML =
+    '<span style="display:inline-flex;align-items:center;gap:7px;">' +
+    '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" style="display:block"><circle cx="4.5" cy="3.5" r="1.8"/><circle cx="4.5" cy="12.5" r="1.8"/><circle cx="11.5" cy="6.5" r="1.8"/><path d="M4.5 5.3v5.4M6.3 3.5h2.2a3 3 0 0 1 3 3v0"/></svg>' +
+    "<span>" +
+    t("diff.branch.title") +
+    "</span></span>";
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "×";
+  closeBtn.style.cssText =
+    "background:transparent;border:none;color:#aab0ff;font-size:20px;" +
+    "cursor:pointer;line-height:1;padding:0 4px;";
+  closeBtn.addEventListener("click", () => overlay.remove());
+  header.appendChild(closeBtn);
+
+  const list = document.createElement("div");
+  list.style.cssText =
+    "overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;";
+  list.innerHTML =
+    '<div style="padding:12px;color:#8a90b8;font-size:13px;text-align:center;">' +
+    t("diff.branch.loading") +
+    "</div>";
+
+  box.appendChild(header);
+  box.appendChild(list);
+  overlay.appendChild(box);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+
+  try {
+    const res = await window.electronAPI.gitListBranches();
+    if (!res || !res.success) {
+      list.innerHTML =
+        '<div style="padding:12px;color:#ff6b7a;font-size:13px;text-align:center;">' +
+        escapeHtml((res && res.reason) || t("diff.branch.selectFailed")) +
+        "</div>";
+      return;
+    }
+    const branches = res.branches || [];
+    if (branches.length === 0) {
+      list.innerHTML =
+        '<div style="padding:12px;color:#8a90b8;font-size:13px;text-align:center;">' +
+        t("diff.branch.none") +
+        "</div>";
+      return;
+    }
+    branches.sort((a, b) => {
+      if (a.remote !== b.remote) return a.remote ? 1 : -1;
+      if (a.current !== b.current) return a.current ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    list.innerHTML = "";
+    branches.forEach((b) => {
+      const mark = b.current ? "✓ " : b.remote ? "☁ " : "• ";
+      const item = document.createElement("button");
+      item.textContent = mark + b.name;
+      item.style.cssText =
+        "text-align:left;padding:9px 12px;border-radius:9px;cursor:pointer;" +
+        "border:1px solid rgba(139,147,255,0.2);background:rgba(139,147,255,0.06);" +
+        "color:#cfd3ff;font-size:13px;font-family:inherit;white-space:nowrap;" +
+        "overflow:hidden;text-overflow:ellipsis;" +
+        (b.current ? "border-color:rgba(139,147,255,0.6);" : "");
+      item.addEventListener("mouseenter", () => {
+        item.style.background = "rgba(139,147,255,0.18)";
+        item.style.color = "#fff";
+      });
+      item.addEventListener("mouseleave", () => {
+        item.style.background = "rgba(139,147,255,0.06)";
+        item.style.color = "#cfd3ff";
+      });
+      item.addEventListener("click", () => {
+        overlay.remove();
+        commitAllToChat(b.name);
+      });
+      list.appendChild(item);
+    });
+  } catch (err) {
+    list.innerHTML =
+      '<div style="padding:12px;color:#ff6b7a;font-size:13px;text-align:center;">' +
+      escapeHtml((err && err.message) || t("diff.branch.selectFailed")) +
+      "</div>";
   }
 }
 
@@ -945,4 +1066,5 @@ module.exports = {
   backToLog,
   openCommitFullDiff,
   commitAllToChat,
+  showBranchPicker,
 };
