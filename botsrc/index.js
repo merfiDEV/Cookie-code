@@ -1544,6 +1544,23 @@ async function _handleSettingsCallback(data, cbq) {
     return;
   }
 
+  // ---- /sessions: выбор сессии кнопкой (st_sw_<idx>) ----
+  if (data.startsWith("st_sw_")) {
+    const idx = parseInt(data.slice("st_sw_".length), 10);
+    await telegramBot.answerCallbackQuery(cbq.id);
+    const pager = _pagers.get(chatId + ":sessions");
+    const item = pager && pager.items && pager.items[idx];
+    if (!item) {
+      await telegramBot.sendMessage(
+        _t("sessions.switchFailed", { err: "session-not-found" }),
+        { parseMode: "HTML" },
+      );
+      return;
+    }
+    await _cmdSwitch(chatId, item.id);
+    return;
+  }
+
   // ---- Пагинация списков (/sessions, /log) ----
   if (data.startsWith("st_pg_")) {
     const rest = data.slice("st_pg_".length);
@@ -2784,7 +2801,92 @@ function _renderPager(type, pager, renderItem, titleFn, hint) {
   return { text: lines.join("\n"), keyboard: { inline_keyboard: keyboard } };
 }
 
-/** /sessions — список сессий проекта. */
+/** Форматировать timestamp в человекочитаемую дату («сегодня, 14:30»). */
+function _fmtSessionDate(ts) {
+  if (!ts) return "";
+  try {
+    const d = new Date(ts);
+    const pad = (n) => String(n).padStart(2, "0");
+    const hhmm = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const day = new Date(d);
+    day.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((today - day) / 86400000);
+    if (diffDays === 0) return _t("sessions.today", { time: hhmm });
+    if (diffDays === 1) return _t("sessions.yesterday", { time: hhmm });
+    return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + ", " + hhmm;
+  } catch (_) {
+    return "";
+  }
+}
+
+/**
+ * Прочитать живой список сессий НАПРЯМУЮ из main-процесса.
+ * Возвращает { items: [{ id, projectDir, name, lastSeen, isCurrent }], filtered }
+ * или { error }.
+ *
+ * Если в окне выбран проект — показываем только его сессии. Если проект не выбран
+ * (частый случай: чат открыт, но projectDir не привязан), показываем ВСЕ сессии
+ * из store — иначе /sessions бесполезно уходил в меню выбора проекта.
+ *
+ * Важно: НЕ используем window.electronAPI через инжект — в main world он может
+ * быть недоступен (contextBridge изолирует изолированный мир), из-за чего список
+ * не читался и /switch молчал. Читаем sessionStore и stats-store напрямую.
+ */
+function _readLiveSessions() {
+  const ctx = _activeContext();
+  const store = ctx && ctx.sessionStore;
+  if (!store) return { items: [], filtered: false };
+  let all = {};
+  try {
+    all = store.readSessionStore() || {};
+  } catch (err) {
+    return { error: err.message };
+  }
+  const currentId = store.state.currentSessionId || null;
+  const projectDir =
+    _projectDir() || (store.state && store.state.lastProjectDir) || null;
+  let statsSessions = {};
+  try {
+    statsSessions =
+      require("../src/main/stats-store").readStats().sessions || {};
+  } catch (_) {
+    statsSessions = {};
+  }
+  // Фильтруем по проекту, только если он известен. Иначе — все сессии.
+  const ids = Object.keys(all);
+  const filtered = Boolean(projectDir);
+  const chosen = filtered ? ids.filter((id) => all[id] === projectDir) : ids;
+  const items = chosen
+    .map((id) => {
+      const s = statsSessions[id] || null;
+      const dir = all[id] || "";
+      return {
+        id,
+        projectDir: dir,
+        name: _projectLabel(dir),
+        lastSeen: s && s.lastSeen ? s.lastSeen : 0,
+        isCurrent: id === currentId,
+      };
+    })
+    .sort((a, b) => b.lastSeen - a.lastSeen);
+  return { items, filtered };
+}
+
+/** Короткий id для кнопки: первые 8 символов. */
+function _shortId(id) {
+  return String(id || "").slice(0, 8);
+}
+
+/** Имя папки проекта для показа в списке (basename пути). */
+function _projectLabel(dir) {
+  const s = String(dir || "").replace(/[\\/]+$/, "");
+  const parts = s.split(/[\\/]/);
+  return parts[parts.length - 1] || s || "—";
+}
+
+/** /sessions — живой список сессий проекта с кнопками выбора. */
 async function _cmdSessions(chatId, page, editMessageId) {
   const key = chatId + ":sessions";
   const prev = _pagers.get(key);
@@ -2806,49 +2908,104 @@ async function _cmdSessions(chatId, page, editMessageId) {
     return sent;
   };
 
-  const projectDir = _projectDir();
-  // Проект не выбран: подсказываем, как выбрать его кнопками.
-  if (!projectDir)
-    return reply(
-      escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"),
-      {
-        replyMarkup: _projectKeyboard(),
-      },
-    );
-  let sessions = [];
-  try {
-    const ctx = _activeContext();
-    const store = ctx && ctx.sessionStore;
-    const all = store.readSessionStore();
-    sessions = Object.keys(all).filter((id) => all[id] === projectDir);
-  } catch (err) {
-    return reply("⚠ " + escapeHtml(err.message));
-  }
-  if (sessions.length === 0) return reply(_t("sessions.empty"));
+  // Всегда читаем список заново — никакого кэша в _pagers.
+  // Проект может быть не выбран: тогда показываем все сессии, а не меню выбора.
+  const live = _readLiveSessions();
+  if (live.error) return reply("⚠ " + escapeHtml(live.error));
+  const items = live.items || [];
+  if (items.length === 0)
+    return reply(_t("sessions.empty") + "\n\n" + _t("sessions.emptyHint"));
 
-  const pager = { items: sessions, page: page || 1, pageSize: 10 };
+  const pager = { items, page: page || 1, pageSize: 6 };
   pager.editMessageId = editId;
   _pagers.set(key, pager);
 
-  const rendered = _renderPager(
-    "sessions",
-    pager,
-    (id) => "• <code>" + escapeHtml(id) + "</code>",
-    (p, pages) => _t("sessions.title", { page: p, pages: pages }),
-    _t("sessions.hint"),
+  const total = items.length;
+  const size = pager.pageSize;
+  const pages = Math.max(1, Math.ceil(total / size));
+  const cur = Math.min(Math.max(1, pager.page), pages);
+  pager.page = cur;
+  const slice = items.slice((cur - 1) * size, cur * size);
+
+  // ---- Текст сообщения ----
+  const lines = [];
+  lines.push(
+    _t("sessions.header", {
+      count: total,
+      scope: live.filtered
+        ? _t("sessions.scopeProject")
+        : _t("sessions.scopeAll"),
+    }),
   );
+  lines.push("");
+  slice.forEach((it, i) => {
+    const n = (cur - 1) * size + i + 1;
+    const date = _fmtSessionDate(it.lastSeen);
+    const name = escapeHtml(it.name || "—");
+    if (it.isCurrent) {
+      lines.push(
+        _t("sessions.rowCurrent", {
+          n: n,
+          name: name,
+          id: escapeHtml(_shortId(it.id)),
+          date: date ? escapeHtml(date) : "—",
+        }),
+      );
+    } else {
+      lines.push(
+        _t("sessions.row", {
+          n: n,
+          name: name,
+          id: escapeHtml(_shortId(it.id)),
+          date: date ? escapeHtml(date) : "—",
+        }),
+      );
+    }
+  });
+  if (pages > 1)
+    lines.push("", _t("sessions.pageInfo", { page: cur, pages: pages }));
+  lines.push("", _t("sessions.hint"));
+
+  // ---- Клавиатура: по кнопке на сессию + навигация ----
+  const itemRows = [];
+  slice.forEach((it, i) => {
+    const idx = (cur - 1) * size + i;
+    const n = idx + 1;
+    const date = _fmtSessionDate(it.lastSeen);
+    const prefix = it.isCurrent ? "✅" : "▫️";
+    const label =
+      prefix + " " + n + ". " + (it.name || "—") + (date ? " · " + date : "");
+    itemRows.push([{ text: label, callback_data: "st_sw_" + idx }]);
+  });
+
+  const nav = [];
+  if (cur > 1)
+    nav.push({
+      text: _t("page.prev"),
+      callback_data: "st_pg_sessions_" + (cur - 1),
+    });
+  if (cur < pages)
+    nav.push({
+      text: _t("page.next"),
+      callback_data: "st_pg_sessions_" + (cur + 1),
+    });
+  const keyboard = itemRows.slice();
+  if (nav.length) keyboard.push(nav);
+
+  const text = lines.join("\n");
+  const replyMarkup = { inline_keyboard: keyboard };
 
   if (editId) {
-    const res = await telegramBot.editMessageText(editId, rendered.text, {
+    const res = await telegramBot.editMessageText(editId, text, {
       parseMode: "HTML",
-      replyMarkup: rendered.keyboard,
+      replyMarkup,
     });
     if (res && res.success) return res;
   }
 
-  const sent = await telegramBot.sendMessage(rendered.text, {
+  const sent = await telegramBot.sendMessage(text, {
     parseMode: "HTML",
-    replyMarkup: rendered.keyboard,
+    replyMarkup,
   });
   if (sent && sent.success && sent.messageId) {
     pager.editMessageId = sent.messageId;
@@ -2857,28 +3014,54 @@ async function _cmdSessions(chatId, page, editMessageId) {
   return sent;
 }
 
-/** /switch <id> — переключиться на сессию. */
+/**
+ * Переключить окно на сессию НАПРЯМУЮ из main-процесса.
+ * Не используем window.electronAPI через инжект: в main world он может быть
+ * недоступен, из-за чего /switch молчал. Навигацию делает main через loadURL.
+ * Возвращает { success, error? }.
+ */
+async function _navigateToSession(id) {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed())
+    return { success: false, error: _t("sessions.noWindow") };
+  let url = null;
+  try {
+    const { getProviderByUrl } = require("../src/providers");
+    const provider = getProviderByUrl(win.webContents.getURL());
+    if (provider && typeof provider.getSessionUrl === "function") {
+      url = provider.getSessionUrl(id);
+    } else if (provider && provider.sessionUrlBase) {
+      url = provider.sessionUrlBase + id;
+    }
+  } catch (_) {}
+  if (!url) url = "https://chat.deepseek.com/a/chat/s/" + id;
+  try {
+    await win.webContents.loadURL(url);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/** /switch <id> — переключиться на сессию (вызывается и из кнопок /sessions). */
 async function _cmdSwitch(chatId, id) {
   if (!id)
     return telegramBot.sendMessage(_t("sessions.needId"), {
       parseMode: "HTML",
     });
-  const res = await _evalInWindow(
-    "(async () => { try { return await window.electronAPI.navigateSession(" +
-      JSON.stringify(id) +
-      "); } catch (e) { return { success:false, error:e.message }; } })()",
-  );
-  const inner = (res && res.result) || {};
-  if (!res.success || inner.success === false)
+  const res = await _navigateToSession(id);
+  if (!res.success) {
     return telegramBot.sendMessage(
       _t("sessions.switchFailed", {
-        err: escapeHtml(
-          (inner && inner.error) || (res && res.error) || "unknown",
-        ),
+        err: escapeHtml(res.error || _t("sessions.unknownError")),
       }),
+      { parseMode: "HTML" },
     );
+  }
   return telegramBot.sendMessage(
-    _t("sessions.switched", { id: escapeHtml(id) }),
+    _t("sessions.switched", { id: escapeHtml(_shortId(id)) }),
     { parseMode: "HTML" },
   );
 }
