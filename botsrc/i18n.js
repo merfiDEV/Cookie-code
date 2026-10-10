@@ -289,6 +289,14 @@ const STRINGS = {
     "city.tz": "Часовой пояс",
     "city.place": "Город / страна",
 
+    // ===== Просмотр страниц (web_fetch) =====
+    "fetch.title": "🌐 <b>ИИ просматривает страницу</b>",
+    "fetch.url": "URL",
+    "fetch.status": "Статус",
+    "fetch.truncated": "…(содержимое обрезано)",
+    "fetch.empty": "📄 Пустая страница (без текста)",
+    "fetch.errorTitle": "🌐 <b>Не удалось загрузить страницу</b>",
+
     // ===== Субагенты (run_agent / create_agent / list_agents / read_agent) =====
     "agent.runTitle": "🚀 <b>ИИ делегирует задачу субагенту</b>",
     "agent.resultTitle": "🎯 <b>Субагент вернул результат</b>",
@@ -682,6 +690,14 @@ const STRINGS = {
     "city.time": "Time",
     "city.tz": "Timezone",
     "city.place": "City / country",
+
+    // ===== Page browsing (web_fetch) =====
+    "fetch.title": "🌐 <b>AI is browsing a page</b>",
+    "fetch.url": "URL",
+    "fetch.status": "Status",
+    "fetch.truncated": "…(content truncated)",
+    "fetch.empty": "📄 Empty page (no text)",
+    "fetch.errorTitle": "🌐 <b>Failed to load the page</b>",
 
     // ===== Subagents (run_agent / create_agent / list_agents / read_agent) =====
     "agent.runTitle": "🚀 <b>AI delegates a task to a subagent</b>",

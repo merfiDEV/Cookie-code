@@ -4123,6 +4123,95 @@ function _renderCityTime(toolName, ok, args, preview) {
 }
 
 /**
+ * Красивое сообщение для web_fetch: карточка «ИИ просматривает страницу»
+ * со ссылкой, статусом и превью текста (свёрнутая цитата).
+ * @returns {string|null}
+ */
+function _renderWebFetch(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "web_fetch" && name !== "webfetch") return null;
+
+  const a = args && typeof args === "object" ? args : {};
+  const url = String(a.url || "").trim();
+
+  // Ошибка — отдельная карточка (доступность, таймаут, протокол).
+  if (!ok) {
+    const lines = [_t("fetch.errorTitle")];
+    if (url) {
+      lines.push(
+        '🔗 <a href="' +
+          escapeHtml(url) +
+          '">' +
+          escapeHtml(_techTrunc(url)) +
+          "</a>",
+      );
+    }
+    const err = String(preview || "").trim();
+    if (err) {
+      lines.push("");
+      lines.push(
+        "<blockquote expandable>" +
+          escapeHtml(_techTruncLong(err, 500)) +
+          "</blockquote>",
+      );
+    }
+    return lines.join("\n");
+  }
+
+  // Успех: результат вида "Fetched <url> (HTTP <status>)" + тело + footer.
+  const body = _stripResultWrapper(String(preview || "")).trim();
+  const headerMatch = body.match(/^Fetched\s+(\S+)\s+\(HTTP\s+(\d+)\)/i);
+  const shownUrl = (headerMatch && headerMatch[1]) || url || "";
+  const status = headerMatch ? headerMatch[2] : "";
+
+  // Отрезаем служебный заголовок и footer, оставляя полезный текст.
+  let content = body;
+  if (headerMatch) content = body.slice(headerMatch[0].length);
+  content = content
+    .replace(/\n*\n?\(Content truncated\.[^)]*\)\s*$/i, "")
+    .replace(/^\s*\n+/, "")
+    .trim();
+
+  const truncated = /\(Content truncated\./i.test(body);
+
+  const lines = [_t("fetch.title")];
+  lines.push("");
+  if (shownUrl) {
+    lines.push(
+      '🔗 <a href="' +
+        escapeHtml(shownUrl) +
+        '">' +
+        escapeHtml(_techTrunc(shownUrl)) +
+        "</a>",
+    );
+  }
+  if (status) {
+    lines.push(
+      "📡 " +
+        escapeHtml(_t("fetch.status")) +
+        ": <b>" +
+        escapeHtml(status) +
+        "</b>",
+    );
+  }
+
+  if (!content) {
+    lines.push("");
+    lines.push(_t("fetch.empty"));
+    return lines.join("\n");
+  }
+
+  // Превью текста (первые ~1200 символов), свёрнутая цитата.
+  const shown = content.length > 1200 ? content.slice(0, 1200) : content;
+  lines.push("");
+  lines.push("<blockquote expandable>" + escapeHtml(shown) + "</blockquote>");
+  if (truncated || content.length > 1200) {
+    lines.push("<i>" + escapeHtml(_t("fetch.truncated")) + "</i>");
+  }
+  return lines.join("\n");
+}
+
+/**
  * Красивое сообщение для run_agent: карточка с именем агента и задачей.
  * Вызывается из notifyToolResult при старте (args) — а результат агента
  * отдельным сообщением ловит `agent_result` (через notifyAgentResult).
@@ -4392,6 +4481,17 @@ async function notifyToolResult(toolName, ok, detail) {
     } catch (err) {
       console.error("[bot] agent render failed:", err.message);
     }
+  }
+
+  // Просмотр страниц (web_fetch): собственная карточка со ссылкой, статусом и
+  // превью текста. Обрабатываем и успех, и ошибку — общий путь для них грубый.
+  try {
+    const fetchMsg = _renderWebFetch(toolName, ok, args, preview);
+    if (fetchMsg) {
+      return telegramBot.sendMessage(fetchMsg, { parseMode: "HTML" });
+    }
+  } catch (err) {
+    console.error("[bot] web_fetch render failed:", err.message);
   }
 
   // Задачи (todoWrite): собственная карточка со списком задач — ДО ignore-фильтра,
