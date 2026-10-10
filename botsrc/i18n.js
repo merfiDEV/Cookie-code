@@ -36,6 +36,7 @@ const STRINGS = {
     "help.cmd.status": "/status      — статус: окно, проект, процессы",
     "help.cmd.stop": "/stop        — прервать задачу и убить процессы",
     "help.cmd.new": "/new         — новый чат",
+    "help.cmd.init": "/init        — инициализировать проект (выбор папки)",
     "help.cmd.diff": "/diff        — показать изменения (git diff)",
     "help.cmd.diagnostics": "/diagnostics — диагностика интеграции",
     "help.cmd.sessions": "/sessions    — список сессий проекта",
@@ -158,6 +159,22 @@ const STRINGS = {
     // ===== /new =====
     "new.done": "🆕 Новый чат открыт.",
     "new.noWindow": "⚠️ Нет активного окна — не удалось открыть новый чат.",
+
+    // ===== /init — инициализация проекта =====
+    "init.title": "🚀 <b>Инициализация проекта</b>",
+    "init.pickDrive": "<i>Выберите диск:</i>",
+    "init.currentDir": "📂 <code>{dir}</code>",
+    "init.empty": "<i>Папок нет.</i>",
+    "init.up": "⬆️ Вверх",
+    "init.pick": "✅ Выбрать эту папку",
+    "init.cancelled": "❌ Инициализация отменена.",
+    "init.expired": "⚠️ Сессия выбора устарела. Запустите /init заново.",
+    "init.starting": "⏳ Инициализирую проект <code>{dir}</code>…",
+    "init.done":
+      "✅ Проект инициализирован: <code>{dir}</code>\nНовый чат открыт, системный промпт отправлен.",
+    "init.failed": "⚠️ Не удалось инициализировать: {err}",
+    "init.badDir": "папка не найдена или не является каталогом",
+    "common.cancel": "❌ Отмена",
     "new.failed": "❌ Не удалось открыть новый чат: {err}",
 
     // ===== /diff =====
@@ -451,6 +468,7 @@ const STRINGS = {
     "help.cmd.status": "/status      — status: window, project, processes",
     "help.cmd.stop": "/stop        — abort task and kill processes",
     "help.cmd.new": "/new         — new chat",
+    "help.cmd.init": "/init        — initialize project (pick folder)",
     "help.cmd.diff": "/diff        — show changes (git diff)",
     "help.cmd.diagnostics": "/diagnostics — integration diagnostics",
     "help.cmd.sessions": "/sessions    — project sessions list",
@@ -574,6 +592,22 @@ const STRINGS = {
     // ===== /new =====
     "new.done": "🆕 New chat opened.",
     "new.noWindow": "⚠️ No active window — cannot open a new chat.",
+
+    // ===== /init — project initialization =====
+    "init.title": "🚀 <b>Project initialization</b>",
+    "init.pickDrive": "<i>Pick a drive:</i>",
+    "init.currentDir": "📂 <code>{dir}</code>",
+    "init.empty": "<i>No folders.</i>",
+    "init.up": "⬆️ Up",
+    "init.pick": "✅ Select this folder",
+    "init.cancelled": "❌ Initialization cancelled.",
+    "init.expired": "⚠️ Selection expired. Run /init again.",
+    "init.starting": "⏳ Initializing project <code>{dir}</code>…",
+    "init.done":
+      "✅ Project initialized: <code>{dir}</code>\nNew chat opened, system prompt sent.",
+    "init.failed": "⚠️ Failed to initialize: {err}",
+    "init.badDir": "folder not found or not a directory",
+    "common.cancel": "❌ Cancel",
     "new.failed": "❌ Failed to open a new chat: {err}",
 
     // ===== /diff =====

@@ -452,6 +452,16 @@ async function _handleCallback(chatId, data, cbq) {
   // id сообщения, к которому привязана нажатая кнопка (для editMessageText).
   const msgId = cbq && cbq.message && cbq.message.message_id;
 
+  // Файловый браузер /init (st_init_*) — до общего st_ и до /settings.
+  if (token.startsWith("st_init_")) {
+    try {
+      await _handleInitCallback(token, cbq);
+    } catch (err) {
+      _log("error", "init callback error:", err.message);
+    }
+    return;
+  }
+
   // Меню настроек /settings — обрабатываем раньше других, т.к. префикс 'st_'.
   // Выбор проекта кнопкой / ручной ввод — обрабатываем до settings.
   if (token.startsWith("st_proj_")) {
@@ -2732,6 +2742,257 @@ function _projectKeyboard() {
   return _projectView(1).keyboard;
 }
 
+// ===================== /init — инициализация проекта =====================
+
+// Состояние файлового браузера: chatId → { dir, page, entries }.
+// dir = null означает уровень дисков (корень выбора).
+const _initState = new Map();
+const INIT_PAGE_SIZE = 8;
+
+/** Список доступных дисков (Windows — буквы, иначе корень /). */
+function _listDrives() {
+  if (process.platform === "win32") {
+    const drives = [];
+    for (let i = 65; i <= 90; i++) {
+      const root = String.fromCharCode(i) + ":\\";
+      try {
+        if (fs.existsSync(root)) drives.push(root);
+      } catch (_) {}
+    }
+    return drives;
+  }
+  return ["/"];
+}
+
+/** Список подпапок каталога (скрытые пропускаем). */
+function _listSubdirs(dir) {
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+      .map((e) => ({ name: e.name, path: path.join(dir, e.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (_) {
+    return [];
+  }
+}
+
+/** Обрезать подпись кнопки до n символов. */
+function _trunc(s, n) {
+  s = String(s || "");
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
+
+/** Отрисовать текущее состояние файлового браузера /init. */
+async function _renderInit(chatId, editMessageId) {
+  const st = _initState.get(chatId) || { dir: null, page: 1, entries: [] };
+  _initState.set(chatId, st);
+
+  const atRoot = !st.dir;
+  const entries = atRoot
+    ? _listDrives().map((d) => ({ name: "💽 " + d, path: d }))
+    : _listSubdirs(st.dir).map((e) => ({ name: "📁 " + e.name, path: e.path }));
+
+  const size = INIT_PAGE_SIZE;
+  const pages = Math.max(1, Math.ceil(entries.length / size));
+  const cur = Math.min(Math.max(1, st.page || 1), pages);
+  st.page = cur;
+  st.entries = entries;
+  const slice = entries.slice((cur - 1) * size, cur * size);
+
+  const lines = [_t("init.title")];
+  if (atRoot) {
+    lines.push(_t("init.pickDrive"));
+  } else {
+    lines.push(_t("init.currentDir", { dir: escapeHtml(st.dir) }));
+  }
+  lines.push("");
+  if (entries.length === 0) lines.push(_t("init.empty"));
+
+  const rows = [];
+  slice.forEach((e, i) => {
+    const idx = (cur - 1) * size + i;
+    rows.push([
+      { text: _trunc(e.name, 60), callback_data: "st_init_open_" + idx },
+    ]);
+  });
+
+  const nav = [];
+  if (!atRoot) nav.push({ text: _t("init.up"), callback_data: "st_init_up" });
+  if (pages > 1) {
+    if (cur > 1)
+      nav.push({ text: "◀️", callback_data: "st_init_pg_" + (cur - 1) });
+    nav.push({ text: cur + "/" + pages, callback_data: "st_init_noop" });
+    if (cur < pages)
+      nav.push({ text: "▶️", callback_data: "st_init_pg_" + (cur + 1) });
+  }
+  if (nav.length) rows.push(nav);
+
+  if (!atRoot)
+    rows.push([{ text: _t("init.pick"), callback_data: "st_init_pick" }]);
+  rows.push([{ text: _t("common.cancel"), callback_data: "st_init_cancel" }]);
+
+  const text = lines.join("\n");
+  const replyMarkup = { inline_keyboard: rows };
+
+  if (editMessageId) {
+    const res = await telegramBot.editMessageText(editMessageId, text, {
+      parseMode: "HTML",
+      replyMarkup,
+    });
+    if (res && res.success) return res;
+  }
+  return telegramBot.sendMessage(text, { parseMode: "HTML", replyMarkup });
+}
+
+/** /init — открыть файловый браузер для выбора папки нового проекта. */
+async function _cmdInit(chatId) {
+  _initState.set(chatId, { dir: null, page: 1, entries: [] });
+  return _renderInit(chatId, null);
+}
+
+/**
+ * Инициализировать проект: открыть новый чат, привязать папку и отправить
+ * системный промпт проекта. Всё делаем из main-процесса (без инжекта).
+ * @returns {{success: boolean, dir?: string, error?: string}}
+ */
+async function _doInitProject(chatId, dir) {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed())
+    return { success: false, error: _t("new.noWindow") };
+
+  // Проверяем, что каталог существует.
+  try {
+    const st = fs.statSync(dir);
+    if (!st.isDirectory()) return { success: false, error: _t("init.badDir") };
+  } catch (_) {
+    return { success: false, error: _t("init.badDir") };
+  }
+
+  // Запоминаем проект как pending: привяжется к sessionId нового чата.
+  const ctx = _activeContext();
+  const store = ctx && ctx.sessionStore;
+  if (store) {
+    store.state.pendingProjectDir = dir;
+    store.state.lastProjectDir = dir;
+  }
+
+  // Навигация на home (новый чат).
+  let homeUrl = null;
+  try {
+    const { getProviderByUrl } = require("../src/providers");
+    const provider = getProviderByUrl(win.webContents.getURL());
+    if (provider && provider.homeUrl) homeUrl = provider.homeUrl;
+  } catch (_) {}
+  if (!homeUrl) homeUrl = "https://chat.deepseek.com/";
+
+  try {
+    await win.webContents.loadURL(homeUrl);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+
+  // Собираем и отправляем промпт после готовности страницы.
+  // Ждём did-finish-load, иначе preload ещё не успел подписаться на канал
+  // и initial-prompt потеряется. Дублируем таймаутом — как в subagent.js.
+  const providerId = (ctx && ctx.providerId) || "";
+  let sent = false;
+  const doSend = async () => {
+    if (sent) return;
+    if (!win || win.isDestroyed()) return;
+    try {
+      const { buildInitPrompt } = require("../src/main/project-context");
+      const combined = await buildInitPrompt(dir, providerId);
+      if (combined && !win.isDestroyed()) {
+        win.webContents.send("initial-prompt", combined);
+        sent = true;
+      }
+    } catch (_) {}
+  };
+  try {
+    win.webContents.once("did-finish-load", () => setTimeout(doSend, 1200));
+  } catch (_) {}
+  setTimeout(doSend, 4000);
+
+  return { success: true, dir };
+}
+
+/** Обработка callback-кнопок /init (st_init_*). */
+async function _handleInitCallback(data, cbq) {
+  const chatId = String(cbq.message && cbq.message.chat && cbq.message.chat.id);
+  const msgId = cbq.message && cbq.message.message_id;
+  await telegramBot.answerCallbackQuery(cbq.id);
+
+  const st = _initState.get(chatId);
+  if (!st) {
+    await telegramBot.sendMessage(_t("init.expired"));
+    return;
+  }
+
+  if (data === "st_init_noop") return;
+
+  if (data === "st_init_cancel") {
+    _initState.delete(chatId);
+    if (msgId) {
+      await telegramBot.editMessageText(msgId, _t("init.cancelled"), {
+        parseMode: "HTML",
+        replyMarkup: { inline_keyboard: [] },
+      });
+    }
+    return;
+  }
+
+  if (data === "st_init_up") {
+    if (st.dir) {
+      const parent = path.dirname(st.dir);
+      st.dir = parent && parent !== st.dir ? parent : null;
+      st.page = 1;
+    }
+    return _renderInit(chatId, msgId);
+  }
+
+  if (data.startsWith("st_init_pg_")) {
+    st.page = parseInt(data.slice("st_init_pg_".length), 10) || 1;
+    return _renderInit(chatId, msgId);
+  }
+
+  if (data.startsWith("st_init_open_")) {
+    const idx = parseInt(data.slice("st_init_open_".length), 10);
+    const entry = st.entries && st.entries[idx];
+    if (!entry) return;
+    st.dir = entry.path;
+    st.page = 1;
+    return _renderInit(chatId, msgId);
+  }
+
+  if (data === "st_init_pick") {
+    const dir = st.dir;
+    if (!dir) return;
+    _initState.delete(chatId);
+    if (msgId) {
+      await telegramBot.editMessageText(
+        msgId,
+        _t("init.starting", { dir: escapeHtml(dir) }),
+        { parseMode: "HTML", replyMarkup: { inline_keyboard: [] } },
+      );
+    }
+    const r = await _doInitProject(chatId, dir);
+    if (!r.success) {
+      await telegramBot.sendMessage(
+        _t("init.failed", { err: escapeHtml(r.error || "") }),
+        { parseMode: "HTML" },
+      );
+    } else {
+      await telegramBot.sendMessage(_t("init.done", { dir: escapeHtml(dir) }), {
+        parseMode: "HTML",
+      });
+    }
+    return;
+  }
+}
+
 /**
  * Установить проект в активном окне (через electronAPI того же окна).
  * Пишем selectedProjectDir в session-store активного профиля и уведомляем renderer.
@@ -3222,6 +3483,7 @@ async function _cmdHelp() {
     _t("help.cmd.status"),
     _t("help.cmd.stop"),
     _t("help.cmd.new"),
+    _t("help.cmd.init"),
     _t("help.cmd.diff"),
     _t("help.cmd.diagnostics"),
     _t("help.cmd.sessions"),
@@ -3662,6 +3924,10 @@ async function _handleIncoming(chatId, text, msg) {
   }
   if (cmd === "/new") {
     await _cmdNew();
+    return;
+  }
+  if (cmd === "/init") {
+    await _cmdInit(chatId);
     return;
   }
   if (cmd === "/projects" || cmd === "/project" || cmd === "/proj") {
