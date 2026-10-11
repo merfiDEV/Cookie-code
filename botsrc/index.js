@@ -2431,18 +2431,11 @@ async function _readTogglesState() {
   if (!win || win.isDestroyed()) return null;
 
   const script = `(function(){
-    const find = (needle) => {
-      const all = document.querySelectorAll('.ds-toggle-button');
-      for (const el of all) {
-        const t = (el.textContent || '').trim().toLowerCase();
-        if (t.indexOf(needle) >= 0) return el;
-      }
-      return null;
-    };
-    const think = find('deepthink');
-    const search = find('search');
+    const all = document.querySelectorAll('.ds-toggle-button');
+    const think = all[0] || null;
+    const search = all[1] || null;
     const state = (el) => el ? el.getAttribute('aria-pressed') === 'true' : null;
-    return { think: state(think), search: state(search) };
+    return { think: state(think), search: state(search), count: all.length };
   })()`;
 
   try {
@@ -2464,17 +2457,10 @@ async function _toggleDeepSeek(name) {
     : windowState.getMainWindow();
   if (!win || win.isDestroyed()) return { ok: false, error: "noWindow" };
 
-  const needle = name === "think" ? "deepthink" : "search";
+  const idx = name === "think" ? 0 : 1;
   const script = `(function(){
-    const find = (n) => {
-      const all = document.querySelectorAll('.ds-toggle-button');
-      for (const el of all) {
-        const t = (el.textContent || '').trim().toLowerCase();
-        if (t.indexOf(n) >= 0) return el;
-      }
-      return null;
-    };
-    const el = find('${needle}');
+    const all = document.querySelectorAll('.ds-toggle-button');
+    const el = all[${idx}];
     if (!el) return { ok: false, error: 'notFound' };
     const before = el.getAttribute('aria-pressed') === 'true';
     el.click();
@@ -5051,6 +5037,7 @@ async function _registerCommands() {
     ru: {
       start: "начать / справка",
       help: "справка",
+      init: "инициализация проекта",
       settings: "настройки",
       status: "статус",
       stop: "остановить задачу",
@@ -5072,6 +5059,7 @@ async function _registerCommands() {
     en: {
       start: "start / help",
       help: "help",
+      init: "initialize project",
       settings: "settings",
       status: "status",
       stop: "stop task",
