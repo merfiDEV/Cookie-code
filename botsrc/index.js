@@ -452,6 +452,16 @@ async function _handleCallback(chatId, data, cbq) {
   // id сообщения, к которому привязана нажатая кнопка (для editMessageText).
   const msgId = cbq && cbq.message && cbq.message.message_id;
 
+  // Файловый браузер /init (st_init_*) — до общего st_ и до /settings.
+  if (token.startsWith("st_init_")) {
+    try {
+      await _handleInitCallback(token, cbq);
+    } catch (err) {
+      _log("error", "init callback error:", err.message);
+    }
+    return;
+  }
+
   // Меню настроек /settings — обрабатываем раньше других, т.к. префикс 'st_'.
   // Выбор проекта кнопкой / ручной ввод — обрабатываем до settings.
   if (token.startsWith("st_proj_")) {
@@ -1544,6 +1554,23 @@ async function _handleSettingsCallback(data, cbq) {
     return;
   }
 
+  // ---- /sessions: выбор сессии кнопкой (st_sw_<idx>) ----
+  if (data.startsWith("st_sw_")) {
+    const idx = parseInt(data.slice("st_sw_".length), 10);
+    await telegramBot.answerCallbackQuery(cbq.id);
+    const pager = _pagers.get(chatId + ":sessions");
+    const item = pager && pager.items && pager.items[idx];
+    if (!item) {
+      await telegramBot.sendMessage(
+        _t("sessions.switchFailed", { err: "session-not-found" }),
+        { parseMode: "HTML" },
+      );
+      return;
+    }
+    await _cmdSwitch(chatId, item.id);
+    return;
+  }
+
   // ---- Пагинация списков (/sessions, /log) ----
   if (data.startsWith("st_pg_")) {
     const rest = data.slice("st_pg_".length);
@@ -2404,18 +2431,11 @@ async function _readTogglesState() {
   if (!win || win.isDestroyed()) return null;
 
   const script = `(function(){
-    const find = (needle) => {
-      const all = document.querySelectorAll('.ds-toggle-button');
-      for (const el of all) {
-        const t = (el.textContent || '').trim().toLowerCase();
-        if (t.indexOf(needle) >= 0) return el;
-      }
-      return null;
-    };
-    const think = find('deepthink');
-    const search = find('search');
+    const all = document.querySelectorAll('.ds-toggle-button');
+    const think = all[0] || null;
+    const search = all[1] || null;
     const state = (el) => el ? el.getAttribute('aria-pressed') === 'true' : null;
-    return { think: state(think), search: state(search) };
+    return { think: state(think), search: state(search), count: all.length };
   })()`;
 
   try {
@@ -2437,17 +2457,10 @@ async function _toggleDeepSeek(name) {
     : windowState.getMainWindow();
   if (!win || win.isDestroyed()) return { ok: false, error: "noWindow" };
 
-  const needle = name === "think" ? "deepthink" : "search";
+  const idx = name === "think" ? 0 : 1;
   const script = `(function(){
-    const find = (n) => {
-      const all = document.querySelectorAll('.ds-toggle-button');
-      for (const el of all) {
-        const t = (el.textContent || '').trim().toLowerCase();
-        if (t.indexOf(n) >= 0) return el;
-      }
-      return null;
-    };
-    const el = find('${needle}');
+    const all = document.querySelectorAll('.ds-toggle-button');
+    const el = all[${idx}];
     if (!el) return { ok: false, error: 'notFound' };
     const before = el.getAttribute('aria-pressed') === 'true';
     el.click();
@@ -2715,6 +2728,257 @@ function _projectKeyboard() {
   return _projectView(1).keyboard;
 }
 
+// ===================== /init — инициализация проекта =====================
+
+// Состояние файлового браузера: chatId → { dir, page, entries }.
+// dir = null означает уровень дисков (корень выбора).
+const _initState = new Map();
+const INIT_PAGE_SIZE = 8;
+
+/** Список доступных дисков (Windows — буквы, иначе корень /). */
+function _listDrives() {
+  if (process.platform === "win32") {
+    const drives = [];
+    for (let i = 65; i <= 90; i++) {
+      const root = String.fromCharCode(i) + ":\\";
+      try {
+        if (fs.existsSync(root)) drives.push(root);
+      } catch (_) {}
+    }
+    return drives;
+  }
+  return ["/"];
+}
+
+/** Список подпапок каталога (скрытые пропускаем). */
+function _listSubdirs(dir) {
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+      .map((e) => ({ name: e.name, path: path.join(dir, e.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (_) {
+    return [];
+  }
+}
+
+/** Обрезать подпись кнопки до n символов. */
+function _trunc(s, n) {
+  s = String(s || "");
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
+
+/** Отрисовать текущее состояние файлового браузера /init. */
+async function _renderInit(chatId, editMessageId) {
+  const st = _initState.get(chatId) || { dir: null, page: 1, entries: [] };
+  _initState.set(chatId, st);
+
+  const atRoot = !st.dir;
+  const entries = atRoot
+    ? _listDrives().map((d) => ({ name: "💽 " + d, path: d }))
+    : _listSubdirs(st.dir).map((e) => ({ name: "📁 " + e.name, path: e.path }));
+
+  const size = INIT_PAGE_SIZE;
+  const pages = Math.max(1, Math.ceil(entries.length / size));
+  const cur = Math.min(Math.max(1, st.page || 1), pages);
+  st.page = cur;
+  st.entries = entries;
+  const slice = entries.slice((cur - 1) * size, cur * size);
+
+  const lines = [_t("init.title")];
+  if (atRoot) {
+    lines.push(_t("init.pickDrive"));
+  } else {
+    lines.push(_t("init.currentDir", { dir: escapeHtml(st.dir) }));
+  }
+  lines.push("");
+  if (entries.length === 0) lines.push(_t("init.empty"));
+
+  const rows = [];
+  slice.forEach((e, i) => {
+    const idx = (cur - 1) * size + i;
+    rows.push([
+      { text: _trunc(e.name, 60), callback_data: "st_init_open_" + idx },
+    ]);
+  });
+
+  const nav = [];
+  if (!atRoot) nav.push({ text: _t("init.up"), callback_data: "st_init_up" });
+  if (pages > 1) {
+    if (cur > 1)
+      nav.push({ text: "◀️", callback_data: "st_init_pg_" + (cur - 1) });
+    nav.push({ text: cur + "/" + pages, callback_data: "st_init_noop" });
+    if (cur < pages)
+      nav.push({ text: "▶️", callback_data: "st_init_pg_" + (cur + 1) });
+  }
+  if (nav.length) rows.push(nav);
+
+  if (!atRoot)
+    rows.push([{ text: _t("init.pick"), callback_data: "st_init_pick" }]);
+  rows.push([{ text: _t("common.cancel"), callback_data: "st_init_cancel" }]);
+
+  const text = lines.join("\n");
+  const replyMarkup = { inline_keyboard: rows };
+
+  if (editMessageId) {
+    const res = await telegramBot.editMessageText(editMessageId, text, {
+      parseMode: "HTML",
+      replyMarkup,
+    });
+    if (res && res.success) return res;
+  }
+  return telegramBot.sendMessage(text, { parseMode: "HTML", replyMarkup });
+}
+
+/** /init — открыть файловый браузер для выбора папки нового проекта. */
+async function _cmdInit(chatId) {
+  _initState.set(chatId, { dir: null, page: 1, entries: [] });
+  return _renderInit(chatId, null);
+}
+
+/**
+ * Инициализировать проект: открыть новый чат, привязать папку и отправить
+ * системный промпт проекта. Всё делаем из main-процесса (без инжекта).
+ * @returns {{success: boolean, dir?: string, error?: string}}
+ */
+async function _doInitProject(chatId, dir) {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed())
+    return { success: false, error: _t("new.noWindow") };
+
+  // Проверяем, что каталог существует.
+  try {
+    const st = fs.statSync(dir);
+    if (!st.isDirectory()) return { success: false, error: _t("init.badDir") };
+  } catch (_) {
+    return { success: false, error: _t("init.badDir") };
+  }
+
+  // Запоминаем проект как pending: привяжется к sessionId нового чата.
+  const ctx = _activeContext();
+  const store = ctx && ctx.sessionStore;
+  if (store) {
+    store.state.pendingProjectDir = dir;
+    store.state.lastProjectDir = dir;
+  }
+
+  // Навигация на home (новый чат).
+  let homeUrl = null;
+  try {
+    const { getProviderByUrl } = require("../src/providers");
+    const provider = getProviderByUrl(win.webContents.getURL());
+    if (provider && provider.homeUrl) homeUrl = provider.homeUrl;
+  } catch (_) {}
+  if (!homeUrl) homeUrl = "https://chat.deepseek.com/";
+
+  try {
+    await win.webContents.loadURL(homeUrl);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+
+  // Собираем и отправляем промпт после готовности страницы.
+  // Ждём did-finish-load, иначе preload ещё не успел подписаться на канал
+  // и initial-prompt потеряется. Дублируем таймаутом — как в subagent.js.
+  const providerId = (ctx && ctx.providerId) || "";
+  let sent = false;
+  const doSend = async () => {
+    if (sent) return;
+    if (!win || win.isDestroyed()) return;
+    try {
+      const { buildInitPrompt } = require("../src/main/project-context");
+      const combined = await buildInitPrompt(dir, providerId);
+      if (combined && !win.isDestroyed()) {
+        win.webContents.send("initial-prompt", combined);
+        sent = true;
+      }
+    } catch (_) {}
+  };
+  try {
+    win.webContents.once("did-finish-load", () => setTimeout(doSend, 1200));
+  } catch (_) {}
+  setTimeout(doSend, 4000);
+
+  return { success: true, dir };
+}
+
+/** Обработка callback-кнопок /init (st_init_*). */
+async function _handleInitCallback(data, cbq) {
+  const chatId = String(cbq.message && cbq.message.chat && cbq.message.chat.id);
+  const msgId = cbq.message && cbq.message.message_id;
+  await telegramBot.answerCallbackQuery(cbq.id);
+
+  const st = _initState.get(chatId);
+  if (!st) {
+    await telegramBot.sendMessage(_t("init.expired"));
+    return;
+  }
+
+  if (data === "st_init_noop") return;
+
+  if (data === "st_init_cancel") {
+    _initState.delete(chatId);
+    if (msgId) {
+      await telegramBot.editMessageText(msgId, _t("init.cancelled"), {
+        parseMode: "HTML",
+        replyMarkup: { inline_keyboard: [] },
+      });
+    }
+    return;
+  }
+
+  if (data === "st_init_up") {
+    if (st.dir) {
+      const parent = path.dirname(st.dir);
+      st.dir = parent && parent !== st.dir ? parent : null;
+      st.page = 1;
+    }
+    return _renderInit(chatId, msgId);
+  }
+
+  if (data.startsWith("st_init_pg_")) {
+    st.page = parseInt(data.slice("st_init_pg_".length), 10) || 1;
+    return _renderInit(chatId, msgId);
+  }
+
+  if (data.startsWith("st_init_open_")) {
+    const idx = parseInt(data.slice("st_init_open_".length), 10);
+    const entry = st.entries && st.entries[idx];
+    if (!entry) return;
+    st.dir = entry.path;
+    st.page = 1;
+    return _renderInit(chatId, msgId);
+  }
+
+  if (data === "st_init_pick") {
+    const dir = st.dir;
+    if (!dir) return;
+    _initState.delete(chatId);
+    if (msgId) {
+      await telegramBot.editMessageText(
+        msgId,
+        _t("init.starting", { dir: escapeHtml(dir) }),
+        { parseMode: "HTML", replyMarkup: { inline_keyboard: [] } },
+      );
+    }
+    const r = await _doInitProject(chatId, dir);
+    if (!r.success) {
+      await telegramBot.sendMessage(
+        _t("init.failed", { err: escapeHtml(r.error || "") }),
+        { parseMode: "HTML" },
+      );
+    } else {
+      await telegramBot.sendMessage(_t("init.done", { dir: escapeHtml(dir) }), {
+        parseMode: "HTML",
+      });
+    }
+    return;
+  }
+}
+
 /**
  * Установить проект в активном окне (через electronAPI того же окна).
  * Пишем selectedProjectDir в session-store активного профиля и уведомляем renderer.
@@ -2784,7 +3048,92 @@ function _renderPager(type, pager, renderItem, titleFn, hint) {
   return { text: lines.join("\n"), keyboard: { inline_keyboard: keyboard } };
 }
 
-/** /sessions — список сессий проекта. */
+/** Форматировать timestamp в человекочитаемую дату («сегодня, 14:30»). */
+function _fmtSessionDate(ts) {
+  if (!ts) return "";
+  try {
+    const d = new Date(ts);
+    const pad = (n) => String(n).padStart(2, "0");
+    const hhmm = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const day = new Date(d);
+    day.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((today - day) / 86400000);
+    if (diffDays === 0) return _t("sessions.today", { time: hhmm });
+    if (diffDays === 1) return _t("sessions.yesterday", { time: hhmm });
+    return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + ", " + hhmm;
+  } catch (_) {
+    return "";
+  }
+}
+
+/**
+ * Прочитать живой список сессий НАПРЯМУЮ из main-процесса.
+ * Возвращает { items: [{ id, projectDir, name, lastSeen, isCurrent }], filtered }
+ * или { error }.
+ *
+ * Если в окне выбран проект — показываем только его сессии. Если проект не выбран
+ * (частый случай: чат открыт, но projectDir не привязан), показываем ВСЕ сессии
+ * из store — иначе /sessions бесполезно уходил в меню выбора проекта.
+ *
+ * Важно: НЕ используем window.electronAPI через инжект — в main world он может
+ * быть недоступен (contextBridge изолирует изолированный мир), из-за чего список
+ * не читался и /switch молчал. Читаем sessionStore и stats-store напрямую.
+ */
+function _readLiveSessions() {
+  const ctx = _activeContext();
+  const store = ctx && ctx.sessionStore;
+  if (!store) return { items: [], filtered: false };
+  let all = {};
+  try {
+    all = store.readSessionStore() || {};
+  } catch (err) {
+    return { error: err.message };
+  }
+  const currentId = store.state.currentSessionId || null;
+  const projectDir =
+    _projectDir() || (store.state && store.state.lastProjectDir) || null;
+  let statsSessions = {};
+  try {
+    statsSessions =
+      require("../src/main/stats-store").readStats().sessions || {};
+  } catch (_) {
+    statsSessions = {};
+  }
+  // Фильтруем по проекту, только если он известен. Иначе — все сессии.
+  const ids = Object.keys(all);
+  const filtered = Boolean(projectDir);
+  const chosen = filtered ? ids.filter((id) => all[id] === projectDir) : ids;
+  const items = chosen
+    .map((id) => {
+      const s = statsSessions[id] || null;
+      const dir = all[id] || "";
+      return {
+        id,
+        projectDir: dir,
+        name: _projectLabel(dir),
+        lastSeen: s && s.lastSeen ? s.lastSeen : 0,
+        isCurrent: id === currentId,
+      };
+    })
+    .sort((a, b) => b.lastSeen - a.lastSeen);
+  return { items, filtered };
+}
+
+/** Короткий id для кнопки: первые 8 символов. */
+function _shortId(id) {
+  return String(id || "").slice(0, 8);
+}
+
+/** Имя папки проекта для показа в списке (basename пути). */
+function _projectLabel(dir) {
+  const s = String(dir || "").replace(/[\\/]+$/, "");
+  const parts = s.split(/[\\/]/);
+  return parts[parts.length - 1] || s || "—";
+}
+
+/** /sessions — живой список сессий проекта с кнопками выбора. */
 async function _cmdSessions(chatId, page, editMessageId) {
   const key = chatId + ":sessions";
   const prev = _pagers.get(key);
@@ -2806,49 +3155,104 @@ async function _cmdSessions(chatId, page, editMessageId) {
     return sent;
   };
 
-  const projectDir = _projectDir();
-  // Проект не выбран: подсказываем, как выбрать его кнопками.
-  if (!projectDir)
-    return reply(
-      escapeHtml(_t("diff.noProject")) + "\n" + _t("project.pickHint"),
-      {
-        replyMarkup: _projectKeyboard(),
-      },
-    );
-  let sessions = [];
-  try {
-    const ctx = _activeContext();
-    const store = ctx && ctx.sessionStore;
-    const all = store.readSessionStore();
-    sessions = Object.keys(all).filter((id) => all[id] === projectDir);
-  } catch (err) {
-    return reply("⚠ " + escapeHtml(err.message));
-  }
-  if (sessions.length === 0) return reply(_t("sessions.empty"));
+  // Всегда читаем список заново — никакого кэша в _pagers.
+  // Проект может быть не выбран: тогда показываем все сессии, а не меню выбора.
+  const live = _readLiveSessions();
+  if (live.error) return reply("⚠ " + escapeHtml(live.error));
+  const items = live.items || [];
+  if (items.length === 0)
+    return reply(_t("sessions.empty") + "\n\n" + _t("sessions.emptyHint"));
 
-  const pager = { items: sessions, page: page || 1, pageSize: 10 };
+  const pager = { items, page: page || 1, pageSize: 6 };
   pager.editMessageId = editId;
   _pagers.set(key, pager);
 
-  const rendered = _renderPager(
-    "sessions",
-    pager,
-    (id) => "• <code>" + escapeHtml(id) + "</code>",
-    (p, pages) => _t("sessions.title", { page: p, pages: pages }),
-    _t("sessions.hint"),
+  const total = items.length;
+  const size = pager.pageSize;
+  const pages = Math.max(1, Math.ceil(total / size));
+  const cur = Math.min(Math.max(1, pager.page), pages);
+  pager.page = cur;
+  const slice = items.slice((cur - 1) * size, cur * size);
+
+  // ---- Текст сообщения ----
+  const lines = [];
+  lines.push(
+    _t("sessions.header", {
+      count: total,
+      scope: live.filtered
+        ? _t("sessions.scopeProject")
+        : _t("sessions.scopeAll"),
+    }),
   );
+  lines.push("");
+  slice.forEach((it, i) => {
+    const n = (cur - 1) * size + i + 1;
+    const date = _fmtSessionDate(it.lastSeen);
+    const name = escapeHtml(it.name || "—");
+    if (it.isCurrent) {
+      lines.push(
+        _t("sessions.rowCurrent", {
+          n: n,
+          name: name,
+          id: escapeHtml(_shortId(it.id)),
+          date: date ? escapeHtml(date) : "—",
+        }),
+      );
+    } else {
+      lines.push(
+        _t("sessions.row", {
+          n: n,
+          name: name,
+          id: escapeHtml(_shortId(it.id)),
+          date: date ? escapeHtml(date) : "—",
+        }),
+      );
+    }
+  });
+  if (pages > 1)
+    lines.push("", _t("sessions.pageInfo", { page: cur, pages: pages }));
+  lines.push("", _t("sessions.hint"));
+
+  // ---- Клавиатура: по кнопке на сессию + навигация ----
+  const itemRows = [];
+  slice.forEach((it, i) => {
+    const idx = (cur - 1) * size + i;
+    const n = idx + 1;
+    const date = _fmtSessionDate(it.lastSeen);
+    const prefix = it.isCurrent ? "✅" : "▫️";
+    const label =
+      prefix + " " + n + ". " + (it.name || "—") + (date ? " · " + date : "");
+    itemRows.push([{ text: label, callback_data: "st_sw_" + idx }]);
+  });
+
+  const nav = [];
+  if (cur > 1)
+    nav.push({
+      text: _t("page.prev"),
+      callback_data: "st_pg_sessions_" + (cur - 1),
+    });
+  if (cur < pages)
+    nav.push({
+      text: _t("page.next"),
+      callback_data: "st_pg_sessions_" + (cur + 1),
+    });
+  const keyboard = itemRows.slice();
+  if (nav.length) keyboard.push(nav);
+
+  const text = lines.join("\n");
+  const replyMarkup = { inline_keyboard: keyboard };
 
   if (editId) {
-    const res = await telegramBot.editMessageText(editId, rendered.text, {
+    const res = await telegramBot.editMessageText(editId, text, {
       parseMode: "HTML",
-      replyMarkup: rendered.keyboard,
+      replyMarkup,
     });
     if (res && res.success) return res;
   }
 
-  const sent = await telegramBot.sendMessage(rendered.text, {
+  const sent = await telegramBot.sendMessage(text, {
     parseMode: "HTML",
-    replyMarkup: rendered.keyboard,
+    replyMarkup,
   });
   if (sent && sent.success && sent.messageId) {
     pager.editMessageId = sent.messageId;
@@ -2857,28 +3261,54 @@ async function _cmdSessions(chatId, page, editMessageId) {
   return sent;
 }
 
-/** /switch <id> — переключиться на сессию. */
+/**
+ * Переключить окно на сессию НАПРЯМУЮ из main-процесса.
+ * Не используем window.electronAPI через инжект: в main world он может быть
+ * недоступен, из-за чего /switch молчал. Навигацию делает main через loadURL.
+ * Возвращает { success, error? }.
+ */
+async function _navigateToSession(id) {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed())
+    return { success: false, error: _t("sessions.noWindow") };
+  let url = null;
+  try {
+    const { getProviderByUrl } = require("../src/providers");
+    const provider = getProviderByUrl(win.webContents.getURL());
+    if (provider && typeof provider.getSessionUrl === "function") {
+      url = provider.getSessionUrl(id);
+    } else if (provider && provider.sessionUrlBase) {
+      url = provider.sessionUrlBase + id;
+    }
+  } catch (_) {}
+  if (!url) url = "https://chat.deepseek.com/a/chat/s/" + id;
+  try {
+    await win.webContents.loadURL(url);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/** /switch <id> — переключиться на сессию (вызывается и из кнопок /sessions). */
 async function _cmdSwitch(chatId, id) {
   if (!id)
     return telegramBot.sendMessage(_t("sessions.needId"), {
       parseMode: "HTML",
     });
-  const res = await _evalInWindow(
-    "(async () => { try { return await window.electronAPI.navigateSession(" +
-      JSON.stringify(id) +
-      "); } catch (e) { return { success:false, error:e.message }; } })()",
-  );
-  const inner = (res && res.result) || {};
-  if (!res.success || inner.success === false)
+  const res = await _navigateToSession(id);
+  if (!res.success) {
     return telegramBot.sendMessage(
       _t("sessions.switchFailed", {
-        err: escapeHtml(
-          (inner && inner.error) || (res && res.error) || "unknown",
-        ),
+        err: escapeHtml(res.error || _t("sessions.unknownError")),
       }),
+      { parseMode: "HTML" },
     );
+  }
   return telegramBot.sendMessage(
-    _t("sessions.switched", { id: escapeHtml(id) }),
+    _t("sessions.switched", { id: escapeHtml(_shortId(id)) }),
     { parseMode: "HTML" },
   );
 }
@@ -3039,6 +3469,7 @@ async function _cmdHelp() {
     _t("help.cmd.status"),
     _t("help.cmd.stop"),
     _t("help.cmd.new"),
+    _t("help.cmd.init"),
     _t("help.cmd.diff"),
     _t("help.cmd.diagnostics"),
     _t("help.cmd.sessions"),
@@ -3479,6 +3910,10 @@ async function _handleIncoming(chatId, text, msg) {
   }
   if (cmd === "/new") {
     await _cmdNew();
+    return;
+  }
+  if (cmd === "/init") {
+    await _cmdInit(chatId);
     return;
   }
   if (cmd === "/projects" || cmd === "/project" || cmd === "/proj") {
@@ -4123,6 +4558,95 @@ function _renderCityTime(toolName, ok, args, preview) {
 }
 
 /**
+ * Красивое сообщение для web_fetch: карточка «ИИ просматривает страницу»
+ * со ссылкой, статусом и превью текста (свёрнутая цитата).
+ * @returns {string|null}
+ */
+function _renderWebFetch(toolName, ok, args, preview) {
+  const name = String(toolName || "").toLowerCase();
+  if (name !== "web_fetch" && name !== "webfetch") return null;
+
+  const a = args && typeof args === "object" ? args : {};
+  const url = String(a.url || "").trim();
+
+  // Ошибка — отдельная карточка (доступность, таймаут, протокол).
+  if (!ok) {
+    const lines = [_t("fetch.errorTitle")];
+    if (url) {
+      lines.push(
+        '🔗 <a href="' +
+          escapeHtml(url) +
+          '">' +
+          escapeHtml(_techTrunc(url)) +
+          "</a>",
+      );
+    }
+    const err = String(preview || "").trim();
+    if (err) {
+      lines.push("");
+      lines.push(
+        "<blockquote expandable>" +
+          escapeHtml(_techTruncLong(err, 500)) +
+          "</blockquote>",
+      );
+    }
+    return lines.join("\n");
+  }
+
+  // Успех: результат вида "Fetched <url> (HTTP <status>)" + тело + footer.
+  const body = _stripResultWrapper(String(preview || "")).trim();
+  const headerMatch = body.match(/^Fetched\s+(\S+)\s+\(HTTP\s+(\d+)\)/i);
+  const shownUrl = (headerMatch && headerMatch[1]) || url || "";
+  const status = headerMatch ? headerMatch[2] : "";
+
+  // Отрезаем служебный заголовок и footer, оставляя полезный текст.
+  let content = body;
+  if (headerMatch) content = body.slice(headerMatch[0].length);
+  content = content
+    .replace(/\n*\n?\(Content truncated\.[^)]*\)\s*$/i, "")
+    .replace(/^\s*\n+/, "")
+    .trim();
+
+  const truncated = /\(Content truncated\./i.test(body);
+
+  const lines = [_t("fetch.title")];
+  lines.push("");
+  if (shownUrl) {
+    lines.push(
+      '🔗 <a href="' +
+        escapeHtml(shownUrl) +
+        '">' +
+        escapeHtml(_techTrunc(shownUrl)) +
+        "</a>",
+    );
+  }
+  if (status) {
+    lines.push(
+      "📡 " +
+        escapeHtml(_t("fetch.status")) +
+        ": <b>" +
+        escapeHtml(status) +
+        "</b>",
+    );
+  }
+
+  if (!content) {
+    lines.push("");
+    lines.push(_t("fetch.empty"));
+    return lines.join("\n");
+  }
+
+  // Превью текста (первые ~1200 символов), свёрнутая цитата.
+  const shown = content.length > 1200 ? content.slice(0, 1200) : content;
+  lines.push("");
+  lines.push("<blockquote expandable>" + escapeHtml(shown) + "</blockquote>");
+  if (truncated || content.length > 1200) {
+    lines.push("<i>" + escapeHtml(_t("fetch.truncated")) + "</i>");
+  }
+  return lines.join("\n");
+}
+
+/**
  * Красивое сообщение для run_agent: карточка с именем агента и задачей.
  * Вызывается из notifyToolResult при старте (args) — а результат агента
  * отдельным сообщением ловит `agent_result` (через notifyAgentResult).
@@ -4394,6 +4918,17 @@ async function notifyToolResult(toolName, ok, detail) {
     }
   }
 
+  // Просмотр страниц (web_fetch): собственная карточка со ссылкой, статусом и
+  // превью текста. Обрабатываем и успех, и ошибку — общий путь для них грубый.
+  try {
+    const fetchMsg = _renderWebFetch(toolName, ok, args, preview);
+    if (fetchMsg) {
+      return telegramBot.sendMessage(fetchMsg, { parseMode: "HTML" });
+    }
+  } catch (err) {
+    console.error("[bot] web_fetch render failed:", err.message);
+  }
+
   // Задачи (todoWrite): собственная карточка со списком задач — ДО ignore-фильтра,
   // чтобы красивое уведомление приходило всегда (см. решение пользователя).
   if (ok) {
@@ -4502,6 +5037,7 @@ async function _registerCommands() {
     ru: {
       start: "начать / справка",
       help: "справка",
+      init: "инициализация проекта",
       settings: "настройки",
       status: "статус",
       stop: "остановить задачу",
@@ -4523,6 +5059,7 @@ async function _registerCommands() {
     en: {
       start: "start / help",
       help: "help",
+      init: "initialize project",
       settings: "settings",
       status: "status",
       stop: "stop task",

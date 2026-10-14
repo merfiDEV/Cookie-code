@@ -36,6 +36,7 @@ const STRINGS = {
     "help.cmd.status": "/status      — статус: окно, проект, процессы",
     "help.cmd.stop": "/stop        — прервать задачу и убить процессы",
     "help.cmd.new": "/new         — новый чат",
+    "help.cmd.init": "/init        — инициализировать проект (выбор папки)",
     "help.cmd.diff": "/diff        — показать изменения (git diff)",
     "help.cmd.diagnostics": "/diagnostics — диагностика интеграции",
     "help.cmd.sessions": "/sessions    — список сессий проекта",
@@ -158,6 +159,22 @@ const STRINGS = {
     // ===== /new =====
     "new.done": "🆕 Новый чат открыт.",
     "new.noWindow": "⚠️ Нет активного окна — не удалось открыть новый чат.",
+
+    // ===== /init — инициализация проекта =====
+    "init.title": "🚀 <b>Инициализация проекта</b>",
+    "init.pickDrive": "<i>Выберите диск:</i>",
+    "init.currentDir": "📂 <code>{dir}</code>",
+    "init.empty": "<i>Папок нет.</i>",
+    "init.up": "⬆️ Вверх",
+    "init.pick": "✅ Выбрать эту папку",
+    "init.cancelled": "❌ Инициализация отменена.",
+    "init.expired": "⚠️ Сессия выбора устарела. Запустите /init заново.",
+    "init.starting": "⏳ Инициализирую проект <code>{dir}</code>…",
+    "init.done":
+      "✅ Проект инициализирован: <code>{dir}</code>\nНовый чат открыт, системный промпт отправлен.",
+    "init.failed": "⚠️ Не удалось инициализировать: {err}",
+    "init.badDir": "папка не найдена или не является каталогом",
+    "common.cancel": "❌ Отмена",
     "new.failed": "❌ Не удалось открыть новый чат: {err}",
 
     // ===== /diff =====
@@ -201,11 +218,25 @@ const STRINGS = {
 
     // ===== /sessions и /switch =====
     "sessions.empty": "📭 Сессий не найдено.",
-    "sessions.title": "🗂 <b>Сессии</b> (стр. {page}/{pages})",
-    "sessions.hint": "<i>Переключиться: /switch &lt;id&gt;</i>",
+    "sessions.header": "🗂 <b>Сессии</b> {scope} · всего: {count}",
+    "sessions.scopeProject": "(текущий проект)",
+    "sessions.scopeAll": "(все проекты)",
+    "sessions.emptyHint":
+      "<i>Запустите чат с проектом, чтобы он появился здесь.</i>",
+    "sessions.row": "{n}. <b>{name}</b> · {date} · <code>{id}</code>",
+    "sessions.rowCurrent":
+      "{n}. <b>{name}</b> · {date} · <code>{id}</code> · ✅ <b>активная</b>",
+    "sessions.pageInfo": "📄 Страница {page} из {pages}",
+    "sessions.hint": "<i>Нажмите на сессию ниже, чтобы переключиться.</i>",
+    "sessions.today": "сегодня, {time}",
+    "sessions.yesterday": "вчера, {time}",
     "sessions.switched": "✅ Переключено на сессию: <code>{id}</code>",
-    "sessions.switchFailed": "⚠️ Не удалось переключиться: {err}",
-    "sessions.needId": "⚠️ Укажите id сессии: /switch &lt;id&gt;",
+    "sessions.switchFailed":
+      "⚠️ Не удалось переключиться: {err}\n\nПопробуйте /sessions — выбрать из списка.",
+    "sessions.needId":
+      "⚠️ Укажите id сессии: /switch &lt;id&gt;\n\nИли откройте список: /sessions",
+    "sessions.noWindow": "Нет активного окна приложения",
+    "sessions.unknownError": "неизвестная ошибка",
 
     // ===== /log, /show, /files =====
     "log.empty": "📭 Коммитов не найдено.",
@@ -288,6 +319,14 @@ const STRINGS = {
     "city.time": "Время",
     "city.tz": "Часовой пояс",
     "city.place": "Город / страна",
+
+    // ===== Просмотр страниц (web_fetch) =====
+    "fetch.title": "🌐 <b>ИИ просматривает страницу</b>",
+    "fetch.url": "URL",
+    "fetch.status": "Статус",
+    "fetch.truncated": "…(содержимое обрезано)",
+    "fetch.empty": "📄 Пустая страница (без текста)",
+    "fetch.errorTitle": "🌐 <b>Не удалось загрузить страницу</b>",
 
     // ===== Субагенты (run_agent / create_agent / list_agents / read_agent) =====
     "agent.runTitle": "🚀 <b>ИИ делегирует задачу субагенту</b>",
@@ -429,6 +468,7 @@ const STRINGS = {
     "help.cmd.status": "/status      — status: window, project, processes",
     "help.cmd.stop": "/stop        — abort task and kill processes",
     "help.cmd.new": "/new         — new chat",
+    "help.cmd.init": "/init        — initialize project (pick folder)",
     "help.cmd.diff": "/diff        — show changes (git diff)",
     "help.cmd.diagnostics": "/diagnostics — integration diagnostics",
     "help.cmd.sessions": "/sessions    — project sessions list",
@@ -552,6 +592,22 @@ const STRINGS = {
     // ===== /new =====
     "new.done": "🆕 New chat opened.",
     "new.noWindow": "⚠️ No active window — cannot open a new chat.",
+
+    // ===== /init — project initialization =====
+    "init.title": "🚀 <b>Project initialization</b>",
+    "init.pickDrive": "<i>Pick a drive:</i>",
+    "init.currentDir": "📂 <code>{dir}</code>",
+    "init.empty": "<i>No folders.</i>",
+    "init.up": "⬆️ Up",
+    "init.pick": "✅ Select this folder",
+    "init.cancelled": "❌ Initialization cancelled.",
+    "init.expired": "⚠️ Selection expired. Run /init again.",
+    "init.starting": "⏳ Initializing project <code>{dir}</code>…",
+    "init.done":
+      "✅ Project initialized: <code>{dir}</code>\nNew chat opened, system prompt sent.",
+    "init.failed": "⚠️ Failed to initialize: {err}",
+    "init.badDir": "folder not found or not a directory",
+    "common.cancel": "❌ Cancel",
     "new.failed": "❌ Failed to open a new chat: {err}",
 
     // ===== /diff =====
@@ -595,11 +651,25 @@ const STRINGS = {
 
     // ===== /sessions and /switch =====
     "sessions.empty": "📭 No sessions found.",
-    "sessions.title": "🗂 <b>Sessions</b> (page {page}/{pages})",
-    "sessions.hint": "<i>Switch: /switch &lt;id&gt;</i>",
+    "sessions.header": "🗂 <b>Sessions</b> {scope} · total: {count}",
+    "sessions.scopeProject": "(current project)",
+    "sessions.scopeAll": "(all projects)",
+    "sessions.emptyHint":
+      "<i>Open a chat with a project so it appears here.</i>",
+    "sessions.row": "{n}. <b>{name}</b> · {date} · <code>{id}</code>",
+    "sessions.rowCurrent":
+      "{n}. <b>{name}</b> · {date} · <code>{id}</code> · ✅ <b>active</b>",
+    "sessions.pageInfo": "📄 Page {page} of {pages}",
+    "sessions.hint": "<i>Tap a session below to switch.</i>",
+    "sessions.today": "today, {time}",
+    "sessions.yesterday": "yesterday, {time}",
     "sessions.switched": "✅ Switched to session: <code>{id}</code>",
-    "sessions.switchFailed": "⚠️ Failed to switch: {err}",
-    "sessions.needId": "⚠️ Provide a session id: /switch &lt;id&gt;",
+    "sessions.switchFailed":
+      "⚠️ Failed to switch: {err}\n\nTry /sessions to pick from the list.",
+    "sessions.needId":
+      "⚠️ Provide a session id: /switch &lt;id&gt;\n\nOr open the list: /sessions",
+    "sessions.noWindow": "⚠️ No active app window.",
+    "sessions.unknownError": "unknown error",
 
     // ===== /log, /show, /files =====
     "log.empty": "📭 No commits found.",
@@ -682,6 +752,14 @@ const STRINGS = {
     "city.time": "Time",
     "city.tz": "Timezone",
     "city.place": "City / country",
+
+    // ===== Page browsing (web_fetch) =====
+    "fetch.title": "🌐 <b>AI is browsing a page</b>",
+    "fetch.url": "URL",
+    "fetch.status": "Status",
+    "fetch.truncated": "…(content truncated)",
+    "fetch.empty": "📄 Empty page (no text)",
+    "fetch.errorTitle": "🌐 <b>Failed to load the page</b>",
 
     // ===== Subagents (run_agent / create_agent / list_agents / read_agent) =====
     "agent.runTitle": "🚀 <b>AI delegates a task to a subagent</b>",
