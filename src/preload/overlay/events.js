@@ -24,6 +24,7 @@ const {
   openCommitFullDiff,
 } = require("./diff-panel");
 const todoPanel = require("./todo-panel");
+const goalPanel = require("./goal-panel");
 const { handleInitProject, renderSessions } = require("../dom/session-list");
 const { handleManualParse } = require("../dom/observer");
 const contextPort = require("../dom/context-port");
@@ -649,6 +650,7 @@ function bindEvents() {
 
   // Плавающее окошко «Задачи»
   todoPanel.start();
+  goalPanel.start();
 
   // 启动输入框 token 估算
   startTokenCounter();

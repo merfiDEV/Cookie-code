@@ -69,6 +69,11 @@ const COMMANDS = [
     descriptionKey: "cmd.send.description",
     action: "send",
   },
+  {
+    name: "goal",
+    descriptionKey: "cmd.goal.description",
+    action: "goal",
+  },
 ];
 
 /**

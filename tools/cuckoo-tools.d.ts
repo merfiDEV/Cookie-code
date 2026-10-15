@@ -429,3 +429,12 @@ declare function skillLoad(name: string): Promise<string>;
  * @throws Skill 未加载或函数不存在时抛出异常
  */
 declare function skillExecute(skill: string, functionName: string, args?: Record<string, unknown>): Promise<string>;
+
+/**
+ * Объявить текущую цель (/goal) полностью выполненной, завершить автопродвижение.
+ * Вызывать только когда все требования цели действительно выполнены; перед вызовом
+ * дать в тексте итог. В обычном диалоге (не режим цели) не вызывать.
+ * @returns Сообщение о завершении цели
+ * @throws Если нет контекста окна или инструмент недоступен
+ */
+declare function goalDone(): Promise<string>;

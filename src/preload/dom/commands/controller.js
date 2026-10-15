@@ -226,6 +226,28 @@ function pick(idx) {
 
   const isReviewCommand = activeKind === "command" && item.name === "review";
   const isSendCommand = activeKind === "command" && item.name === "send";
+  const isGoalCommand = activeKind === "command" && item.name === "goal";
+
+  // /goal — команда-действие: текст цели берём как остаток после slash-токена
+  // (то, что напечатано после «/goal»). Если пусто — подсказка/статус.
+  if (isGoalCommand) {
+    const draft = String(getValue(field) || "");
+    // Вырезаем сам токен («/g», «/goal»), остальное — описание цели.
+    const tokenEnd = hit && hit.span ? hit.span.end : draft.length;
+    const afterToken = draft.slice(tokenEnd).trim();
+    closeMenu();
+    activeHit = null;
+    try {
+      const goalCommand = require("../goal-command");
+      goalCommand.handleGoalCommand(
+        afterToken ? "/goal " + afterToken : "/goal",
+      );
+      setValue(field, "");
+    } catch (err) {
+      console.error("[Cookie Code] /goal error:", err && err.message);
+    }
+    return;
+  }
 
   // /send — команда-действие: сразу нажимаем кнопку отправки в активном окне,
   // ничего не вставляя в поле ввода (на случай зависшей авто-отправки).

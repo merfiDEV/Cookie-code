@@ -105,6 +105,40 @@ You are an experienced code review expert...
 
 ---
 
+### 🎯 **Goals — Autonomous Multi-Round Tasks**
+
+The `/goal` command turns a single task into a **self-driving multi-round loop**: the AI keeps advancing step by step until the goal is done — no input from you between steps.
+
+**How it works:**
+
+1. Type `/goal <goal description>` in chat (or set a goal from Telegram: `/goal <description>`)
+2. The AI receives the goal instruction and starts working
+3. When a response round ends (no tool calls), Cookie Code **automatically** sends the AI "continue"
+4. When done, the AI calls the `goalDone()` tool and the loop stops
+
+**Controls:**
+
+| Command                        | Action              |
+| ------------------------------ | ------------------- |
+| `/goal <text>`                 | Set a goal          |
+| `/goal`                        | Show current status |
+| `/goal stop`                   | Stop the goal       |
+| `/goal pause` / `/goal resume` | Pause / resume      |
+
+**Goal panel:** a floating panel on the left shows the goal text, iteration number, elapsed time and **Pause** / **Exit** buttons. It can be dragged.
+
+**Loop protection:**
+
+- ⏱ **Iteration limit** — 50 rounds by default (setting `cuckoo-goal-max-iterations`)
+- 🔁 **No progress** — 3 identical rounds in a row stop the goal
+- ⏸ **Manual stop** — `/goal stop` or the "Exit" button instantly break the loop
+
+**Per-session:** each chat has its own goal — switching sessions keeps them separate.
+
+**Telegram notifications:** you get notified on goal start and completion, and can set/manage goals right from the bot.
+
+---
+
 ### 🎨 **Beautiful & Customizable**
 
 <p align="center">
@@ -323,20 +357,21 @@ AI can now call `deploy` like any built-in tool.
 
 Cookie Code ships with 20+ tools out of the box:
 
-| Tool        | Description              | Example                                 |
-| ----------- | ------------------------ | --------------------------------------- |
-| `read`      | Read file contents       | `read('src/auth.js')`                   |
-| `write`     | Create or overwrite file | `write('test.js', code)`                |
-| `edit`      | Apply targeted patch     | `edit('app.js', oldCode, newCode)`      |
-| `glob`      | Find files by pattern    | `glob('**/*.test.js')`                  |
-| `grep`      | Search file contents     | `grep('TODO', { include: '*.js' })`     |
-| `bash`      | Run shell command        | `bash('npm test')`                      |
-| `pwsh`      | Run PowerShell script    | `pwsh('Get-Process')`                   |
-| `git`       | Git operations           | `git('status')`                         |
-| `mysql`     | SQL queries              | `mysql('SELECT * FROM users')`          |
-| `webFetch`  | HTTP requests            | `webFetch('https://api.example.com')`   |
-| `todoWrite` | Manage task lists        | `todoWrite([{content: 'Fix bug'}])`     |
-| `mcpCall`   | Call MCP server tool     | `mcpCall('github', 'create_pr', {...})` |
+| Tool        | Description               | Example                                 |
+| ----------- | ------------------------- | --------------------------------------- |
+| `read`      | Read file contents        | `read('src/auth.js')`                   |
+| `write`     | Create or overwrite file  | `write('test.js', code)`                |
+| `edit`      | Apply targeted patch      | `edit('app.js', oldCode, newCode)`      |
+| `glob`      | Find files by pattern     | `glob('**/*.test.js')`                  |
+| `grep`      | Search file contents      | `grep('TODO', { include: '*.js' })`     |
+| `bash`      | Run shell command         | `bash('npm test')`                      |
+| `pwsh`      | Run PowerShell script     | `pwsh('Get-Process')`                   |
+| `git`       | Git operations            | `git('status')`                         |
+| `mysql`     | SQL queries               | `mysql('SELECT * FROM users')`          |
+| `webFetch`  | HTTP requests             | `webFetch('https://api.example.com')`   |
+| `todoWrite` | Manage task lists         | `todoWrite([{content: 'Fix bug'}])`     |
+| `mcpCall`   | Call MCP server tool      | `mcpCall('github', 'create_pr', {...})` |
+| `goalDone`  | Complete a goal (`/goal`) | `goalDone()`                            |
 
 [Full tool reference →](docs/TOOLS.md)
 

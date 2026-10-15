@@ -31,6 +31,8 @@ const forceDarkTheme = require("./dom/force-dark-theme");
 const qrOverride = require("./dom/qr-override");
 const fileChip = require("./dom/file-chip");
 const contextPort = require("./dom/context-port");
+const goalEngine = require("./dom/goal-engine");
+const goalCommand = require("./dom/goal-command");
 const fonts = require("./dom/fonts");
 const statsDashboard = require("./dom/stats-dashboard");
 const statsRecorder = require("./dom/stats-recorder");
@@ -107,6 +109,8 @@ async function init() {
       whatsNew.registerWhatsNewListener(),
     );
     safe("init.planModeToggleStart", () => planModeToggle.startWatch());
+    safe("init.goalEngine", () => goalEngine.init());
+    safe("init.goalCommand", () => goalCommand.install());
 
     // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события
     safe("init.injectCSS", () => ui.injectCSS());

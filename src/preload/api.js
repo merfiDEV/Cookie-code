@@ -259,6 +259,17 @@ let electronAPI = {
     ipcRenderer.on("todo-updated", listener);
     return () => ipcRenderer.removeListener("todo-updated", listener);
   },
+  // ========== Goal (цели) ==========
+  goalUpdated: (state) => ipcRenderer.send("goal-updated", state || {}),
+  onGoalUpdated: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on("goal-updated", listener);
+    return () => ipcRenderer.removeListener("goal-updated", listener);
+  },
+  getGoal: () => ipcRenderer.invoke("goal-get"),
+  stopGoal: () => ipcRenderer.invoke("goal-stop"),
+  pauseGoal: () => ipcRenderer.invoke("goal-pause"),
+  resumeGoal: () => ipcRenderer.invoke("goal-resume"),
   // ========== Git diff (панель «Изменения») ==========
   gitStatus: () => {
     return ipcRenderer.invoke("git-status");
