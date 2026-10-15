@@ -2383,6 +2383,101 @@ async function _cmdDiagnostics() {
 }
 
 /** /todos — список задач активного окна (с пагинацией). */
+/**
+ * Отправить команду цели в preload активного окна.
+ * @param {string} action 'start' | 'stop' | 'pause' | 'resume'
+ * @param {string} [text] текст цели (для action='start')
+ */
+async function _sendGoalCommand(action, text) {
+  const win = windowState.getParentWindow
+    ? windowState.getParentWindow()
+    : windowState.getMainWindow();
+  if (!win || win.isDestroyed())
+    return { success: false, error: "нет активного окна" };
+  try {
+    if (action === "start") {
+      win.webContents.send("goal-start", { text: String(text || "") });
+    } else {
+      win.webContents.send("goal-control", { action });
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/** /goal — задать цель, показать статус или управлять (stop/pause/resume). */
+async function _cmdGoal(chatId, args) {
+  const arg = String(args || "").trim();
+  const lower = arg.toLowerCase();
+
+  if (!arg) {
+    // Показать статус: читаем из goal-store (main).
+    let goal = { active: false };
+    try {
+      const senderId = _activeSenderId();
+      if (senderId != null) {
+        const goalStore = require("../src/main/goal-store");
+        goal = goalStore.get(senderId);
+      }
+    } catch (_) {}
+    if (!goal || !goal.text) {
+      await telegramBot.sendMessage(_t("goal.none"));
+      return;
+    }
+    const stateText = goal.done
+      ? _t("goal.state.done")
+      : goal.paused
+        ? _t("goal.state.paused")
+        : _t("goal.state.running");
+    const sec = Math.floor((goal.elapsedMs || 0) / 1000);
+    await telegramBot.sendMessage(
+      _t("goal.status", {
+        text: escapeHtml(goal.text),
+        state: stateText,
+        round: goal.round || 0,
+        max: goal.maxIterations || "-",
+        time: sec,
+      }),
+      { parseMode: "HTML" },
+    );
+    return;
+  }
+
+  if (lower === "stop" || lower === "exit") {
+    const r = await _sendGoalCommand("stop");
+    await telegramBot.sendMessage(
+      r.success ? _t("goal.stopped") : _t("goal.noWindow"),
+    );
+    return;
+  }
+  if (lower === "pause") {
+    const r = await _sendGoalCommand("pause");
+    await telegramBot.sendMessage(
+      r.success ? _t("goal.paused") : _t("goal.noWindow"),
+    );
+    return;
+  }
+  if (lower === "resume") {
+    const r = await _sendGoalCommand("resume");
+    await telegramBot.sendMessage(
+      r.success ? _t("goal.resumed") : _t("goal.noWindow"),
+    );
+    return;
+  }
+
+  // Иначе — новая цель.
+  const r = await _sendGoalCommand("start", arg);
+  if (r.success) {
+    await telegramBot.sendMessage(
+      _t("goal.started", { text: escapeHtml(arg) }),
+      { parseMode: "HTML" },
+    );
+  } else {
+    await telegramBot.sendMessage(_t("goal.noWindow"));
+  }
+}
+
 async function _cmdTodos(chatId, page) {
   let todos = [];
   try {
@@ -3478,6 +3573,8 @@ async function _cmdHelp() {
     _t("help.cmd.show"),
     _t("help.cmd.files"),
     _t("help.cmd.todos"),
+    _t("help.cmd.goal"),
+    _t("help.cmd.goal.manage"),
     _t("help.cmd.agents"),
     _t("help.cmd.toggles"),
     _t("help.cmd.screen"),
@@ -3973,6 +4070,11 @@ async function _handleIncoming(chatId, text, msg) {
   // Команда /todos — показать список задач активного окна.
   if (cmd === "/todos" || cmd === "/todo") {
     await _cmdTodos(chatId, 1);
+    return;
+  }
+  // Команда /goal — задать цель, статус или управление (stop/pause/resume).
+  if (cmd === "/goal") {
+    await _cmdGoal(chatId, cmdArgs);
     return;
   }
   if (cmd === "/screen" || cmd === "/screenshot") {
@@ -4853,6 +4955,32 @@ async function notifyAgentStarted(agentName, task) {
 }
 
 /** Уведомление о результате tool (компактный стиль «Tech»). */
+/**
+ * Уведомление в TG: цель (/goal) завершена.
+ * Вызывается из src/main/goal-store при переходе active→done.
+ * @param {{text:string, round:number, elapsedMs:number}} goal
+ */
+async function notifyGoalDone(goal) {
+  const cfg = _read();
+  if (!cfg.enabled) return { success: false, skipped: true };
+  try {
+    const sec = Math.floor(((goal && goal.elapsedMs) || 0) / 1000);
+    const text = (goal && goal.text) || "";
+    await telegramBot.sendMessage(
+      _t("goal.doneNotify", {
+        text: escapeHtml(text),
+        round: (goal && goal.round) || 0,
+        time: sec,
+      }),
+      { parseMode: "HTML" },
+    );
+    return { success: true };
+  } catch (err) {
+    _log("error", "notifyGoalDone error:", err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 async function notifyToolResult(toolName, ok, detail) {
   const cfg = _read();
   if (!cfg.enabled || !cfg.notifyTools)
@@ -5050,6 +5178,7 @@ async function _registerCommands() {
       switch: "переключить сессию",
       diagnostics: "диагностика",
       todos: "список задач",
+      goal: "цель (авто-продвижение)",
       agents: "субагенты проекта",
       toggles: "тумблеры DeepSeek",
       screen: "скриншот окна",
@@ -5072,6 +5201,7 @@ async function _registerCommands() {
       switch: "switch session",
       diagnostics: "diagnostics",
       todos: "todo list",
+      goal: "goal (auto-advance)",
       agents: "project subagents",
       toggles: "DeepSeek toggles",
       screen: "window screenshot",
@@ -5160,6 +5290,7 @@ module.exports = {
   startTyping,
   stopTyping,
   notifyAllDone,
+  notifyGoalDone,
   requestApproval,
   cancelApproval,
   requestPlanApproval,

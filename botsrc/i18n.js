@@ -45,6 +45,8 @@ const STRINGS = {
     "help.cmd.show": "/show &lt;hash&gt; — diff коммита",
     "help.cmd.files": "/files &lt;hash&gt; — файлы коммита",
     "help.cmd.todos": "/todos       — список задач активного окна",
+    "help.cmd.goal": "/goal &lt;цель&gt; — задать цель (авто-продвижение)",
+    "help.cmd.goal.manage": "/goal stop|pause|resume — управление целью",
     "help.cmd.agents": "/agents      — список субагентов проекта",
     "help.cmd.toggles": "/toggles     — тумблеры поиска и раздумий DeepSeek",
     "help.cmd.screen": "/screen      — скриншот активного окна",
@@ -203,6 +205,22 @@ const STRINGS = {
     // ===== /todos =====
     "todos.empty": "☑ Список задач пуст.",
     "todos.header": "☑ Задачи ({done}/{total}):",
+
+    // ===== /goal =====
+    "goal.none": "🎯 Цель не задана. Используй: /goal &lt;описание цели&gt;",
+    "goal.status":
+      "🎯 <b>Цель</b>: {text}\nСостояние: {state} · итерация {round}/{max} · {time}с",
+    "goal.state.running": "выполняется",
+    "goal.state.paused": "пауза",
+    "goal.state.done": "завершена",
+    "goal.started":
+      "🎯 Цель задана:\n{text}\n\nAI будет продвигаться автоматически, пока не завершит её.",
+    "goal.stopped": "⏹ Цель остановлена.",
+    "goal.paused": "⏸ Цель на паузе.",
+    "goal.resumed": "▶️ Цель возобновлена.",
+    "goal.noWindow": "⚠️ Нет активного окна.",
+    "goal.doneNotify":
+      "🎯 <b>Цель завершена!</b>\n{text}\n\nИтераций: {round} · время: {time}с",
 
     // ===== Выбор проекта кнопками =====
     "project.pickHint": "<i>Выбери проект кнопкой ниже.</i>",
@@ -477,6 +495,8 @@ const STRINGS = {
     "help.cmd.show": "/show &lt;hash&gt; — commit diff",
     "help.cmd.files": "/files &lt;hash&gt; — commit files",
     "help.cmd.todos": "/todos       — tasks of the active window",
+    "help.cmd.goal": "/goal &lt;goal&gt; — set a goal (auto-advance)",
+    "help.cmd.goal.manage": "/goal stop|pause|resume — manage the goal",
     "help.cmd.agents": "/agents      — project subagents list",
     "help.cmd.toggles": "/toggles     — DeepSeek search & deep-think toggles",
     "help.cmd.screen": "/screen      — screenshot of the active window",
@@ -636,6 +656,22 @@ const STRINGS = {
     // ===== /todos =====
     "todos.empty": "☑ Task list is empty.",
     "todos.header": "☑ Tasks ({done}/{total}):",
+
+    // ===== /goal =====
+    "goal.none": "🎯 No goal set. Use: /goal &lt;goal description&gt;",
+    "goal.status":
+      "🎯 <b>Goal</b>: {text}\nState: {state} · iteration {round}/{max} · {time}s",
+    "goal.state.running": "running",
+    "goal.state.paused": "paused",
+    "goal.state.done": "done",
+    "goal.started":
+      "🎯 Goal set:\n{text}\n\nAI will advance automatically until it completes.",
+    "goal.stopped": "⏹ Goal stopped.",
+    "goal.paused": "⏸ Goal paused.",
+    "goal.resumed": "▶️ Goal resumed.",
+    "goal.noWindow": "⚠️ No active window.",
+    "goal.doneNotify":
+      "🎯 <b>Goal completed!</b>\n{text}\n\nIterations: {round} · time: {time}s",
 
     // ===== Project picker =====
     "project.pickHint": "<i>Pick a project with the button below.</i>",
