@@ -18,6 +18,7 @@ const statsStore = require("./stats-store");
 const { decodeOutput, normalizeCommand } = require("../../tools/decodeOutput");
 const gitDiff = require("./git-diff");
 const todoStore = require("./todo-store");
+const goalStore = require("./goal-store");
 const planMode = require("./plan-mode");
 const subagent = require("./subagent");
 
@@ -135,6 +136,29 @@ function requestExitPlanMode(sender, plan) {
       }
     } catch (_) {}
   });
+}
+
+/**
+ * Отправить событие 'goal-done' в preload окна — движок цели остановит цикл.
+ * Вызывается тулом goal_done (AI объявил цель выполненной).
+ * @param {number} windowId
+ * @returns {{success: boolean, error?: string}}
+ */
+function pushGoalDone(windowId) {
+  try {
+    const wc = require("electron").webContents.fromId(windowId);
+    if (!wc || wc.isDestroyed()) {
+      return { success: false, error: "Окно не найдено или закрыто" };
+    }
+    wc.send("goal-done");
+    console.log("[Cookie Code] goal-done отправлен в окно " + windowId);
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: "Не удалось отправить goal-done: " + (err.message || String(err)),
+    };
+  }
 }
 
 /**
@@ -1106,6 +1130,7 @@ function registerIpcHandlers() {
             insertImageToChat(event.sender, filePath, caption, send),
           attachFile: (payload) => attachFileToChat(event.sender, payload),
           exitPlanMode: (plan) => requestExitPlanMode(event.sender, plan),
+          goalDone: (windowId) => pushGoalDone(windowId),
         });
         if (isTaskCanceled(event.sender.id, taskToken)) {
           return {
@@ -1311,6 +1336,7 @@ function registerIpcHandlers() {
         currentWindowId,
         ctx && Array.isArray(ctx.toolsWhitelist) ? ctx.toolsWhitelist : null,
         (ctx && ctx.subagentConfig && ctx.subagentConfig.agentName) || null,
+        (windowId) => pushGoalDone(windowId),
       );
       if (isTaskCanceled(event.sender.id, taskToken)) {
         return {
@@ -1562,6 +1588,46 @@ function registerIpcHandlers() {
       return { success: false, error: err.message };
     }
   });
+
+  // ========== Goal (цели) ==========
+  // Preload пушит актуальное состояние цели сюда (копия для панели и Telegram).
+  ipcMain.on("goal-updated", (event, state) => {
+    try {
+      goalStore.set(event.sender.id, state);
+    } catch (_) {}
+  });
+
+  // Панель overlay запрашивает текущее состояние.
+  ipcMain.handle("goal-get", async (event) => {
+    try {
+      return { success: true, goal: goalStore.get(event.sender.id) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Управление целью из панели/ТГ: шлём команду в preload окна.
+  function sendGoalControl(senderId, action, extra) {
+    try {
+      const wc = require("electron").webContents.fromId(senderId);
+      if (!wc || wc.isDestroyed())
+        return { success: false, error: "Окно не найдено" };
+      wc.send("goal-control", Object.assign({ action }, extra || {}));
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  ipcMain.handle("goal-stop", async (event) =>
+    sendGoalControl(event.sender.id, "stop"),
+  );
+  ipcMain.handle("goal-pause", async (event) =>
+    sendGoalControl(event.sender.id, "pause"),
+  );
+  ipcMain.handle("goal-resume", async (event) =>
+    sendGoalControl(event.sender.id, "resume"),
+  );
 
   // ========== Git diff (панель «Изменения») ==========
   // Список изменённых файлов в текущем проекте (git status).

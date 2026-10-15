@@ -221,6 +221,10 @@ const BOOTSTRAP = [
   "    return await __call('exit_plan_mode', { plan: plan });",
   "  };",
   "  globalThis.exit_plan_mode = globalThis.exitPlanMode;",
+  "  globalThis.goalDone = async function () {",
+  "    return await __call('goal_done', {});",
+  "  };",
+  "  globalThis.goal_done = globalThis.goalDone;",
   "  globalThis.openBrowserWindow = async function (url, options) {",
   "    options = options || {};",
   "    return await __call('open_browser_window', {",
@@ -380,6 +384,7 @@ class JsRunner {
     currentWindowId,
     toolsWhitelist,
     agentName,
+    goalDone,
   ) {
     if (!code || typeof code !== "string" || !code.trim()) {
       return { success: false, error: "无效的 JS 代码" };
@@ -461,6 +466,7 @@ class JsRunner {
                 pasteImage,
                 exitPlanMode,
                 attachFile,
+                goalDone,
               }),
             );
           } catch (err) {

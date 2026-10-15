@@ -35,6 +35,7 @@ const {
 const { AskUserQuestionTool } = require("./AskUserQuestionTool");
 const { ReadPhotoTool } = require("./ReadPhotoTool");
 const { ExitPlanModeTool } = require("./ExitPlanModeTool");
+const { GoalDoneTool } = require("./GoalDoneTool");
 const { AttachFileTool } = require("./AttachFileTool");
 const { AttachTelegramTool } = require("./AttachTelegramTool");
 const {
@@ -82,6 +83,7 @@ registry.register(new SkillExecuteTool());
 registry.register(new AskUserQuestionTool());
 registry.register(new ReadPhotoTool());
 registry.register(new ExitPlanModeTool());
+registry.register(new GoalDoneTool());
 registry.register(new AttachFileTool());
 registry.register(new AttachTelegramTool());
 registry.register(new MemorySaveTool());
@@ -124,6 +126,7 @@ module.exports = {
   AskUserQuestionTool,
   ReadPhotoTool,
   ExitPlanModeTool,
+  GoalDoneTool,
   AttachFileTool,
   AttachTelegramTool,
   InjectPageJSTool,
