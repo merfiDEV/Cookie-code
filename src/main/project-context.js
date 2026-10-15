@@ -436,7 +436,11 @@ async function buildInitPrompt(selectedDir, providerId) {
     "- 调用 skillLoad(name) 加载需要的 Skill（读取 SKILL.md 指令和 tool.js 函数）",
     "- 调用 skillExecute(skill, function, args) 执行已加载 Skill 的函数",
     "",
-    "Skill 位于 <projectDir>/.cuckoo/skills/<skill-name>/，其中 SKILL.md 为指令文件，tool.js 可选导出可执行函数。",
+    "Skill 分两个层级：",
+    "- Глобальные: <userData>/skills/<skill-name>/ — общие для всех проектов.",
+    "- Проектные: <projectDir>/.cuckoo/skills/<skill-name>/ — своя для каждого проекта.",
+    "В папке скилла нужен SKILL.md (инструкции), опционально tool.js (экспортируемые функции).",
+    "При совпадении имён глобальный Skill перекрывает проектный.",
   ].join("\n");
 
   // Память — абсолютные пути к файлам, чтобы AI знал, где они лежат.
