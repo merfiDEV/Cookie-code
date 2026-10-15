@@ -822,6 +822,10 @@ const KEYS = {
     ru: "Нажать кнопку отправки в чате (если отправка зависла)",
     en: "Click the send button in chat (if sending got stuck)",
   },
+  "cmd.goal.description": {
+    ru: "Задать цель: /goal <описание> (авто-продвижение)",
+    en: "Set a goal: /goal <description> (auto-advance)",
+  },
   "plan.toggle.label": { ru: "План", en: "Plan" },
   "plan.dialog.title": { ru: "План на утверждение", en: "Plan for approval" },
   "plan.dialog.deny": { ru: "Отказать в плане", en: "Reject plan" },
