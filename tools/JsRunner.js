@@ -177,7 +177,10 @@ const BOOTSTRAP = [
   "    return await __call('skill_execute', { skill: skill, function: functionName, args: args || {} });",
   "  };",
   "  globalThis.askUserQuestion = async function (questions) {",
-  "    return await __call('ask_user_question', { questions: questions });",
+  "    var __answer = await __call('ask_user_question', { questions: questions });",
+  "    // Ответ на вопрос всегда попадает в вывод, даже если AI не вызвал log().",
+  "    globalThis.__logs.push(__stringify(__answer));",
+  "    return __answer;",
   "  };",
   "  globalThis.ask_user_question = globalThis.askUserQuestion;",
   "  globalThis.read_photo = async function (filePath, caption, send) {",
@@ -633,7 +636,13 @@ class JsRunner {
         parts.push(logs.join("\n"));
       }
       if (ret !== undefined && ret !== null) {
-        parts.push(typeof ret === "string" ? ret : safeStringify(ret));
+        const retText = typeof ret === "string" ? ret : safeStringify(ret);
+        // Не дублируем возврат, если он уже попал в лог (например, ответ askUserQuestion).
+        const lastLog =
+          Array.isArray(logs) && logs.length > 0 ? logs[logs.length - 1] : null;
+        if (lastLog !== retText) {
+          parts.push(retText);
+        }
       }
 
       let output = parts.filter(Boolean).join("\n\n");
