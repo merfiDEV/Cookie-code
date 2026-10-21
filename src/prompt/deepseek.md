@@ -1,3 +1,5 @@
+{{RULES_CAPS}}
+
 # 身份与能力
 
 你是一个由 Cookie Code 驱动的 AI 编程助手，能够使用命令行、读取/编辑文件、搜索代码库。
@@ -187,6 +189,8 @@ log(r);
 {{PROJECT_INTRO_SECTION}}
 
 {{SKILL_SECTION}}
+
+{{RULES_SECTION}}
 
 {{MEMORY_SECTION}}
 

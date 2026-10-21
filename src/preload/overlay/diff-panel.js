@@ -229,6 +229,35 @@ async function showBranchPicker() {
     "align-items:center;justify-content:center;background:rgba(0,0,0,0.45);" +
     "backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);";
 
+  // Изолированный стиль: перебивает глобальные стили DeepSeek для <button>
+  // (они задают фиксированную height/line-height и режут текст по вертикали).
+  const style = document.createElement("style");
+  style.textContent =
+    "#" +
+    overlayId +
+    " .cc-branch-btn{" +
+    "display:block!important;width:100%!important;box-sizing:border-box!important;" +
+    "min-height:36px!important;height:auto!important;line-height:1.35!important;" +
+    "text-align:left!important;white-space:nowrap!important;" +
+    "overflow:hidden!important;text-overflow:ellipsis!important;" +
+    "padding:8px 12px!important;margin:0!important;border-radius:9px!important;" +
+    "border:1px solid rgba(139,147,255,0.2)!important;" +
+    "background:rgba(139,147,255,0.06)!important;color:#cfd3ff!important;" +
+    "font-size:13px!important;font-family:inherit!important;font-weight:400!important;" +
+    "cursor:pointer!important;transform:none!important;" +
+    "}" +
+    "#" +
+    overlayId +
+    " .cc-branch-btn:hover{" +
+    "background:rgba(139,147,255,0.18)!important;color:#fff!important;" +
+    "}" +
+    "#" +
+    overlayId +
+    " .cc-branch-btn.cc-current{" +
+    "border-color:rgba(139,147,255,0.6)!important;" +
+    "}";
+  overlay.appendChild(style);
+
   const box = document.createElement("div");
   box.style.cssText =
     "width:min(420px,90vw);max-height:70vh;display:flex;flex-direction:column;" +
@@ -297,21 +326,10 @@ async function showBranchPicker() {
     branches.forEach((b) => {
       const mark = b.current ? "✓ " : b.remote ? "☁ " : "• ";
       const item = document.createElement("button");
+      item.type = "button";
+      item.title = b.name;
+      item.className = "cc-branch-btn" + (b.current ? " cc-current" : "");
       item.textContent = mark + b.name;
-      item.style.cssText =
-        "text-align:left;padding:9px 12px;border-radius:9px;cursor:pointer;" +
-        "border:1px solid rgba(139,147,255,0.2);background:rgba(139,147,255,0.06);" +
-        "color:#cfd3ff;font-size:13px;font-family:inherit;white-space:nowrap;" +
-        "overflow:hidden;text-overflow:ellipsis;" +
-        (b.current ? "border-color:rgba(139,147,255,0.6);" : "");
-      item.addEventListener("mouseenter", () => {
-        item.style.background = "rgba(139,147,255,0.18)";
-        item.style.color = "#fff";
-      });
-      item.addEventListener("mouseleave", () => {
-        item.style.background = "rgba(139,147,255,0.06)";
-        item.style.color = "#cfd3ff";
-      });
       item.addEventListener("click", () => {
         overlay.remove();
         commitAllToChat(b.name);

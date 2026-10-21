@@ -204,6 +204,9 @@ const BOOTSTRAP = [
   "  globalThis.memoryClear = async function (scope) {",
   "    return await __call('memory_clear', { scope: scope });",
   "  };",
+  "  globalThis.readrules = async function () {",
+  "    return await __call('readrules', {});",
+  "  };",
   "  globalThis.runAgent = async function (name, task) {",
   "    return await __call('run_agent', { name: name, task: task });",
   "  };",
@@ -427,6 +430,29 @@ class JsRunner {
         /* plan-mode недоступен — не блокируем */
       }
 
+      // ===== Гейт правил (.cookie/rules.md) =====
+      // Применяется только к основному окну; саб-агенты не блокируются.
+      // Если файла правил нет — гейт не применяем (незачем запирать без правил).
+      let hasRulesFile = false;
+      if (projectDir) {
+        try {
+          hasRulesFile = require("fs").existsSync(
+            require("path").join(projectDir, ".cookie", "rules.md"),
+          );
+        } catch (_) {}
+      }
+      if (!agentName && hasRulesFile) {
+        try {
+          const rulesGate = require("../src/main/rules-gate");
+          const verdict = rulesGate.checkBlocked(op, senderId, sessionId);
+          if (verdict.blocked) {
+            return JSON.stringify({ success: false, error: verdict.error });
+          }
+        } catch (_) {
+          /* rules-gate недоступен — не блокируем */
+        }
+      }
+
       // ===== Whitelist инструментов для субагента =====
       // Если окно — субагент с ограниченным набором (frontmatter tools),
       // любой вызов вне списка отклоняется ДО исполнения.
@@ -461,6 +487,7 @@ class JsRunner {
               Object.assign({}, args, {
                 projectDir,
                 senderId,
+                sessionId,
                 currentWindowId:
                   typeof currentWindowId === "number"
                     ? currentWindowId

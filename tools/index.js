@@ -46,6 +46,7 @@ const {
 const { RunAgentTool } = require("./RunAgentTool");
 const { ListAgentsTool, ReadAgentTool } = require("./AgentTools");
 const { CreateAgentTool } = require("./CreateAgentTool");
+const { ReadRulesTool } = require("./ReadRulesTool");
 
 // 创建全局工具注册表
 const registry = new ToolRegistry();
@@ -93,6 +94,7 @@ registry.register(new RunAgentTool());
 registry.register(new ListAgentsTool());
 registry.register(new ReadAgentTool());
 registry.register(new CreateAgentTool());
+registry.register(new ReadRulesTool());
 
 // 导出
 module.exports = {
@@ -137,6 +139,7 @@ module.exports = {
   ListAgentsTool,
   ReadAgentTool,
   CreateAgentTool,
+  ReadRulesTool,
   // 便捷方法
   getAllTools: () => registry,
   getToolDescriptions: () => registry.getDescriptions(),

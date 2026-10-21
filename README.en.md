@@ -52,6 +52,7 @@ The AI can now:
 - 🌐 **Fetch data** — HTTP requests, API calls, web scraping
 - 🔧 **MCP tools** — connect any MCP server for extended capabilities
 - 🧠 **Two-level memory** — AI remembers both you and the project: **global** memory (`<userData>/memory.md`) holds user/system facts, **project** memory (`<projectDir>/.cuckoo/memory/ProjectMemory.md`) holds conventions, architecture and key paths
+- 📜 **Project rules** — a `.cookie/rules.md` file sets rules the AI must accept via `readrules()`. Until accepted, mutating tools are locked. No file — no lock. Subagents bypass the gate.
 
 **How it works:**
 
@@ -372,6 +373,7 @@ Cookie Code ships with 20+ tools out of the box:
 | `todoWrite` | Manage task lists         | `todoWrite([{content: 'Fix bug'}])`     |
 | `mcpCall`   | Call MCP server tool      | `mcpCall('github', 'create_pr', {...})` |
 | `goalDone`  | Complete a goal (`/goal`) | `goalDone()`                            |
+| `readrules` | Accept project rules      | `readrules()`                           |
 
 [Full tool reference →](docs/TOOLS.md)
 
