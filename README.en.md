@@ -51,7 +51,7 @@ The AI can now:
 - 📊 **Manage tasks** — create, track, and complete todo lists
 - 🌐 **Fetch data** — HTTP requests, API calls, web scraping
 - 🔧 **MCP tools** — connect any MCP server for extended capabilities
-- 🧠 **Two-level memory** — AI remembers both you and the project: **global** memory (`<userData>/memory.md`) holds user/system facts, **project** memory (`<projectDir>/.cuckoo/memory/ProjectMemory.md`) holds conventions, architecture and key paths
+- 🧠 **Two-level memory** — AI remembers both you and the project: **global** memory (`<userData>/memory.md`) holds user/system facts, **project** memory (`<projectDir>/.cookie/memory/ProjectMemory.md`) holds conventions, architecture and key paths
 - 📜 **Project rules** — a `.cookie/rules.md` file sets rules the AI must accept via `readrules()`. Until accepted, mutating tools are locked. No file — no lock. Subagents bypass the gate.
 
 **How it works:**
@@ -182,7 +182,7 @@ The AI remembers **both you and the project** — memory is split into two indep
 | Level     | Location                                       | What it remembers                                                      |
 | --------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
 | 🌍 Global | `<userData>/memory.md`                         | User and system facts: name, OS, GPU, code style preferences           |
-| 🗂 Project | `<projectDir>/.cuckoo/memory/ProjectMemory.md` | Conventions, architectural decisions, key paths, stack of this project |
+| 🗂 Project | `<projectDir>/.cookie/memory/ProjectMemory.md` | Conventions, architectural decisions, key paths, stack of this project |
 
 - Tools `memorySave(text, scope?)`, `memoryRead(scope?)`, `memoryClear(scope?)` accept `scope`: `'project'` | `'global'` (`memoryRead` also `'all'`).
 - By default `memorySave` writes to **project** memory if the project is initialized, otherwise to global.
