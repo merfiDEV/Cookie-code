@@ -265,11 +265,17 @@ function applyApproval() {
   try {
     require("./plan-mode-toggle").syncState();
   } catch (_) {}
-  // Вставляем запрос на работу в поле ввода, но НЕ отправляем автоматически —
-  // пользователь отправит сам.
+  // Вставляем запрос на работу и ПРИНУДИТЕЛЬНО отправляем его (как с вопросами:
+  // даже если AI не вызвал log, сообщение всё равно уходит). Текст — одной строкой.
+  const prompt = t("plan.approve.prompt").replace(/\s+/g, " ").trim();
   try {
     const input = chatInput.findInputArea();
-    if (input) chatInput.setInputContent(input, t("plan.approve.prompt"));
+    if (input) chatInput.setInputContent(input, prompt);
+  } catch (_) {}
+  // Автоотправка через тот же надёжный механизм, что и у кнопки «План»
+  // (native Enter + фолбэк на кнопку отправки).
+  try {
+    require("./plan-mode-toggle").scheduleAutoSend(prompt, 300);
   } catch (_) {}
 }
 
