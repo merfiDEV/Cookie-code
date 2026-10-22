@@ -168,6 +168,7 @@ Control everything from your phone:
 - `/diff` — see uncommitted changes with syntax highlighting
 - `/log` — browse git history, show commit diffs
 - `/todos` — manage task list remotely
+- `/prompts` — project prompts from the bot: list with Insert/Delete and a step-by-step Create (name → text)
 - `/screen` — take a screenshot of the active window
 - `/stop` — kill runaway processes
 
@@ -401,6 +402,26 @@ Drop PNG/GIF files into `userData/pets/`, pick from grid. Animated pets react to
 **Settings → Cookie Code → Font**
 
 Drop `.ttf`/`.otf`/`.woff` files into `userData/fonts/`, select from dropdown. Applies to entire UI.
+
+### Skills
+
+Add a folder in `.cuckoo/skills/<name>/` with `SKILL.md` (and optional `tool.js`) — callable via `skillList`, `skillLoad`, `skillExecute`. Skills are two-level: **global** (`<userData>/skills/<name>/`) and **project** (`<projectDir>/.cuckoo/skills/<name>/`); a global skill overrides a project one with the same name.
+
+### Project Prompts
+
+Store reusable prompts in `.cookie/prompts/*.md` (one file per prompt). The **Prompts** button in the overlay opens a panel to create / edit / delete a prompt and insert its text into the input (text only, no send). From Telegram — the `/prompts` command.
+
+### Project Rules
+
+A `.cookie/rules.md` file sets rules the AI must accept via `readrules()` before working. Until accepted, tools (except `read`, `read_lines`, `file_read`, `memoryRead`, `readrules`) are locked. No file — no lock; subagents bypass the gate.
+
+### Plan Mode & Comments
+
+The **Plan** toggle (next to DeepSeek toggles) makes the AI explore only and write a plan to `plan.md` instead of changing code; it submits the plan via `exit_plan_mode()`.
+
+- **Line comments** — select a fragment of the plan → a 💬 button appears → leave a note right under that line (multiple lines supported).
+- On **reject**, comments return to the model (text + source line + selection).
+- On **approve**, comments are appended to the "work according to the plan" request and sent to chat; the plan can also be approved from Telegram.
 
 ---
 
