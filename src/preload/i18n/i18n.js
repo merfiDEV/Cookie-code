@@ -863,6 +863,12 @@ const KEYS = {
   },
   "plan.toggle.label": { ru: "План", en: "Plan" },
   "plan.dialog.title": { ru: "План на утверждение", en: "Plan for approval" },
+  "plan.dialog.comment": { ru: "💬 Комментарий", en: "💬 Comment" },
+  "plan.dialog.cancel": { ru: "Отмена", en: "Cancel" },
+  "plan.dialog.commentPrompt": {
+    ru: "Комментарий к выделенному фрагменту плана:",
+    en: "Comment on the selected part of the plan:",
+  },
   "plan.dialog.deny": { ru: "Отказать в плане", en: "Reject plan" },
   "plan.dialog.approve": { ru: "Согласиться", en: "Approve" },
   "plan.approve.prompt": {

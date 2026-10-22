@@ -426,14 +426,17 @@ function registerIpcHandlers() {
   // Решение пользователя по плану (согласие/отказ из окна).
   ipcMain.on(
     "exit-plan-mode-response",
-    (event, { requestId, approved } = {}) => {
+    (event, { requestId, approved, comments } = {}) => {
       if (!requestId) return;
       const key = event.sender.id + ":" + requestId;
       const pending = pendingPlanApprovals.get(key);
       if (!pending) return;
       pendingPlanApprovals.delete(key);
       if (approved) planMode.clearPlanMode(event.sender.id, sessionIdOf(event));
-      pending.resolve({ approved: !!approved });
+      pending.resolve({
+        approved: !!approved,
+        comments: Array.isArray(comments) ? comments : [],
+      });
       // Убираем кнопки в Telegram — решение уже принято в окне.
       try {
         const bot = require("../../botsrc");
