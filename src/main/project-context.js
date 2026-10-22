@@ -436,7 +436,11 @@ async function buildInitPrompt(selectedDir, providerId) {
     "- 调用 skillLoad(name) 加载需要的 Skill（读取 SKILL.md 指令和 tool.js 函数）",
     "- 调用 skillExecute(skill, function, args) 执行已加载 Skill 的函数",
     "",
-    "Skill 位于 <projectDir>/.cuckoo/skills/<skill-name>/，其中 SKILL.md 为指令文件，tool.js 可选导出可执行函数。",
+    "Skill 分两个层级：",
+    "- Глобальные: <userData>/skills/<skill-name>/ — общие для всех проектов.",
+    "- Проектные: <projectDir>/.cuckoo/skills/<skill-name>/ — своя для каждого проекта.",
+    "В папке скилла нужен SKILL.md (инструкции), опционально tool.js (экспортируемые функции).",
+    "При совпадении имён глобальный Skill перекрывает проектный.",
   ].join("\n");
 
   // Память — абсолютные пути к файлам, чтобы AI знал, где они лежат.
@@ -483,6 +487,41 @@ async function buildInitPrompt(selectedDir, providerId) {
     console.error("[Cookie Code] Ошибка сканирования субагентов:", err.message);
   }
 
+  // Правила проекта (.cookie/rules.md) — выводим секцию и CAPS-блок
+  // только если файл реально существует. Нет файла — нет и упоминания правил.
+  let rulesSection = "";
+  let rulesCaps = "";
+  try {
+    const rulesPath = path.join(selectedDir, ".cookie", "rules.md");
+    if (fs.existsSync(rulesPath)) {
+      rulesCaps = [
+        "# ⚠️ 首先必读（强制）",
+        "",
+        "1. **先读记忆**：调用 \`memoryRead()\` —— 里面有关于用户的事实和项目约定。",
+        "2. **再读规则**：项目规则在 \`.cookie/rules.md\`。",
+        "3. **如果你接受规则 —— 必须调用工具 \`readrules()\`。**",
+        "",
+        "在调用 \`readrules()\` 之前，只允许使用 \`read\`、\`read_lines\`、\`file_read\`、\`memoryRead\`、\`readrules\`。其他所有工具都被锁定。",
+        "",
+        "---",
+        "",
+      ].join("\n");
+
+      rulesSection = [
+        "---",
+        "## Правила проекта",
+        "",
+        "Файл правил: " + rulesPath,
+        "В начале работы прочитай память (memoryRead) и правила, затем вызови readrules() — это разблокирует инструменты.",
+      ].join("\n");
+    }
+  } catch (err) {
+    console.error(
+      "[Cookie Code] Не удалось собрать секцию правил:",
+      err.message,
+    );
+  }
+
   const placeholders = {
     "{{TOOL_API_TYPES}}": toolApiTypes,
     "{{TOOLS_LIST}}": toolsDescription,
@@ -494,6 +533,8 @@ async function buildInitPrompt(selectedDir, providerId) {
     "{{MEMORY_SECTION}}": memorySection,
     "{{MCP_SECTION}}": mcpSection,
     "{{AGENTS_SECTION}}": agentsSection,
+    "{{RULES_CAPS}}": rulesCaps,
+    "{{RULES_SECTION}}": rulesSection,
   };
   let combined = templateContent;
   for (const [key, value] of Object.entries(placeholders)) {

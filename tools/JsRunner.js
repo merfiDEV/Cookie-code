@@ -177,7 +177,10 @@ const BOOTSTRAP = [
   "    return await __call('skill_execute', { skill: skill, function: functionName, args: args || {} });",
   "  };",
   "  globalThis.askUserQuestion = async function (questions) {",
-  "    return await __call('ask_user_question', { questions: questions });",
+  "    var __answer = await __call('ask_user_question', { questions: questions });",
+  "    // Ответ на вопрос всегда попадает в вывод, даже если AI не вызвал log().",
+  "    globalThis.__logs.push(__stringify(__answer));",
+  "    return __answer;",
   "  };",
   "  globalThis.ask_user_question = globalThis.askUserQuestion;",
   "  globalThis.read_photo = async function (filePath, caption, send) {",
@@ -200,6 +203,9 @@ const BOOTSTRAP = [
   "  };",
   "  globalThis.memoryClear = async function (scope) {",
   "    return await __call('memory_clear', { scope: scope });",
+  "  };",
+  "  globalThis.readrules = async function () {",
+  "    return await __call('readrules', {});",
   "  };",
   "  globalThis.runAgent = async function (name, task) {",
   "    return await __call('run_agent', { name: name, task: task });",
@@ -424,6 +430,29 @@ class JsRunner {
         /* plan-mode недоступен — не блокируем */
       }
 
+      // ===== Гейт правил (.cookie/rules.md) =====
+      // Применяется только к основному окну; саб-агенты не блокируются.
+      // Если файла правил нет — гейт не применяем (незачем запирать без правил).
+      let hasRulesFile = false;
+      if (projectDir) {
+        try {
+          hasRulesFile = require("fs").existsSync(
+            require("path").join(projectDir, ".cookie", "rules.md"),
+          );
+        } catch (_) {}
+      }
+      if (!agentName && hasRulesFile) {
+        try {
+          const rulesGate = require("../src/main/rules-gate");
+          const verdict = rulesGate.checkBlocked(op, senderId, sessionId);
+          if (verdict.blocked) {
+            return JSON.stringify({ success: false, error: verdict.error });
+          }
+        } catch (_) {
+          /* rules-gate недоступен — не блокируем */
+        }
+      }
+
       // ===== Whitelist инструментов для субагента =====
       // Если окно — субагент с ограниченным набором (frontmatter tools),
       // любой вызов вне списка отклоняется ДО исполнения.
@@ -458,6 +487,7 @@ class JsRunner {
               Object.assign({}, args, {
                 projectDir,
                 senderId,
+                sessionId,
                 currentWindowId:
                   typeof currentWindowId === "number"
                     ? currentWindowId
@@ -633,7 +663,13 @@ class JsRunner {
         parts.push(logs.join("\n"));
       }
       if (ret !== undefined && ret !== null) {
-        parts.push(typeof ret === "string" ? ret : safeStringify(ret));
+        const retText = typeof ret === "string" ? ret : safeStringify(ret);
+        // Не дублируем возврат, если он уже попал в лог (например, ответ askUserQuestion).
+        const lastLog =
+          Array.isArray(logs) && logs.length > 0 ? logs[logs.length - 1] : null;
+        if (lastLog !== retText) {
+          parts.push(retText);
+        }
       }
 
       let output = parts.filter(Boolean).join("\n\n");

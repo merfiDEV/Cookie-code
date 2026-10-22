@@ -3,7 +3,7 @@
  *
  * Два уровня:
  *   - Глобальная: <userData>/memory.md — общая для всех профилей и проектов.
- *   - Проектная:  <projectDir>/.cuckoo/memory/ProjectMemory.md — своя для каждого проекта.
+ *   - Проектная:  <projectDir>/.cookie/memory/ProjectMemory.md — своя для каждого проекта.
  *
  * Формат (единый для обоих уровней): append-заметка с датой, одна запись — одна строка:
  *   - [YYYY-MM-DD] текст записи
@@ -32,7 +32,7 @@ function getGlobalMemoryPath() {
 /** Путь к проектному файлу памяти (папка создаётся при записи). */
 function getProjectMemoryPath(projectDir) {
   if (!projectDir) return null;
-  return path.join(projectDir, ".cuckoo", "memory", "ProjectMemory.md");
+  return path.join(projectDir, ".cookie", "memory", "ProjectMemory.md");
 }
 
 /**

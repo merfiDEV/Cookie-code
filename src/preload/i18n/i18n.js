@@ -153,6 +153,41 @@ const KEYS = {
     ru: "Попросить AI сгенерировать описание проекта (CUCKOO.md)",
     en: "Ask AI to generate a project description (CUCKOO.md)",
   },
+  "overlay.btn.prompts": { ru: "Промпты", en: "Prompts" },
+  "overlay.btn.prompts.title": {
+    ru: "Сохранённые промпты проекта (.cookie/prompts)",
+    en: "Saved project prompts (.cookie/prompts)",
+  },
+  "prompts.title": { ru: "Промпты", en: "Prompts" },
+  "prompts.empty": {
+    ru: "Пока нет промптов. Создайте первый.",
+    en: "No prompts yet. Create the first one.",
+  },
+  "prompts.new": { ru: "+ Новый промпт", en: "+ New prompt" },
+  "prompts.namePlaceholder": {
+    ru: "Имя промпта",
+    en: "Prompt name",
+  },
+  "prompts.textPlaceholder": {
+    ru: "Текст промпта…",
+    en: "Prompt text…",
+  },
+  "prompts.insert": { ru: "Вставить", en: "Insert" },
+  "prompts.edit": { ru: "Изменить", en: "Edit" },
+  "prompts.delete": { ru: "Удалить", en: "Delete" },
+  "prompts.save": { ru: "Сохранить", en: "Save" },
+  "prompts.cancel": { ru: "Отмена", en: "Cancel" },
+  "prompts.inserted": {
+    ru: "Промпт вставлен в поле ввода",
+    en: "Prompt inserted",
+  },
+  "prompts.saved": { ru: "Промпт сохранён", en: "Prompt saved" },
+  "prompts.deleted": { ru: "Промпт удалён", en: "Prompt deleted" },
+  "prompts.saveFailed": { ru: "Не удалось сохранить", en: "Save failed" },
+  "prompts.deleteConfirm": {
+    ru: "Удалить промпт?",
+    en: "Delete prompt?",
+  },
   "overlay.btn.immersive": { ru: "Погружение", en: "Immersive" },
   "overlay.btn.immersive.title": {
     ru: "Переключить в режим погружения",
@@ -828,6 +863,12 @@ const KEYS = {
   },
   "plan.toggle.label": { ru: "План", en: "Plan" },
   "plan.dialog.title": { ru: "План на утверждение", en: "Plan for approval" },
+  "plan.dialog.comment": { ru: "💬 Комментарий", en: "💬 Comment" },
+  "plan.dialog.cancel": { ru: "Отмена", en: "Cancel" },
+  "plan.dialog.commentPrompt": {
+    ru: "Комментарий к выделенному фрагменту плана:",
+    en: "Comment on the selected part of the plan:",
+  },
   "plan.dialog.deny": { ru: "Отказать в плане", en: "Reject plan" },
   "plan.dialog.approve": { ru: "Согласиться", en: "Approve" },
   "plan.approve.prompt": {

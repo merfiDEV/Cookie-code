@@ -426,14 +426,17 @@ function registerIpcHandlers() {
   // Решение пользователя по плану (согласие/отказ из окна).
   ipcMain.on(
     "exit-plan-mode-response",
-    (event, { requestId, approved } = {}) => {
+    (event, { requestId, approved, comments } = {}) => {
       if (!requestId) return;
       const key = event.sender.id + ":" + requestId;
       const pending = pendingPlanApprovals.get(key);
       if (!pending) return;
       pendingPlanApprovals.delete(key);
       if (approved) planMode.clearPlanMode(event.sender.id, sessionIdOf(event));
-      pending.resolve({ approved: !!approved });
+      pending.resolve({
+        approved: !!approved,
+        comments: Array.isArray(comments) ? comments : [],
+      });
       // Убираем кнопки в Telegram — решение уже принято в окне.
       try {
         const bot = require("../../botsrc");
@@ -1642,6 +1645,48 @@ function registerIpcHandlers() {
           reason: "git не найден: проект не инициализирован",
         };
       return await gitDiff.getStatus(projectDir);
+    } catch (err) {
+      return { success: false, reason: err.message };
+    }
+  });
+
+  // ===== Промпты проекта (.cookie/prompts/*.md) =====
+  const promptsStore = require("./prompts-store");
+  const _projectDirOf = (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    return ctx && ctx.sessionStore && ctx.sessionStore.state
+      ? ctx.sessionStore.state.selectedProjectDir || null
+      : null;
+  };
+
+  ipcMain.handle("prompts-list", async (event) => {
+    try {
+      const projectDir = _projectDirOf(event);
+      if (!projectDir)
+        return { success: false, reason: "проект не инициализирован" };
+      return { success: true, prompts: promptsStore.list(projectDir) };
+    } catch (err) {
+      return { success: false, reason: err.message };
+    }
+  });
+
+  ipcMain.handle("prompts-save", async (event, { name, text } = {}) => {
+    try {
+      const projectDir = _projectDirOf(event);
+      const r = promptsStore.save(projectDir, name, text);
+      if (!r.ok) return { success: false, reason: r.error };
+      return { success: true, name: r.name };
+    } catch (err) {
+      return { success: false, reason: err.message };
+    }
+  });
+
+  ipcMain.handle("prompts-delete", async (event, { name } = {}) => {
+    try {
+      const projectDir = _projectDirOf(event);
+      const r = promptsStore.remove(projectDir, name);
+      if (!r.ok) return { success: false, reason: r.error };
+      return { success: true };
     } catch (err) {
       return { success: false, reason: err.message };
     }

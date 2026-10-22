@@ -35,8 +35,12 @@ let electronAPI = {
   setPlanMode: (enabled) => {
     return ipcRenderer.invoke("set-plan-mode", { enabled });
   },
-  exitPlanModeResponse: (requestId, approved) => {
-    ipcRenderer.send("exit-plan-mode-response", { requestId, approved });
+  exitPlanModeResponse: (requestId, approved, comments) => {
+    ipcRenderer.send("exit-plan-mode-response", {
+      requestId,
+      approved,
+      comments,
+    });
   },
   killProcess: () => {
     return ipcRenderer.invoke("kill-process");
@@ -295,6 +299,11 @@ let electronAPI = {
   gitListBranches: () => {
     return ipcRenderer.invoke("git-list-branches");
   },
+  // ========== Промпты проекта (.cookie/prompts/*.md) ==========
+  listPrompts: () => ipcRenderer.invoke("prompts-list"),
+  savePrompt: (name, text) =>
+    ipcRenderer.invoke("prompts-save", { name, text }),
+  deletePrompt: (name) => ipcRenderer.invoke("prompts-delete", { name }),
   gitCurrentBranch: () => {
     return ipcRenderer.invoke("git-current-branch");
   },

@@ -6,16 +6,28 @@
  * - 目录下必须有 SKILL.md（Markdown 指令文件）
  * - 可选 tool.js（导出一个或多个异步函数，用于执行具体任务）
  *
+ * 两个层级：
+ * - 全局：<userData>/skills/<skill-name>/ — общая для всех проектов.
+ * - Проектные：<projectDir>/.cuckoo/skills/<skill-name>/ — своя для каждого проекта.
+ * При совпадении имён глобальный Skill перекрывает проектный.
+ *
  * 加载时机：项目初始化 / 手动调用 skill_load 工具
  * 执行方式：通过 skill_execute 工具调用指定 skill 的指定函数
  */
 
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
+let app = null;
+try {
+  ({ app } = require("electron"));
+} catch (_) {
+  app = null;
+}
 
-const SKILLS_DIR_NAME = '.cuckoo';
-const SKILLS_SUBDIR = 'skills';
+const SKILLS_DIR_NAME = ".cuckoo";
+const SKILLS_SUBDIR = "skills";
+const GLOBAL_SKILLS_SUBDIR = "skills";
 
 /**
  * 安全序列化（处理循环引用等异常）
@@ -27,7 +39,7 @@ function safeStringify(value) {
     try {
       return String(value);
     } catch (e2) {
-      return '[无法序列化的返回值]';
+      return "[无法序列化的返回值]";
     }
   }
 }
@@ -48,6 +60,37 @@ class SkillManager {
   }
 
   /**
+   * Получить глобальную папку Skill (<userData>/skills).
+   * Возвращает null, если electron.app недоступен (например, в тестах).
+   * @returns {string|null}
+   */
+  getGlobalSkillsRoot() {
+    try {
+      if (app && typeof app.getPath === "function") {
+        return path.join(app.getPath("userData"), GLOBAL_SKILLS_SUBDIR);
+      }
+    } catch (_) {
+      /* app недоступен */
+    }
+    return null;
+  }
+
+  /**
+   * Список корней поиска Skill в порядке приоритета: сначала глобальный,
+   * затем проектный. Глобальный перекрывает проектный при совпадении имён.
+   * @param {string} projectDir
+   * @returns {Array<{root: string, scope: 'global'|'project'}>}
+   */
+  _skillRoots(projectDir) {
+    const roots = [];
+    const globalRoot = this.getGlobalSkillsRoot();
+    if (globalRoot) roots.push({ root: globalRoot, scope: "global" });
+    if (projectDir)
+      roots.push({ root: this.getSkillsRoot(projectDir), scope: "project" });
+    return roots;
+  }
+
+  /**
    * 列出所有已加载的 Skill 名称
    * @returns {string[]}
    */
@@ -61,20 +104,32 @@ class SkillManager {
    * @returns {Array<{name: string, hasToolJs: boolean, hasSkillMd: boolean}>}
    */
   scanAvailableSkills(projectDir) {
-    const root = this.getSkillsRoot(projectDir);
     const result = [];
-    try {
-      if (!fs.existsSync(root)) return result;
-      const entries = fs.readdirSync(root, { withFileTypes: true });
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const skillDir = path.join(root, entry.name);
-        const hasSkillMd = fs.existsSync(path.join(skillDir, 'SKILL.md'));
-        const hasToolJs = fs.existsSync(path.join(skillDir, 'tool.js'));
-        result.push({ name: entry.name, hasSkillMd, hasToolJs });
+    const seen = new Set();
+    // Корни в порядке приоритета: глобальный, затем проектный. Первый
+    // встреченный (глобальный) побеждает; проектный с тем же именем пропускаем.
+    for (const { root, scope } of this._skillRoots(projectDir)) {
+      try {
+        if (!fs.existsSync(root)) continue;
+        const entries = fs.readdirSync(root, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          if (seen.has(entry.name)) continue;
+          const skillDir = path.join(root, entry.name);
+          const hasSkillMd = fs.existsSync(path.join(skillDir, "SKILL.md"));
+          const hasToolJs = fs.existsSync(path.join(skillDir, "tool.js"));
+          seen.add(entry.name);
+          result.push({
+            name: entry.name,
+            hasSkillMd,
+            hasToolJs,
+            scope,
+            dir: skillDir,
+          });
+        }
+      } catch (err) {
+        // 扫描 одного корня не должен ломать остальные
       }
-    } catch (err) {
-      // 扫描失败返回空列表
     }
     return result;
   }
@@ -86,39 +141,55 @@ class SkillManager {
    * @returns {{success: boolean, error?: string, skill?: Object}}
    */
   loadSkill(projectDir, skillName) {
-    if (!projectDir) {
-      return { success: false, error: '未初始化项目目录，无法加载 Skill' };
-    }
-    if (!skillName || typeof skillName !== 'string') {
-      return { success: false, error: 'skillName 不能为空' };
+    if (!skillName || typeof skillName !== "string") {
+      return { success: false, error: "skillName 不能为空" };
     }
 
-    const root = this.getSkillsRoot(projectDir);
-    const skillDir = path.join(root, skillName);
-    const skillMdPath = path.join(skillDir, 'SKILL.md');
-    const toolJsPath = path.join(skillDir, 'tool.js');
-
-    if (!fs.existsSync(skillDir) || !fs.statSync(skillDir).isDirectory()) {
-      return { success: false, error: 'Skill 目录不存在: ' + skillDir };
+    // Ищем Skill по корням в порядке приоритета: глобальный, затем проектный.
+    // projectDir может быть пустым — тогда доступны только глобальные Skill.
+    const roots = this._skillRoots(projectDir);
+    if (roots.length === 0) {
+      return { success: false, error: "未初始化项目目录，无法加载 Skill" };
     }
+    let skillDir = null;
+    for (const { root } of roots) {
+      const candidate = path.join(root, skillName);
+      try {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+          skillDir = candidate;
+          break;
+        }
+      } catch (_) {
+        /* пропускаем недоступный корень */
+      }
+    }
+
+    if (!skillDir) {
+      const searched = roots
+        .map((r) => path.join(r.root, skillName))
+        .join(", ");
+      return { success: false, error: "Skill 目录不存在: " + searched };
+    }
+    const skillMdPath = path.join(skillDir, "SKILL.md");
+    const toolJsPath = path.join(skillDir, "tool.js");
     if (!fs.existsSync(skillMdPath)) {
-      return { success: false, error: 'Skill 缺少 SKILL.md: ' + skillMdPath };
+      return { success: false, error: "Skill 缺少 SKILL.md: " + skillMdPath };
     }
 
-    let skillMd = '';
+    let skillMd = "";
     try {
-      skillMd = fs.readFileSync(skillMdPath, 'utf-8');
+      skillMd = fs.readFileSync(skillMdPath, "utf-8");
     } catch (err) {
-      return { success: false, error: '读取 SKILL.md 失败: ' + err.message };
+      return { success: false, error: "读取 SKILL.md 失败: " + err.message };
     }
 
     let toolExports = null;
     if (fs.existsSync(toolJsPath)) {
       try {
-        const toolCode = fs.readFileSync(toolJsPath, 'utf-8');
+        const toolCode = fs.readFileSync(toolJsPath, "utf-8");
         toolExports = this._loadToolModule(toolCode, skillDir, projectDir);
       } catch (err) {
-        return { success: false, error: '加载 tool.js 失败: ' + err.message };
+        return { success: false, error: "加载 tool.js 失败: " + err.message };
       }
     }
 
@@ -130,7 +201,11 @@ class SkillManager {
     };
     this.skills.set(skillName, skill);
 
-    console.log('[SkillManager] 加载 Skill: ' + skillName + (toolExports ? '（含 tool.js）' : ''));
+    console.log(
+      "[SkillManager] 加载 Skill: " +
+        skillName +
+        (toolExports ? "（含 tool.js）" : ""),
+    );
     return { success: true, skill };
   }
 
@@ -148,7 +223,7 @@ class SkillManager {
       if (res.success) {
         loaded.push(item.name);
       } else {
-        errors.push(item.name + ': ' + res.error);
+        errors.push(item.name + ": " + res.error);
       }
     }
     return { success: errors.length === 0, loaded, errors };
@@ -166,12 +241,12 @@ class SkillManager {
    * @returns {string}
    */
   getSkillsPromptText() {
-    if (this.skills.size === 0) return '';
+    if (this.skills.size === 0) return "";
     const sections = [];
     for (const skill of this.skills.values()) {
-      sections.push('## Skill: ' + skill.name + '\n\n' + skill.skillMd);
+      sections.push("## Skill: " + skill.name + "\n\n" + skill.skillMd);
     }
-    return sections.join('\n\n---\n\n');
+    return sections.join("\n\n---\n\n");
   }
 
   /**
@@ -185,30 +260,49 @@ class SkillManager {
   async executeSkill(skillName, functionName, args, projectDir) {
     const skill = this.skills.get(skillName);
     if (!skill) {
-      return { success: false, error: 'Skill 未加载: ' + skillName + '，请先使用 skill_load 加载' };
+      return {
+        success: false,
+        error: "Skill 未加载: " + skillName + "，请先使用 skill_load 加载",
+      };
     }
     if (!skill.toolExports) {
-      return { success: false, error: 'Skill "' + skillName + '" 未提供 tool.js，无可执行函数' };
+      return {
+        success: false,
+        error: 'Skill "' + skillName + '" 未提供 tool.js，无可执行函数',
+      };
     }
-    if (!functionName || typeof functionName !== 'string') {
-      return { success: false, error: 'functionName 不能为空' };
+    if (!functionName || typeof functionName !== "string") {
+      return { success: false, error: "functionName 不能为空" };
     }
 
     const fn = skill.toolExports[functionName];
-    if (typeof fn !== 'function') {
-      const available = Object.keys(skill.toolExports).filter(k => typeof skill.toolExports[k] === 'function');
+    if (typeof fn !== "function") {
+      const available = Object.keys(skill.toolExports).filter(
+        (k) => typeof skill.toolExports[k] === "function",
+      );
       return {
         success: false,
-        error: 'Skill "' + skillName + '" 没有函数 "' + functionName + '"' +
-          (available.length > 0 ? '，可用函数: ' + available.join(', ') : '')
+        error:
+          'Skill "' +
+          skillName +
+          '" 没有函数 "' +
+          functionName +
+          '"' +
+          (available.length > 0 ? "，可用函数: " + available.join(", ") : ""),
       };
     }
 
     try {
-      const result = await fn.call(null, args || {}, { projectDir, skillDir: skill.dir });
+      const result = await fn.call(null, args || {}, {
+        projectDir,
+        skillDir: skill.dir,
+      });
       return { success: true, data: result };
     } catch (err) {
-      return { success: false, error: '执行 Skill 函数失败: ' + (err.message || String(err)) };
+      return {
+        success: false,
+        error: "执行 Skill 函数失败: " + (err.message || String(err)),
+      };
     }
   }
 
@@ -225,14 +319,24 @@ class SkillManager {
       module: moduleObj,
       exports: moduleObj.exports,
       console: {
-        log: (...args) => console.log('[Skill:' + path.basename(skillDir) + ']', ...args),
-        error: (...args) => console.error('[Skill:' + path.basename(skillDir) + ']', ...args),
-        warn: (...args) => console.warn('[Skill:' + path.basename(skillDir) + ']', ...args),
+        log: (...args) =>
+          console.log("[Skill:" + path.basename(skillDir) + "]", ...args),
+        error: (...args) =>
+          console.error("[Skill:" + path.basename(skillDir) + "]", ...args),
+        warn: (...args) =>
+          console.warn("[Skill:" + path.basename(skillDir) + "]", ...args),
       },
       // 有限的文件能力：仅允许在 skillDir 与 projectDir 内读写
       fs: (() => {
         const allowedFs = {};
-        const methods = ['readFileSync', 'writeFileSync', 'existsSync', 'readdirSync', 'statSync', 'lstatSync'];
+        const methods = [
+          "readFileSync",
+          "writeFileSync",
+          "existsSync",
+          "readdirSync",
+          "statSync",
+          "lstatSync",
+        ];
         for (const method of methods) {
           allowedFs[method] = (...args) => {
             // 第一个参数是路径
@@ -245,9 +349,19 @@ class SkillManager {
       })(),
       path: (() => {
         const allowedPath = {};
-        const pathMethods = ['join', 'basename', 'dirname', 'extname', 'resolve', 'relative', 'isAbsolute', 'sep', 'normalize'];
+        const pathMethods = [
+          "join",
+          "basename",
+          "dirname",
+          "extname",
+          "resolve",
+          "relative",
+          "isAbsolute",
+          "sep",
+          "normalize",
+        ];
         for (const method of pathMethods) {
-          if (typeof path[method] === 'function') {
+          if (typeof path[method] === "function") {
             allowedPath[method] = (...args) => path[method](...args);
           } else {
             allowedPath[method] = path[method];
@@ -256,35 +370,45 @@ class SkillManager {
         return allowedPath;
       })(),
       __skillDir: skillDir,
-      __filename: path.join(skillDir, 'tool.js'),
+      __filename: path.join(skillDir, "tool.js"),
       __dirname: skillDir,
     };
 
     // 截断原型链，防止逃逸
-    try { Object.setPrototypeOf(sandbox, null); } catch (e) { /* 尽力而为 */ }
+    try {
+      Object.setPrototypeOf(sandbox, null);
+    } catch (e) {
+      /* 尽力而为 */
+    }
 
     const context = vm.createContext(sandbox, {
       codeGeneration: { strings: false, wasm: false },
-      name: 'cuckoo-skill-sandbox',
+      name: "cuckoo-skill-sandbox",
     });
 
-    const wrappedCode = '(function(require, module, exports, __filename, __dirname, console, fs, path, __skillDir) {\n' +
-      toolCode + '\n})';
+    const wrappedCode =
+      "(function(require, module, exports, __filename, __dirname, console, fs, path, __skillDir) {\n" +
+      toolCode +
+      "\n})";
 
-    const script = new vm.Script(wrappedCode, { filename: 'cuckoo-skill-tool.js' });
+    const script = new vm.Script(wrappedCode, {
+      filename: "cuckoo-skill-tool.js",
+    });
     script.runInContext(context, { timeout: 10000 });
 
     // 调用包装函数，传入受限依赖
-    const wrapperFn = vm.runInContext('(' + wrappedCode + ')', context, { timeout: 10000 });
+    const wrapperFn = vm.runInContext("(" + wrappedCode + ")", context, {
+      timeout: 10000,
+    });
     wrapperFn(
       (name) => {
         // 禁止 require 任意模块，仅允许内建有限集
-        const allowedModules = ['fs', 'path'];
+        const allowedModules = ["fs", "path"];
         if (allowedModules.includes(name)) {
-          if (name === 'fs') return sandbox.fs;
-          if (name === 'path') return sandbox.path;
+          if (name === "fs") return sandbox.fs;
+          if (name === "path") return sandbox.path;
         }
-        throw new Error('Skill tool.js 禁止 require: ' + name);
+        throw new Error("Skill tool.js 禁止 require: " + name);
       },
       moduleObj,
       moduleObj.exports,
@@ -293,7 +417,7 @@ class SkillManager {
       sandbox.console,
       sandbox.fs,
       sandbox.path,
-      skillDir
+      skillDir,
     );
 
     return moduleObj.exports;
@@ -304,7 +428,7 @@ class SkillManager {
    * 防止越权访问文件系统
    */
   _resolveAllowedPath(skillDir, projectDir, p) {
-    if (typeof p !== 'string') throw new Error('路径必须是字符串');
+    if (typeof p !== "string") throw new Error("路径必须是字符串");
     const normalized = path.isAbsolute(p) ? p : path.join(skillDir, p);
     const resolved = path.resolve(normalized);
 
@@ -318,7 +442,7 @@ class SkillManager {
       }
     }
 
-    throw new Error('禁止访问 Skill 目录和项目目录之外的路径: ' + p);
+    throw new Error("禁止访问 Skill 目录和项目目录之外的路径: " + p);
   }
 
   /**

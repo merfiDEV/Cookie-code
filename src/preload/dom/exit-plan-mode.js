@@ -151,6 +151,17 @@ function ensureStyles() {
     #${DIALOG_ID} button.cuckoo-plan-btn { padding:10px 18px; border:0; border-radius:8px; color:#fff; cursor:pointer; font-weight:600; font-size:13px; }
     #${DIALOG_ID} .cuckoo-plan-deny { background:rgba(255,107,122,.16); border:1px solid rgba(255,107,122,.5) !important; color:#ff9aa5; }
     #${DIALOG_ID} .cuckoo-plan-deny:hover { background:rgba(255,107,122,.3); }
+    #${DIALOG_ID} .cuckoo-plan-comment { background:rgba(139,147,255,.22); border:1px solid rgba(139,147,255,.5) !important; color:#cfd3ff; margin-right:auto; }
+    #${DIALOG_ID} .cuckoo-plan-comment:hover { background:rgba(139,147,255,.4); color:#fff; }
+    .cuckoo-plan-comment-fab { position:absolute; z-index:2147483647; width:34px; height:34px; padding:0; border-radius:8px; border:1px solid rgba(139,147,255,.6); background:#3a3f66; color:#fff; font-size:16px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.4); }
+    .cuckoo-plan-comment-fab:hover { background:#6574ee; }
+    #${DIALOG_ID} .cuckoo-comment-box { margin:8px 0 12px; padding:10px; border-left:3px solid #6574ee; background:rgba(101,116,238,.1); border-radius:8px; }
+    #${DIALOG_ID} .cuckoo-comment-quote { font-size:12px; color:#a7adcf; margin-bottom:6px; }
+    #${DIALOG_ID} .cuckoo-comment-input { width:100%; box-sizing:border-box; background:#0f1322; color:#eef1ff; border:1px solid rgba(145,158,255,.4); border-radius:8px; padding:8px; font-size:13px; font-family:inherit; resize:vertical; }
+    #${DIALOG_ID} .cuckoo-comment-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
+    #${DIALOG_ID} .cuckoo-comment-actions button { padding:6px 12px; border-radius:7px; border:1px solid rgba(145,158,255,.4); background:transparent; color:#cfd3ff; cursor:pointer; font-size:12px; }
+    #${DIALOG_ID} .cuckoo-comment-save { background:#6574ee !important; border-color:#6574ee !important; color:#fff !important; }
+    #${DIALOG_ID} .cuckoo-has-comment { box-shadow: inset 3px 0 0 #6574ee; background:rgba(101,116,238,.08); }
     #${DIALOG_ID} .cuckoo-plan-approve { background:#6574ee; }
     #${DIALOG_ID} .cuckoo-plan-approve:hover { background:#7785ff; }
   `;
@@ -168,6 +179,7 @@ function showExitPlanDialog(plan) {
   if (old) old.remove();
 
   return new Promise((resolve) => {
+    const comments = [];
     const dialog = document.createElement("div");
     dialog.id = DIALOG_ID;
     dialog.innerHTML =
@@ -223,12 +235,15 @@ function showExitPlanDialog(plan) {
     })();
 
     let settled = false;
-    const finish = (approved) => {
+    const finish = (approved, extraComments) => {
       if (settled) return;
       settled = true;
       document.removeEventListener("keydown", onKey, true);
       dialog.remove();
-      resolve(approved);
+      const all = (
+        extraComments && extraComments.length ? extraComments : comments
+      ).slice();
+      resolve({ approved, comments: all });
     };
     const onKey = (event) => {
       if (event.key === "Escape") {
@@ -250,6 +265,136 @@ function showExitPlanDialog(plan) {
     dialog
       .querySelector(".cuckoo-plan-close")
       .addEventListener("click", () => finish(false));
+
+    // ===== Комментарии к строкам плана =====
+    // Выделяем строку в плане → под ней появляется кнопка «💬».
+    // Клик → inline-поле ввода → «Сохранить» добавляет комментарий к этой строке.
+    const body = dialog.querySelector(".cuckoo-plan-body");
+    const BLOCK_SEL = "li, p, h1, h2, h3, h4, h5, h6, pre, tr";
+    let floatBtn = null;
+
+    const removeFloatBtn = () => {
+      if (floatBtn) {
+        floatBtn.remove();
+        floatBtn = null;
+      }
+    };
+
+    const findBlock = (node) => {
+      let n = node;
+      while (n && n !== body) {
+        if (n.nodeType === 1 && n.matches && n.matches(BLOCK_SEL)) return n;
+        n = n.parentNode;
+      }
+      return null;
+    };
+
+    // Открыть inline-редактор комментария под указанным блоком.
+    const openCommentBox = (block, selection) => {
+      // Закрываем уже открытый редактор, если есть.
+      const existing = body.querySelector(".cuckoo-comment-box");
+      if (existing) existing.remove();
+
+      const line = (block.textContent || "").trim();
+      const box = document.createElement("div");
+      box.className = "cuckoo-comment-box";
+      box.innerHTML =
+        '<div class="cuckoo-comment-quote">💬 ' +
+        escapeHtml(line.slice(0, 160)) +
+        (line.length > 160 ? "…" : "") +
+        "</div>" +
+        '<textarea class="cuckoo-comment-input" rows="2" placeholder="' +
+        escapeHtml(t("plan.dialog.commentPrompt")) +
+        '"></textarea>' +
+        '<div class="cuckoo-comment-actions">' +
+        '<button type="button" class="cuckoo-comment-cancel">' +
+        escapeHtml(t("plan.dialog.cancel") || "Отмена") +
+        "</button>" +
+        '<button type="button" class="cuckoo-comment-save">' +
+        escapeHtml(t("plan.dialog.comment")) +
+        "</button>" +
+        "</div>";
+      block.insertAdjacentElement("afterend", box);
+      const ta = box.querySelector(".cuckoo-comment-input");
+      ta.focus();
+      ta.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          box.querySelector(".cuckoo-comment-save").click();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          box.remove();
+        }
+      });
+      box
+        .querySelector(".cuckoo-comment-cancel")
+        .addEventListener("click", () => box.remove());
+      box
+        .querySelector(".cuckoo-comment-save")
+        .addEventListener("click", () => {
+          const text = (ta.value || "").trim();
+          if (!text) {
+            box.remove();
+            return;
+          }
+          comments.push({ text, selection: selection || "", line });
+          // Помечаем блок как «с комментарием» и показываем бейдж.
+          block.classList.add("cuckoo-has-comment");
+          box.remove();
+          removeFloatBtn();
+        });
+    };
+
+    // Плавающая кнопка «💬» рядом с выделением.
+    const showFloatBtn = (block, selection) => {
+      removeFloatBtn();
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cuckoo-plan-comment-fab";
+      btn.textContent = "💬";
+      btn.title = t("plan.dialog.comment");
+      document.body.appendChild(btn);
+      const rect = block.getBoundingClientRect();
+      let left = rect.right + 6;
+      let top = rect.top + window.scrollY;
+      // Не улетаем за экран.
+      const bw = 34;
+      if (left + bw > window.innerWidth - 6) left = rect.left - bw - 6;
+      if (left < 6) left = 6;
+      if (top < 6) top = 6;
+      btn.style.left = left + "px";
+      btn.style.top = top + "px";
+      btn.addEventListener("mousedown", (e) => e.preventDefault());
+      btn.addEventListener("click", () => {
+        removeFloatBtn();
+        openCommentBox(block, selection);
+      });
+      floatBtn = btn;
+    };
+
+    // На выделение текста внутри плана — показать кнопку.
+    body.addEventListener("mouseup", () => {
+      let selection = "";
+      let block = null;
+      try {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+          const range = sel.getRangeAt(0);
+          if (body.contains(range.commonAncestorContainer)) {
+            selection = sel.toString().trim();
+            block = findBlock(range.startContainer);
+          }
+        }
+      } catch (_) {}
+      if (block) showFloatBtn(block, selection);
+      else removeFloatBtn();
+    });
+    // Клик мимо кнопки/поля — прячем кнопку.
+    dialog.addEventListener("mousedown", (e) => {
+      if (floatBtn && e.target !== floatBtn) removeFloatBtn();
+    });
+
     dialog.querySelector(".cuckoo-plan-approve").focus();
   });
 }
@@ -257,7 +402,7 @@ function showExitPlanDialog(plan) {
 /**
  * После согласия: снять режим плана и подставить в поле ввода запрос на работу.
  */
-function applyApproval() {
+function applyApproval(comments) {
   state.planMode = false;
   try {
     window.electronAPI.setPlanMode(false).catch(() => {});
@@ -265,11 +410,27 @@ function applyApproval() {
   try {
     require("./plan-mode-toggle").syncState();
   } catch (_) {}
-  // Вставляем запрос на работу в поле ввода, но НЕ отправляем автоматически —
-  // пользователь отправит сам.
+  // Вставляем запрос на работу и ПРИНУДИТЕЛЬНО отправляем его (как с вопросами:
+  // даже если AI не вызвал log, сообщение всё равно уходит). Текст — одной строкой.
+  let prompt = t("plan.approve.prompt").replace(/\s+/g, " ").trim();
+  // Если пользователь оставил комментарии к строкам — прикладываем их к сообщению,
+  // чтобы ИИ их увидел и учёл даже при одобрении плана.
+  const list = Array.isArray(comments) ? comments : [];
+  if (list.length > 0) {
+    const lines = list.map((c, i) => {
+      const line = c && c.line ? "«" + c.line + "»" : "(план)";
+      return i + 1 + ". к строке " + line + ": " + ((c && c.text) || "");
+    });
+    prompt += "\n\nКомментарии к плану:\n" + lines.join("\n");
+  }
   try {
     const input = chatInput.findInputArea();
-    if (input) chatInput.setInputContent(input, t("plan.approve.prompt"));
+    if (input) chatInput.setInputContent(input, prompt);
+  } catch (_) {}
+  // Автоотправка через тот же надёжный механизм, что и у кнопки «План»
+  // (native Enter + фолбэк на кнопку отправки).
+  try {
+    require("./plan-mode-toggle").scheduleAutoSend(prompt, 300);
   } catch (_) {}
 }
 
@@ -277,18 +438,21 @@ function applyApproval() {
 function registerExitPlanModeListener() {
   ipcRenderer.on("exit-plan-mode", (_event, payload = {}) => {
     const { requestId, plan } = payload;
-    showExitPlanDialog(plan).then((approved) => {
+    showExitPlanDialog(plan).then((res) => {
+      const approved = !!(res && res.approved);
+      const comments = (res && res.comments) || [];
       try {
-        window.electronAPI.exitPlanModeResponse(requestId, approved);
+        window.electronAPI.exitPlanModeResponse(requestId, approved, comments);
       } catch (_) {}
-      if (approved) applyApproval();
+      if (approved) applyApproval(comments);
     });
   });
   // План утверждён/отклонён в Telegram — закрываем диалог в окне.
   ipcRenderer.on("exit-plan-mode-resolved", (_event, payload = {}) => {
     const dialog = document.getElementById(DIALOG_ID);
     if (dialog) dialog.remove();
-    if (payload.approved) applyApproval();
+    if (payload.approved)
+      applyApproval(Array.isArray(payload.comments) ? payload.comments : []);
   });
 }
 
