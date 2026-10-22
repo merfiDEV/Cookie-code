@@ -295,6 +295,11 @@ let electronAPI = {
   gitListBranches: () => {
     return ipcRenderer.invoke("git-list-branches");
   },
+  // ========== Промпты проекта (.cookie/prompts/*.md) ==========
+  listPrompts: () => ipcRenderer.invoke("prompts-list"),
+  savePrompt: (name, text) =>
+    ipcRenderer.invoke("prompts-save", { name, text }),
+  deletePrompt: (name) => ipcRenderer.invoke("prompts-delete", { name }),
   gitCurrentBranch: () => {
     return ipcRenderer.invoke("git-current-branch");
   },

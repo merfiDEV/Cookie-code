@@ -48,6 +48,8 @@ const STRINGS = {
     "help.cmd.goal": "/goal &lt;цель&gt; — задать цель (авто-продвижение)",
     "help.cmd.goal.manage": "/goal stop|pause|resume — управление целью",
     "help.cmd.agents": "/agents      — список субагентов проекта",
+    "help.cmd.prompts":
+      "/prompts     — промпты проекта (создать/вставить/удалить)",
     "help.cmd.toggles": "/toggles     — тумблеры поиска и раздумий DeepSeek",
     "help.cmd.screen": "/screen      — скриншот активного окна",
     "help.cmd.send": "/send        — нажать кнопку отправки в окне",
@@ -377,6 +379,26 @@ const STRINGS = {
     "agents.cmd.hint":
       '💡 Делегируйте задачу: <code>run_agent("name", "задача")</code>',
     "agents.cmd.more": "…и ещё {n}",
+    // ===== /prompts — промпты проекта =====
+    "prompts.cmd.title": "📝 <b>Промпты проекта</b> — {n} шт.",
+    "prompts.cmd.empty":
+      "📝 <b>Промптов нет</b>\n\nНажмите «➕ Создать», чтобы добавить первый.",
+    "prompts.cmd.noProject":
+      "📂 <b>Проект не выбран</b>\n\nСначала выберите проект — промпты привязаны к проекту (.cookie/prompts).",
+    "prompts.cmd.create": "➕ Создать",
+    "prompts.cmd.insert": "▶️ Вставить",
+    "prompts.cmd.delete": "🗑 Удалить",
+    "prompts.cmd.nameAsk":
+      "✏️ Введите <b>имя</b> нового промпта (или /cancel для отмены).",
+    "prompts.cmd.textAsk":
+      "📝 Теперь отправьте <b>текст</b> промпта «{name}» (или /cancel).",
+    "prompts.cmd.created": "✅ Промпт «{name}» создан.",
+    "prompts.cmd.deleted": "🗑 Промпт «{name}» удалён.",
+    "prompts.cmd.inserted": "▶️ Промпт «{name}» вставлен и отправлен в чат.",
+    "prompts.cmd.noWindow": "❌ Нет активного окна — некуда вставлять.",
+    "prompts.cmd.saveFailed": "❌ Не удалось сохранить: {err}",
+    "prompts.cmd.deleteFailed": "❌ Не удалось удалить: {err}",
+    "prompts.cmd.notFound": "❌ Промпт не найден.",
     "toggles.title": "🎛 <b>Тумблеры DeepSeek</b>",
     "toggles.hint": "Нажми, чтобы включить/выключить.",
     "toggles.search": "🔍 Умный поиск",
@@ -498,6 +520,7 @@ const STRINGS = {
     "help.cmd.goal": "/goal &lt;goal&gt; — set a goal (auto-advance)",
     "help.cmd.goal.manage": "/goal stop|pause|resume — manage the goal",
     "help.cmd.agents": "/agents      — project subagents list",
+    "help.cmd.prompts": "/prompts     — project prompts (create/insert/delete)",
     "help.cmd.toggles": "/toggles     — DeepSeek search & deep-think toggles",
     "help.cmd.screen": "/screen      — screenshot of the active window",
     "help.cmd.send": "/send        — press the send button in the window",
@@ -828,6 +851,26 @@ const STRINGS = {
     "agents.cmd.hint":
       '💡 Delegate a task: <code>run_agent("name", "task")</code>',
     "agents.cmd.more": "…and {n} more",
+    // ===== /prompts — project prompts =====
+    "prompts.cmd.title": "📝 <b>Project prompts</b> — {n} total",
+    "prompts.cmd.empty":
+      "📝 <b>No prompts</b>\n\nTap «➕ Create» to add the first one.",
+    "prompts.cmd.noProject":
+      "📂 <b>No project selected</b>\n\nPick a project first — prompts are project-scoped (.cookie/prompts).",
+    "prompts.cmd.create": "➕ Create",
+    "prompts.cmd.insert": "▶️ Insert",
+    "prompts.cmd.delete": "🗑 Delete",
+    "prompts.cmd.nameAsk":
+      "✏️ Enter the <b>name</b> of the new prompt (or /cancel to abort).",
+    "prompts.cmd.textAsk":
+      "📝 Now send the <b>text</b> of prompt «{name}» (or /cancel).",
+    "prompts.cmd.created": "✅ Prompt «{name}» created.",
+    "prompts.cmd.deleted": "🗑 Prompt «{name}» deleted.",
+    "prompts.cmd.inserted": "▶️ Prompt «{name}» inserted and sent to chat.",
+    "prompts.cmd.noWindow": "❌ No active window to insert into.",
+    "prompts.cmd.saveFailed": "❌ Failed to save: {err}",
+    "prompts.cmd.deleteFailed": "❌ Failed to delete: {err}",
+    "prompts.cmd.notFound": "❌ Prompt not found.",
     "toggles.title": "🎛 <b>DeepSeek toggles</b>",
     "toggles.hint": "Tap to enable/disable.",
     "toggles.search": "🔍 Smart Search",

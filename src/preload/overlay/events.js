@@ -24,6 +24,7 @@ const {
   openCommitFullDiff,
 } = require("./diff-panel");
 const todoPanel = require("./todo-panel");
+const promptsPanel = require("./prompts-panel");
 const goalPanel = require("./goal-panel");
 const { handleInitProject, renderSessions } = require("../dom/session-list");
 const { handleManualParse } = require("../dom/observer");
@@ -816,6 +817,10 @@ function bindEvents() {
   // 生成项目说明文档按钮
   const genDocBtn = document.getElementById("cuckoo-btn-gen-doc");
   genDocBtn?.addEventListener("click", handleGenerateDoc);
+
+  // Кнопка «Промпты» — сохранённые промпты проекта
+  const promptsBtn = document.getElementById("cuckoo-btn-prompts");
+  promptsBtn?.addEventListener("click", () => promptsPanel.open());
 
   // 沉浸式交流按钮
   const immersiveBtn = document.getElementById("cuckoo-btn-immersive");

@@ -1647,6 +1647,48 @@ function registerIpcHandlers() {
     }
   });
 
+  // ===== Промпты проекта (.cookie/prompts/*.md) =====
+  const promptsStore = require("./prompts-store");
+  const _projectDirOf = (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    return ctx && ctx.sessionStore && ctx.sessionStore.state
+      ? ctx.sessionStore.state.selectedProjectDir || null
+      : null;
+  };
+
+  ipcMain.handle("prompts-list", async (event) => {
+    try {
+      const projectDir = _projectDirOf(event);
+      if (!projectDir)
+        return { success: false, reason: "проект не инициализирован" };
+      return { success: true, prompts: promptsStore.list(projectDir) };
+    } catch (err) {
+      return { success: false, reason: err.message };
+    }
+  });
+
+  ipcMain.handle("prompts-save", async (event, { name, text } = {}) => {
+    try {
+      const projectDir = _projectDirOf(event);
+      const r = promptsStore.save(projectDir, name, text);
+      if (!r.ok) return { success: false, reason: r.error };
+      return { success: true, name: r.name };
+    } catch (err) {
+      return { success: false, reason: err.message };
+    }
+  });
+
+  ipcMain.handle("prompts-delete", async (event, { name } = {}) => {
+    try {
+      const projectDir = _projectDirOf(event);
+      const r = promptsStore.remove(projectDir, name);
+      if (!r.ok) return { success: false, reason: r.error };
+      return { success: true };
+    } catch (err) {
+      return { success: false, reason: err.message };
+    }
+  });
+
   // Unified diff одного файла.
   ipcMain.handle("git-diff-file", async (event, { filePath, status } = {}) => {
     try {

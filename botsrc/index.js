@@ -523,6 +523,26 @@ async function _handleCallback(chatId, data, cbq) {
     return;
   }
 
+  // Промпты проекта (/prompts): создать / вставить / удалить.
+  if (token === "pr_new") {
+    await telegramBot.answerCallbackQuery(cbq && cbq.id);
+    _promptWaiting.set(chatId, { step: "name", name: null });
+    await telegramBot.sendMessage(_t("prompts.cmd.nameAsk"), {
+      parseMode: "HTML",
+    });
+    return;
+  }
+  if (token.startsWith("pr_ins_")) {
+    const idx = parseInt(token.slice("pr_ins_".length), 10);
+    await _promptInsert(chatId, idx, cbq);
+    return;
+  }
+  if (token.startsWith("pr_del_")) {
+    const idx = parseInt(token.slice("pr_del_".length), 10);
+    await _promptDelete(chatId, idx, cbq);
+    return;
+  }
+
   if (token.startsWith("st_")) {
     try {
       await _handleSettingsCallback(token, cbq);
@@ -2701,6 +2721,162 @@ async function _cmdAgents() {
   return telegramBot.sendMessage(lines.join("\n"), { parseMode: "HTML" });
 }
 
+/** /prompts — список промптов проекта (.cookie/prompts) с кнопками. */
+async function _cmdPrompts(chatId, editMsgId) {
+  const promptsStore = require("../src/main/prompts-store");
+  const projectDir = _projectDir();
+  if (!projectDir) {
+    return telegramBot.sendMessage(_t("prompts.cmd.noProject"), {
+      parseMode: "HTML",
+    });
+  }
+  let prompts = [];
+  try {
+    prompts = promptsStore.list(projectDir) || [];
+  } catch (err) {
+    _log("error", "/prompts error:", err.message);
+  }
+
+  const keyboard = [];
+  prompts.forEach((p, idx) => {
+    keyboard.push([
+      { text: "▶️ " + p.name.slice(0, 40), callback_data: "pr_ins_" + idx },
+      { text: "🗑", callback_data: "pr_del_" + idx },
+    ]);
+  });
+  keyboard.push([{ text: _t("prompts.cmd.create"), callback_data: "pr_new" }]);
+  _promptsList.set(
+    chatId,
+    prompts.map((p) => p.name),
+  );
+
+  const text = prompts.length
+    ? _t("prompts.cmd.title", { n: prompts.length })
+    : _t("prompts.cmd.empty");
+  const opts = {
+    parseMode: "HTML",
+    replyMarkup: { inline_keyboard: keyboard },
+  };
+  if (editMsgId) {
+    const r = await telegramBot.editMessageText(editMsgId, text, opts);
+    if (r && r.success) return r;
+  }
+  return telegramBot.sendMessage(text, opts);
+}
+
+/** Вставить (отправить в чат) промпт по индексу из последнего списка. */
+async function _promptInsert(chatId, idx, cbq) {
+  const names = _promptsList.get(chatId) || [];
+  const name = names[idx];
+  if (!name) {
+    await telegramBot.answerCallbackQuery(cbq && cbq.id, {
+      text: _t("prompts.cmd.notFound"),
+    });
+    return;
+  }
+  const projectDir = _projectDir();
+  const promptsStore = require("../src/main/prompts-store");
+  const prompts = projectDir ? promptsStore.list(projectDir) : [];
+  const p = prompts.find((x) => x.name === name);
+  if (!p) {
+    await telegramBot.answerCallbackQuery(cbq && cbq.id, {
+      text: _t("prompts.cmd.notFound"),
+    });
+    return;
+  }
+  const r = await _sendToChat(p.text || "");
+  if (cbq && cbq.id) await telegramBot.answerCallbackQuery(cbq.id);
+  if (r && r.success) {
+    await telegramBot.sendMessage(
+      _t("prompts.cmd.inserted", { name: escapeHtml(name) }),
+      { parseMode: "HTML" },
+    );
+  } else {
+    await telegramBot.sendMessage(_t("prompts.cmd.noWindow"));
+  }
+}
+
+/** Удалить промпт по индексу из последнего списка. */
+async function _promptDelete(chatId, idx, cbq) {
+  const names = _promptsList.get(chatId) || [];
+  const name = names[idx];
+  if (!name) {
+    await telegramBot.answerCallbackQuery(cbq && cbq.id, {
+      text: _t("prompts.cmd.notFound"),
+    });
+    return;
+  }
+  const projectDir = _projectDir();
+  const promptsStore = require("../src/main/prompts-store");
+  const res = projectDir
+    ? promptsStore.remove(projectDir, name)
+    : { ok: false };
+  if (cbq && cbq.id) await telegramBot.answerCallbackQuery(cbq.id);
+  if (res && res.ok) {
+    await telegramBot.sendMessage(
+      _t("prompts.cmd.deleted", { name: escapeHtml(name) }),
+      { parseMode: "HTML" },
+    );
+  } else {
+    await telegramBot.sendMessage(
+      _t("prompts.cmd.deleteFailed", {
+        err: escapeHtml((res && res.error) || "?"),
+      }),
+      { parseMode: "HTML" },
+    );
+  }
+  await _cmdPrompts(chatId);
+}
+
+/**
+ * Обработать текстовый ввод как имя/текст нового промпта.
+ * @returns {Promise<boolean>} true, если ввод использован.
+ */
+async function _handlePromptInput(chatId, text) {
+  const w = _promptWaiting.get(chatId);
+  if (!w) return false;
+  const val = String(text == null ? "" : text).trim();
+  if (!val) {
+    await telegramBot.sendMessage(
+      w.step === "name"
+        ? _t("prompts.cmd.nameAsk")
+        : _t("prompts.cmd.textAsk", { name: escapeHtml(w.name || "") }),
+      { parseMode: "HTML" },
+    );
+    return true;
+  }
+  if (w.step === "name") {
+    // Переходим к вводу текста.
+    _promptWaiting.set(chatId, { step: "text", name: val });
+    await telegramBot.sendMessage(
+      _t("prompts.cmd.textAsk", { name: escapeHtml(val) }),
+      { parseMode: "HTML" },
+    );
+    return true;
+  }
+  // step === "text" — сохраняем (текст берём как есть, без trim).
+  const projectDir = _projectDir();
+  const promptsStore = require("../src/main/prompts-store");
+  const res = projectDir
+    ? promptsStore.save(projectDir, w.name, String(text))
+    : { ok: false, error: "no project" };
+  _promptWaiting.delete(chatId);
+  if (res && res.ok) {
+    await telegramBot.sendMessage(
+      _t("prompts.cmd.created", { name: escapeHtml(res.name || w.name) }),
+      { parseMode: "HTML" },
+    );
+  } else {
+    await telegramBot.sendMessage(
+      _t("prompts.cmd.saveFailed", {
+        err: escapeHtml((res && res.error) || "?"),
+      }),
+      { parseMode: "HTML" },
+    );
+  }
+  return true;
+}
+
 /** Текущий projectDir активного окна. */
 function _projectDir() {
   const ctx = _activeContext();
@@ -2723,6 +2899,11 @@ const _projectWaiting = new Set();
 
 // Ожидание «своего ответа» на вопрос: chatId → { requestId, qi }.
 const _questionWaiting = new Map();
+
+// /prompts — ожидание ввода имени/текста промпта: chatId → { step, name }.
+const _promptWaiting = new Map();
+// /prompts — последний список промптов по чату: chatId → [names] (для callback по idx).
+const _promptsList = new Map();
 
 // Известные проекты: берём из session-dir-map активного профиля + текущий.
 function _knownProjects() {
@@ -3576,6 +3757,7 @@ async function _cmdHelp() {
     _t("help.cmd.goal"),
     _t("help.cmd.goal.manage"),
     _t("help.cmd.agents"),
+    _t("help.cmd.prompts"),
     _t("help.cmd.toggles"),
     _t("help.cmd.screen"),
     _t("help.cmd.send"),
@@ -4052,13 +4234,14 @@ async function _handleIncoming(chatId, text, msg) {
   if (cmd === "/cancel") {
     const hadSettings = _settingsWaiting.delete(chatId);
     const hadQuestion = _questionWaiting.delete(chatId);
+    const hadPrompt = _promptWaiting.delete(chatId);
     // Отменяем все ожидающие approval (AI больше не ждёт подтверждения).
     let cancelledApprovals = 0;
     for (const id of Array.from(_pendingApprovals.keys())) {
       const r = cancelApproval(id);
       if (r && r.success && !r.skipped) cancelledApprovals++;
     }
-    if (hadSettings || hadQuestion)
+    if (hadSettings || hadQuestion || hadPrompt)
       await telegramBot.sendMessage(_t("input.cancelled"));
     else if (cancelledApprovals > 0)
       await telegramBot.sendMessage(
@@ -4091,10 +4274,21 @@ async function _handleIncoming(chatId, text, msg) {
     await _cmdAgents();
     return;
   }
+  // Команда /prompts — промпты проекта (создать / вставить / удалить).
+  if (cmd === "/prompts" || cmd === "/prompt") {
+    await _cmdPrompts(chatId);
+    return;
+  }
   // Команда /toggles — управление тумблерами DeepSeek (Search / DeepThink).
   if (cmd === "/toggles" || cmd === "/toggle") {
     await _cmdToggles(chatId);
     return;
+  }
+
+  // ---- Ожидание имени/текста нового промпта (/prompts) ----
+  if (_promptWaiting.has(chatId)) {
+    const handled = await _handlePromptInput(chatId, raw);
+    if (handled) return;
   }
 
   // ---- Ожидание «своего ответа» на вопрос от ИИ ----
@@ -5180,6 +5374,7 @@ async function _registerCommands() {
       todos: "список задач",
       goal: "цель (авто-продвижение)",
       agents: "субагенты проекта",
+      prompts: "промпты проекта",
       toggles: "тумблеры DeepSeek",
       screen: "скриншот окна",
       send: "нажать кнопку отправки",
@@ -5203,6 +5398,7 @@ async function _registerCommands() {
       todos: "todo list",
       goal: "goal (auto-advance)",
       agents: "project subagents",
+      prompts: "project prompts",
       toggles: "DeepSeek toggles",
       screen: "window screenshot",
       send: "press send button",

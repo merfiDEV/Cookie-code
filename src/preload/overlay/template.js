@@ -71,6 +71,13 @@ function buildOverlayHTML() {
       "</button>",
     "    </div>",
     '    <div class="cuckoo-actions">',
+    '      <button id="cuckoo-btn-prompts" class="cuckoo-btn cuckoo-btn-secondary" title="' +
+      t("overlay.btn.prompts.title") +
+      '">' +
+      t("overlay.btn.prompts") +
+      "</button>",
+    "    </div>",
+    '    <div class="cuckoo-actions">',
     '      <button id="cuckoo-btn-immersive" class="cuckoo-btn cuckoo-btn-secondary" title="' +
       t("overlay.btn.immersive.title") +
       '">' +
