@@ -476,6 +476,16 @@ const STRINGS = {
     // ===== Уведомление об ответе AI =====
     "ai.truncated": "…(обрезано, всего {n} симв.)",
 
+    // ===== Rate limit (превышение лимита запросов DeepSeek) =====
+    "rateLimit.title": "⛔️⛔️⛔️ ВНИМАНИЕ! ⛔️⛔️⛔️",
+    "rateLimit.exceeded": "ТЫ ПРЕВЫСИЛ ЛИМИТ ЗАПРОСОВ К DEEPSEEK!",
+    "rateLimit.tooOften": "СЛИШКОМ ЧАСТО ОТПРАВЛЯЕШЬ СООБЩЕНИЯ!",
+    "rateLimit.wait": "⏳ ПОДОЖДИ {min}–{max} МИНУТ, ПОТОМ ПРОБУЙ СНОВА!",
+    "rateLimit.serverHint": "(Сервер просит подождать минимум ~{retry} мин.)",
+    "rateLimit.dontSpam":
+      "Не отправляй сообщения подряд — это только продлит блокировку!",
+    "rateLimit.statusCode": "Код ответа: {status}",
+
     // ===== Тестовое сообщение =====
     "test.send": "👋 Cookie Code: тестовое уведомление. Всё работает.",
   },
@@ -945,6 +955,16 @@ const STRINGS = {
 
     // ===== AI response notification =====
     "ai.truncated": "…(truncated, {n} chars total)",
+
+    // ===== Rate limit (DeepSeek request limit exceeded) =====
+    "rateLimit.title": "⛔️⛔️⛔️ WARNING! ⛔️⛔️⛔️",
+    "rateLimit.exceeded": "YOU HAVE EXCEEDED THE DEEPSEEK REQUEST LIMIT!",
+    "rateLimit.tooOften": "YOU ARE SENDING MESSAGES TOO OFTEN!",
+    "rateLimit.wait": "⏳ WAIT {min}–{max} MINUTES, THEN TRY AGAIN!",
+    "rateLimit.serverHint": "(Server asks to wait at least ~{retry} min.)",
+    "rateLimit.dontSpam":
+      "Do not send messages back-to-back — it will only extend the block!",
+    "rateLimit.statusCode": "Response code: {status}",
 
     // ===== Test message =====
     "test.send": "👋 Cookie Code: test notification. All good.",

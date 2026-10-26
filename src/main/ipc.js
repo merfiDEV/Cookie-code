@@ -1450,6 +1450,20 @@ function registerIpcHandlers() {
     }
   });
 
+  // Rate-limit DeepSeek (429 / IP_ACCESS_RESTRICTED) -> КАПС-уведомление в Telegram.
+  ipcMain.handle("telegram-rate-limit", async (event, info = {}) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (ctx && ctx.isSubagent) {
+        return { success: false, skipped: true, reason: "subagent window" };
+      }
+      const bot = require("../../botsrc");
+      return await bot.notifyRateLimit(info);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Индикатор «ИИ печатает…» в Telegram (пока идёт генерация ответа).
   ipcMain.handle("telegram-typing-start", async () => {
     try {

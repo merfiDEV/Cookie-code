@@ -123,6 +123,32 @@ function buildTokenInterceptorScript() {
         return typeof url === "string" && url.indexOf(COMPLETION) !== -1;
       }
 
+      // Rate-limit: 429 или бизнес-код 40029 (IP_ACCESS_RESTRICTED).
+      function publishRateLimit(extra) {
+        try {
+          window.postMessage(
+            {
+              __cuckoo: "rate-limit",
+              status: (extra && extra.status) || 0,
+              retryAfterSec: (extra && extra.retryAfterSec) || 0,
+              ts: Date.now(),
+            },
+            "*",
+          );
+        } catch (e) {}
+      }
+
+      // Проверить тело ответа/ошибки на 40029 и вызвать publishRateLimit.
+      function checkBodyForRateLimit(body) {
+        if (!body || typeof body !== "string") return;
+        if (
+          body.indexOf("40029") === -1 &&
+          body.indexOf("IP_ACCESS_RESTRICTED") === -1
+        )
+          return;
+        publishRateLimit({ status: 200 });
+      }
+
       // ---- патч fetch ----
       try {
         var originalFetch = window.fetch;
@@ -132,6 +158,18 @@ function buildTokenInterceptorScript() {
           var p = originalFetch.apply(this, arguments);
           if (!isCompletion(url)) return p;
           return p.then(function (response) {
+            // HTTP 429 — rate limit.
+            try {
+              if (response && response.status === 429) {
+                var ra = 0;
+                try {
+                  ra =
+                    parseInt(response.headers.get("retry-after") || "0", 10) ||
+                    0;
+                } catch (e) {}
+                publishRateLimit({ status: 429, retryAfterSec: ra });
+              }
+            } catch (e) {}
             try {
               var clone = response.clone();
               clone
@@ -139,6 +177,7 @@ function buildTokenInterceptorScript() {
                 .then(function (body) {
                   var u = parseSseText(body);
                   if (u) publish(u);
+                  checkBodyForRateLimit(body);
                 })
                 .catch(function () {});
             } catch (e) {}
@@ -164,8 +203,10 @@ function buildTokenInterceptorScript() {
             if (isCompletion(this.__cuckooUrl || "")) {
               this.addEventListener("load", function () {
                 try {
+                  if (self.status === 429) publishRateLimit({ status: 429 });
                   var u = parseSseText(self.responseText);
                   if (u) publish(u);
+                  checkBodyForRateLimit(self.responseText);
                 } catch (e) {}
               });
             }
