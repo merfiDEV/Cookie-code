@@ -290,13 +290,17 @@ function sendInitialPromptToInput() {
  */
 function waitForInitialPromptAndSend() {
   let attempts = 0;
-  const maxAttempts = 30;
+  // Ждём появления поля ввода до 90 секунд (180 * 500мс). DeepSeek на холодном
+  // старте может долго монтировать React-приложение — 15с не хватало, и окно
+  // субагента висело пустым без промпта.
+  const maxAttempts = 180;
 
   const checkInterval = setInterval(() => {
     attempts++;
     if (attempts > maxAttempts) {
       clearInterval(checkInterval);
-      state.pendingInitialPrompt = false;
+      // НЕ сбрасываем pendingInitialPrompt: пусть следующий вызов
+      // (например, по новому initial-prompt или ручному ретраю) попробует снова.
       return;
     }
 
@@ -375,27 +379,70 @@ function fallbackSend(provider, input) {
   }
 }
 /**
+ * Применить initial-prompt: сохранить и отправить в поле ввода (или ждать его).
+ * @param {string} content
+ */
+let _initialPromptApplied = false;
+function applyInitialPrompt(content) {
+  // Антидубль: push и pull могут прийти оба — применяем только один раз.
+  if (_initialPromptApplied) return;
+  const text = content || "";
+  if (!text) return;
+  _initialPromptApplied = true;
+  state.initialPromptContent = text;
+  state.pendingInitialPrompt = true;
+  if (state.pendingInitialPrompt && state.initialPromptContent) {
+    try {
+      const input = findInputArea();
+      if (input) {
+        sendInitialPromptToInput();
+      } else {
+        // Ждём появления поля ввода.
+        waitForInitialPromptAndSend();
+      }
+    } catch (e) {}
+  }
+}
+
+/**
  * 注册主进程消息监听（initial-prompt）
  * 与原 preload.js 顶层注册时机一致：preload 入口加载时同步调用。
  */
 function registerIpcListeners() {
   // 监听主进程发送的初始提示
   ipcRenderer.on("initial-prompt", (_event, content) => {
-    state.initialPromptContent = content || "";
-    state.pendingInitialPrompt = true;
-    // 如果当前已有新的空会话输入框，立即发送
-    if (state.pendingInitialPrompt && state.initialPromptContent) {
-      try {
-        const input = findInputArea();
-        if (input) {
-          sendInitialPromptToInput();
-        } else {
-          // 等待输入框出现
-          waitForInitialPromptAndSend();
-        }
-      } catch (e) {}
-    }
+    applyInitialPrompt(content);
   });
+
+  // Pull-модель: если push initial-prompt потерялся (окно субагента долго
+  // грузилось и не успело подписаться на канал), через 20с сами запросим его
+  // у main-процесса. Актуально только для окна-субагента.
+  try {
+    const isSubagent =
+      (typeof process !== "undefined" &&
+        Array.isArray(process.argv) &&
+        process.argv.some(
+          (a) => typeof a === "string" && a.startsWith("--cuckoo-subagent="),
+        )) ||
+      false;
+    if (isSubagent) {
+      setTimeout(() => {
+        if (state.initialPromptContent) return; // уже получили
+        try {
+          Promise.resolve(ipcRenderer.invoke("subagent-get-init-prompt"))
+            .then((res) => {
+              if (res && res.success && res.text) {
+                console.log(
+                  "[Cookie Code] initial-prompt получен по pull-запросу",
+                );
+                applyInitialPrompt(res.text);
+              }
+            })
+            .catch(() => {});
+        } catch (_) {}
+      }, 20000);
+    }
+  } catch (_) {}
 
   // Ответ из окна кастомного уведомления — сразу вставляем в чат и отправляем.
   ipcRenderer.on("cuckoo-notif-reply", (_event, text) => {

@@ -5461,6 +5461,43 @@ async function notifyAIResponse(text) {
   return telegramBot.sendMessage("🤖 " + body);
 }
 
+/**
+ * Уведомить о превышении rate-limit DeepSeek (429 / IP_ACCESS_RESTRICTED=40029).
+ * Пишет КАПСОМ, что пользователь превысил лимит и нужно подождать 5-20 минут.
+ * @param {{status?:number, retryAfterSec?:number}} [info]
+ */
+async function notifyRateLimit(info) {
+  const cfg = _read();
+  if (!cfg.enabled || !cfg.token || !cfg.chatId)
+    return { success: false, skipped: true };
+
+  // Случайная задержка ожидания 5–20 минут.
+  const minMin = 5;
+  const maxMin = 20;
+  const waitMin = minMin + Math.floor(Math.random() * (maxMin - minMin + 1));
+
+  // Если сервер прислал retry-after — используем его как ориентир (в минутах).
+  const retry =
+    info && Number(info.retryAfterSec) > 0
+      ? Math.ceil(Number(info.retryAfterSec) / 60)
+      : 0;
+
+  const lines = [
+    _t("rateLimit.title"),
+    "",
+    _t("rateLimit.exceeded"),
+    _t("rateLimit.tooOften"),
+    "",
+    _t("rateLimit.wait", { min: waitMin, max: maxMin }),
+  ];
+  if (retry > 0) lines.push(_t("rateLimit.serverHint", { retry }));
+  lines.push("", _t("rateLimit.dontSpam"));
+  if (info && info.status)
+    lines.push(_t("rateLimit.statusCode", { status: info.status }));
+
+  return telegramBot.sendMessage(lines.join("\n"));
+}
+
 /** Пингануть бота (getMe) для проверки токена. */
 async function ping() {
   const cfg = _read();
@@ -5483,6 +5520,7 @@ module.exports = {
   notifyToolResult,
   notifyAgentStarted,
   notifyAIResponse,
+  notifyRateLimit,
   startTyping,
   stopTyping,
   notifyAllDone,

@@ -407,6 +407,22 @@ function registerIpcHandlers() {
     }
   });
 
+  // Pull-модель: дочернее окно само запрашивает initial-prompt, если push
+  // потерялся из-за гонки IPC (окно долго грузилось и не успело подписаться).
+  ipcMain.handle("subagent-get-init-prompt", async (event) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (!ctx || !ctx.win || ctx.win.isDestroyed()) {
+        return { success: false, error: "no window context" };
+      }
+      const text = subagent.getInitPrompt(ctx.win.id);
+      if (!text) return { success: false, error: "no init prompt" };
+      return { success: true, text };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   // Мост Telegram → окно: ответ на вопрос из TG резолвит тот же promise.
   try {
     const bot = require("../../botsrc");
@@ -1445,6 +1461,20 @@ function registerIpcHandlers() {
       }
       const bot = require("../../botsrc");
       return await bot.notifyAIResponse(text);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Rate-limit DeepSeek (429 / IP_ACCESS_RESTRICTED) -> КАПС-уведомление в Telegram.
+  ipcMain.handle("telegram-rate-limit", async (event, info = {}) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (ctx && ctx.isSubagent) {
+        return { success: false, skipped: true, reason: "subagent window" };
+      }
+      const bot = require("../../botsrc");
+      return await bot.notifyRateLimit(info);
     } catch (err) {
       return { success: false, error: err.message };
     }

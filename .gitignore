@@ -43,6 +43,9 @@ test/coverage.lcov
 
 # Playwright MCP
 .playwright-mcp/
+
+# Скачанный бандл DeepSeek (анализ ошибок, не коммитим)
+/deepseek-bundle/
 /tiktok
 /.cuckoo/skills
 # Проектная память — личные заметки AI, не коммитим.

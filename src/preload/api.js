@@ -52,6 +52,8 @@ let electronAPI = {
   telegramTest: () => ipcRenderer.invoke("telegram-test"),
   telegramNotifyAI: (text) =>
     ipcRenderer.invoke("telegram-notify-ai", { text }),
+  telegramRateLimit: (info) =>
+    ipcRenderer.invoke("telegram-rate-limit", info || {}),
   telegramTypingStart: () => ipcRenderer.invoke("telegram-typing-start"),
   telegramTypingStop: () => ipcRenderer.invoke("telegram-typing-stop"),
   telegramWhisperStatus: (opts) =>
