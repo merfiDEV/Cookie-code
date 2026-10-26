@@ -14,6 +14,7 @@
 const { ipcRenderer } = require("electron");
 const { getProviderByUrl } = require("../../../src/providers");
 const { getJsCodeBlocksFromMarkdown } = require("./js-detector");
+const chatInput = require("./chat-input");
 
 const STABLE_MS = 2500; // тишина, после которой считаем ответ финальным
 const POLL_MS = 700;
@@ -82,6 +83,98 @@ function showProjectDir(cfg) {
   }
 }
 
+// ===== Детект DSML/XML-мусора вместо cuckoo-блоков =====
+// AI иногда выдаёт сырые XML-вызовы (<｜｜DSML｜｜invoke>, <invoke name=...>,
+// <parameter name=...>) вместо cuckoo-кодблока. Такой ответ нельзя считать
+// финальным — надо поругать модель и дождаться корректного формата.
+const DSML_PATTERNS = [
+  /<\s*｜｜DSML｜｜/i,
+  /<\s*(?:[\w-]+:)?invoke\s+name=/i,
+  /<\s*\/\s*(?:[\w-]+:)?invoke\s*>/i,
+  /<\s*(?:[\w-]+:)?parameter\s+name=/i,
+  /<\s*(?:[\w-]+:)?tool_calls?\b/i,
+];
+
+/**
+ * Есть ли DSML/XML-мусор (сломанный tool-call вместо cuckoo-блока).
+ * Проверяем и видимый текст (textContent), и HTML (innerHTML): React/markdown
+ * может отрендерить <invoke> как элемент — тогда в textContent останется
+ * только "name=...", а тег будет лишь в innerHTML.
+ * @param {string} text  — md.textContent
+ * @param {string} [html] — md.innerHTML
+ * @returns {boolean}
+ */
+function detectDsmlGarbage(text, html) {
+  const a = typeof text === "string" ? text : "";
+  const b = typeof html === "string" ? html : "";
+  const hay = a + "\n" + b;
+  if (!hay.trim()) return false;
+  // 1) Явные маркеры DSML в любом виде.
+  if (/DSML/i.test(hay)) return true;
+  // 2) XML-подобные вызовы инструментов в тексте или HTML.
+  if (DSML_PATTERNS.some((re) => re.test(hay))) return true;
+  // 3) Текст без "<", но с характерной парой invoke/parameter + name=
+  //    (теги съедены markdown-рендером): "invoke name=" / "parameter name=".
+  if (/(?:^|[\s>"'])(?:invoke|parameter|tool_calls?)\s+name\s*=/i.test(hay))
+    return true;
+  return false;
+}
+
+/**
+ * Поругать AI за DSML/XML-формат и НЕ завершать ответ.
+ * Ограничено MAX_HINTS попытками, чтобы не зациклиться навсегда.
+ * @param {string} snapshot — текущий текст ответа (для антидубля)
+ */
+const MAX_DSML_HINTS = 3;
+let dsmlHintCount = 0;
+let lastDsmlHintSnapshot = "";
+function handleDsmlGarbage(snapshot) {
+  // Один и тот же сломанный ответ не ругаем повторно.
+  if (snapshot === lastDsmlHintSnapshot) return;
+  if (dsmlHintCount >= MAX_DSML_HINTS) {
+    console.warn(
+      "[Cookie Code][Subagent] ⚠️ DSML-мусор: исчерпан лимит подсказок (" +
+        MAX_DSML_HINTS +
+        "), ждём без отправки новых",
+    );
+    lastDsmlHintSnapshot = snapshot;
+    return;
+  }
+  dsmlHintCount++;
+  lastDsmlHintSnapshot = snapshot;
+  const BT = String.fromCharCode(96);
+  const fence = BT + BT + BT;
+  console.log(
+    "[Cookie Code][Subagent] ⚠️ Обнаружен DSML/XML-мусор (подсказка " +
+      dsmlHintCount +
+      "/" +
+      MAX_DSML_HINTS +
+      "), просим использовать cuckoo-блок",
+  );
+  try {
+    chatInput.sendMessageToChat(
+      "❌ INVALID TOOL CALL FORMAT DETECTED: you used XML/DSML " +
+        "(<｜｜DSML｜｜invoke>, <invoke>, <parameter>), but you MUST use a " +
+        fence +
+        "cuckoo" +
+        fence +
+        " code block. " +
+        "DO NOT write XML tags. Call the tool via a " +
+        fence +
+        "cuckoo" +
+        fence +
+        " code block with JS code (await tool_name({...})). " +
+        "This is critical: the XML format is NOT executed.",
+      "DSML format warning",
+    );
+  } catch (err) {
+    console.error(
+      "[Cookie Code][Subagent] не удалось отправить DSML-подсказку:",
+      err && err.message,
+    );
+  }
+}
+
 /**
  * Если окно — субагент, запустить цикл наблюдения за финальным ответом.
  */
@@ -142,7 +235,22 @@ function initSubagentWatch() {
       // Текст не менялся — проверяем, устоялся ли.
       if (Date.now() - lastChangeAt < STABLE_MS) return;
 
-      // Устоявшийся текст. Проверяем, есть ли в нём cuckoo-блоки.
+      // Устоявшийся текст. СНАЧАЛА проверяем DSML/XML-мусор (по тексту и HTML),
+      // ДО анализа блоков: мусор может прийти и внутри <pre>, тогда обычная
+      // ветка "tool-блоки" его не поймает и ответ завершится.
+      const rawHtml = (got.md && got.md.innerHTML) || "";
+      if (detectDsmlGarbage(snapshot, rawHtml)) {
+        console.log(
+          "[Cookie Code][Subagent] DSML-детект: мусор найден. text[0..120]=" +
+            JSON.stringify(snapshot.slice(0, 120)) +
+            " html[0..160]=" +
+            JSON.stringify(rawHtml.slice(0, 160)),
+        );
+        handleDsmlGarbage(snapshot);
+        return;
+      }
+
+      // Проверяем, есть ли в нём cuckoo-блоки.
       const blocks = (() => {
         try {
           return getJsCodeBlocksFromMarkdown(got.md) || [];
