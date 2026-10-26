@@ -79,6 +79,15 @@ function buildAgentPrompt(agentSystemPrompt, task) {
  * Дождаться готовности дочернего окна и отправить в него initial-prompt
  * (system prompt Cookie Code + промпт агента + task).
  */
+// combined initial-prompt по windowId — чтобы окно могло запросить его повторно
+// (pull-модель), если push-сообщение потерялось из-за гонки IPC.
+const initPrompts = new Map();
+
+/** Получить сохранённый initial-prompt по windowId (или null). */
+function getInitPrompt(windowId) {
+  return initPrompts.get(windowId) || null;
+}
+
 function sendInitPromptWhenReady(win, projectDir, extraPrompt, timeoutMs) {
   return new Promise((resolve) => {
     if (!win || win.isDestroyed()) return resolve(false);
@@ -92,6 +101,9 @@ function sendInitPromptWhenReady(win, projectDir, extraPrompt, timeoutMs) {
           "deepseek",
         );
         const combined = base + "\n\n" + extraPrompt;
+        try {
+          initPrompts.set(win.id, combined);
+        } catch (_) {}
         win.webContents.send("initial-prompt", combined);
         sent = true;
         console.log(
@@ -108,15 +120,24 @@ function sendInitPromptWhenReady(win, projectDir, extraPrompt, timeoutMs) {
         resolve(false);
       }
     };
-    win.webContents.once("did-finish-load", () => setTimeout(send, 1200));
-    // На случай, если страница уже загрузилась до подписки
-    setTimeout(send, 3000);
-    // Абсолютный таймаут
+    // DeepSeek на холодном старте монтирует React долго — ждём дольше.
+    win.webContents.once("did-finish-load", () => setTimeout(send, 3000));
+    // Повторная попытка, если первая не сработала (окно догрузилось позже).
+    setTimeout(send, 8000);
+    setTimeout(send, 15000);
+    // Абсолютный таймаут: ждём до 3 минут, пока окно будет готово.
     setTimeout(
       () => {
-        if (!sent) resolve(false);
+        if (!sent) {
+          console.warn(
+            "[Subagent] initial-prompt не отправлен за " +
+              Math.round(Math.min(timeoutMs, 180000) / 1000) +
+              "с — окно, возможно, не готово",
+          );
+          resolve(false);
+        }
       },
-      Math.min(timeoutMs, 60000),
+      Math.min(timeoutMs, 180000),
     );
   });
 }
@@ -381,4 +402,5 @@ module.exports = {
   runAgent,
   onSubagentResponse,
   hasRunningSubagent,
+  getInitPrompt,
 };
