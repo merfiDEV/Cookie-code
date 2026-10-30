@@ -35,6 +35,7 @@ try {
  */
 function injectCSS() {
   const style = document.createElement("style");
+  style.id = "cuckoo-overlay-css";
   style.textContent = OVERLAY_CSS;
   document.head.appendChild(style);
 }

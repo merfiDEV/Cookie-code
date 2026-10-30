@@ -112,9 +112,11 @@ async function init() {
     safe("init.goalEngine", () => goalEngine.init());
     safe("init.goalCommand", () => goalCommand.install());
 
-    // SHELL MODE: overlay disabled (панель теперь в shell.html)
-    // safe("init.injectCSS", () => ui.injectCSS());
-    // safe("init.injectOverlay", () => ui.injectOverlay());
+    // CSS кастомизации (фон/шрифты/прозрачность/tool-блоки/чипы/мета) — нужен всегда.
+    // Сама панель (injectOverlay) отключена — она теперь в shell.html.
+    safe("init.injectCSS", () => ui.injectCSS());
+
+        // safe("init.injectOverlay", () => ui.injectOverlay());
     // Перенос контекста: если мы в середине операции (после reload) — продолжаем.
     safe("init.contextPortResume", () => contextPort.resume());
 
@@ -216,6 +218,7 @@ async function init() {
     safe("init.fileChipSetEnabled", () =>
       fileChip.setEnabled(state.fileChipEnabled !== false),
     );
+
     safe("init.fileChipStart", () => fileChip.startWatch());
 
     // Блок «Затронуто» под ответом AI — вкл/выкл через настройки

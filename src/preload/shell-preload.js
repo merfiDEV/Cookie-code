@@ -60,6 +60,7 @@ const shellAPI = {
   endSidebarDrag: () => ipcRenderer.send("shell-sidebar-drag-end"),
   onSidebarDrag: (cb) => ipcRenderer.on("shell-sidebar-drag", (_e, w) => cb(w)),
   reportShellSize: (w, h) => ipcRenderer.send("shell-report-size", { w, h }),
+  reportLayout: (rect) => ipcRenderer.send("shell-report-layout", rect),
 
   // ===== Окно =====
   windowMinimize: () => ipcRenderer.invoke("shell-window-minimize"),

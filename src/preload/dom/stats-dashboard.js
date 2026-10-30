@@ -94,17 +94,27 @@ function isHomeInputFilled() {
 
 /**
  * Является ли текущая страница домашней (по провайдеру).
+ * Двойная проверка: URL + DOM (на home нет сообщений чата).
  */
 function isHomePage() {
   try {
     const provider = getProviderByUrl(window.location.href);
+    let urlMatch = false;
     if (provider && provider.homeUrlPattern) {
-      return provider.homeUrlPattern.test(window.location.href);
+      urlMatch = provider.homeUrlPattern.test(window.location.href);
+    } else {
+      // Фолбэк: DeepSeek home.
+      urlMatch = /^https:\/\/chat\.deepseek\.com\/?([\?#].*)?$/.test(
+        window.location.href,
+      );
     }
-    // Фолбэк: DeepSeek home.
-    return /^https:\/\/chat\.deepseek\.com\/?(\?.*)?$/.test(
-      window.location.href,
+    if (!urlMatch) return false;
+    // Дополнительная DOM-проверка: если на странице есть сообщения чата —
+    // значит открыта сессия (SPA не меняет URL при переходе в чат).
+    const hasChatMessages = !!document.querySelector(
+      ".ds-message, [class*=\"chat-message\"], [class*=\"message-item\"]",
     );
+    return !hasChatMessages;
   } catch (_) {
     return false;
   }
@@ -131,7 +141,8 @@ function injectStyle() {
       left: 50%;
       transform: translateX(-50%);
       z-index: 2147483000;
-      width: min(560px, 86vw);
+      width: 92vw;
+      max-width: 1400px;
       background: rgba(20, 22, 38, 0.92);
       border: 1px solid rgba(139, 147, 255, 0.28);
       border-radius: 18px;
@@ -163,22 +174,30 @@ function injectStyle() {
     #${ROOT_ID} .ckd-title { font-size: 13px; font-weight: 700; letter-spacing: .3px; }
     #${ROOT_ID} .ckd-range { font-size: 10px; color: #8a90b8; }
     #${ROOT_ID} .ckd-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 6px;
     }
     #${ROOT_ID} .ckd-card {
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 10px; padding: 7px 9px;
+      min-width: 0;
     }
-    #${ROOT_ID} .ckd-card .k { font-size: 10px; color: #8a90b8; margin-bottom: 3px; }
-    #${ROOT_ID} .ckd-card .v { font-size: 17px; font-weight: 700; color: #dfe3ff; }
-    /* Плотная heatmap в стиле GitHub: 7 строк (дни недели), столбцы — недели. */
+    #${ROOT_ID} .ckd-card .k { font-size: 10px; color: #8a90b8; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #${ROOT_ID} .ckd-card .v { font-size: 17px; font-weight: 700; color: #dfe3ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Плотная heatmap в стиле GitHub: 7 строк (дни недели), столбцы — недели.
+       Ячейки квадратные: clamp() масштабирует под ширину контейнера. */
     #${ROOT_ID} .ckd-heat {
-      display: grid; grid-auto-flow: column;
-      grid-template-rows: repeat(7, 9px);
-      gap: 2px; margin-top: 12px; overflow-x: auto; padding-bottom: 2px;
+      display: grid;
+      grid-auto-flow: column;
+      grid-template-rows: repeat(7, 11px);
+      grid-auto-columns: 11px;
+      gap: 2px;
+      margin-top: 12px;
+      overflow-x: hidden;
     }
-    #${ROOT_ID} .ckd-cell { width: 9px; height: 9px; border-radius: 2px; background: rgba(255,255,255,0.05); }
+    #${ROOT_ID} .ckd-cell { border-radius: 2px; background: rgba(255,255,255,0.05); }
     #${ROOT_ID} .ckd-cell.l1 { background: rgba(139,147,255,0.28); }
     #${ROOT_ID} .ckd-cell.l2 { background: rgba(139,147,255,0.5); }
     #${ROOT_ID} .ckd-cell.l3 { background: rgba(139,147,255,0.72); }
@@ -193,6 +212,33 @@ function injectStyle() {
     }
   `;
   (document.head || document.documentElement).appendChild(style);
+}
+
+/**
+ * Вычислить оптимальный размер ячейки heatmap (px) по реальной ширине контейнера.
+ * Ячейки квадратные, заполняют всю ширину, ограничены диапазоном [8, 20] px.
+ */
+function calcCellPx() {
+  if (!rootEl) return 11;
+  const padding = 32; // padding 16px × 2
+  const gap = 2;
+  const weeks = Math.ceil(RANGE_DAYS / 7);
+  const containerW = rootEl.getBoundingClientRect().width - padding;
+  if (containerW <= 0) return 11;
+  const raw = Math.floor((containerW - gap * (weeks - 1)) / weeks);
+  return Math.max(8, Math.min(20, raw));
+}
+
+/**
+ * Применить рассчитанный размер ячейки к grid тепловой карты.
+ */
+function applyHeatSize() {
+  if (!ui || !ui.heat) return;
+  const sz = calcCellPx();
+  const gap = sz <= 10 ? 1 : 2;
+  ui.heat.style.gridTemplateRows = `repeat(7, ${sz}px)`;
+  ui.heat.style.gridAutoColumns = `${sz}px`;
+  ui.heat.style.gap = `${gap}px`;
 }
 
 function levelFor(messages) {
@@ -266,6 +312,7 @@ function buildSkeleton() {
   rootEl.appendChild(foot);
 
   ui = { cardNodes, heat, foot, heatCells: [] };
+  applyHeatSize();
 }
 
 /**
@@ -360,6 +407,8 @@ function render(summary) {
     (debugMode ? t("dashboard.foot.debug") : "") +
     t("dashboard.foot.main", { days: RANGE_DAYS });
   if (ui.foot.textContent !== foot) ui.foot.textContent = foot;
+  // Пересчитываем размер ячеек после заполнения данных (асинхронная загрузка).
+  applyHeatSize();
 }
 
 function formatTokens(n) {
@@ -698,6 +747,7 @@ function start() {
     if (localStorage.getItem(POS_KEY)) {
       restorePosition();
     }
+    applyHeatSize();
     logPos("resize");
   });
 

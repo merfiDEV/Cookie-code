@@ -144,6 +144,15 @@ function publish(usage) {
   } catch (_) {
     /* CustomEvent недоступен — молча */
   }
+  // Прямой IPC в main — не зависим от stats-recorder (он может быть отключён).
+  try {
+    if (
+      window.electronAPI &&
+      typeof window.electronAPI.statsRecordTokens === "function"
+    ) {
+      window.electronAPI.statsRecordTokens({ delta, tokens: delta });
+    }
+  } catch (_) {}
   try {
     console.log(
       LOG_PREFIX +

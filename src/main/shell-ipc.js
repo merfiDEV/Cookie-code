@@ -70,7 +70,10 @@ function registerShellIpc({
   ipcMain.handle("shell-toggle-sidebar", async (event, { width } = {}) => {
     const ctx = windowState.getContextByWebContents(event.sender);
     if (!ctx) return { success: false };
-    ctx.sidebarWidth = width || (ctx.sidebarWidth ? 0 : 260);
+    // sidebarWidth больше не критичен — viewportRect из shell главный.
+    // Но сохраняем для fallback-режима.
+    ctx.sidebarWidth =
+      typeof width === "number" ? width : ctx.sidebarWidth ? 0 : 320;
     layoutWindow(ctx);
     return { success: true };
   });
@@ -98,6 +101,19 @@ function registerShellIpc({
     if (!ctx) return;
     ctx.shellSize = { w: w || 0, h: h || 0 };
     layoutWindow(ctx);
+  });
+  // Точные координаты .viewport из DOM — главный источник истины для AI-view.
+  ipcMain.on("shell-report-layout", (event, rect = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (!ctx || !ctx.view) return;
+    const x = Math.max(0, Math.round(rect.x || 0));
+    const y = Math.max(0, Math.round(rect.y || 0));
+    const w = Math.max(100, Math.round(rect.width || 0));
+    const h = Math.max(100, Math.round(rect.height || 0));
+    try {
+      ctx.view.setBounds({ x, y, width: w, height: h });
+    } catch (_) {}
+    ctx.viewportRect = { x, y, w, h };
   });
 
   // ===== Окно =====
@@ -715,7 +731,6 @@ function registerShellIpc({
     }
   });
 
-
   // ===== Тема — реальная, из nativeTheme + settings.theme =====
   const { nativeTheme } = require("electron");
 
@@ -944,9 +959,22 @@ function registerShellIpc({
 
 function layoutWindow(ctx) {
   if (!ctx || !ctx.win || !ctx.view) return;
+  // Источник истины — .viewport rect, который присылает shell после каждого layout.
+  // Fallback на CSS-константы только когда shell ещё не отчитался.
+  if (ctx.viewportRect) {
+    try {
+      ctx.view.setBounds({
+        x: ctx.viewportRect.x,
+        y: ctx.viewportRect.y,
+        width: ctx.viewportRect.w,
+        height: ctx.viewportRect.h,
+      });
+      return;
+    } catch (_) {}
+  }
   const [w, h] = ctx.win.getContentSize();
-  const TOOLBAR_H = 44;
-  const STATUSBAR_H = 24;
+  const TOOLBAR_H = 46;
+  const STATUSBAR_H = 28;
   const sidebarW = ctx.sidebarWidth || 0;
   ctx.view.setBounds({
     x: sidebarW,

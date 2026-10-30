@@ -30,7 +30,7 @@ function addWindow(
     toolsWhitelist: null,
     // Поля layout, обновляются через shell-report-size / shell-toggle-sidebar
     projectDir: null,
-    sidebarWidth: 260,
+    sidebarWidth: 0,
     tokenUsage: null,
   });
   lastActiveWindowId = win.id;

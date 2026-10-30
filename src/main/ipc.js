@@ -934,33 +934,49 @@ function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("stats-record-tokens", async (_event, ev = {}) => {
+  ipcMain.handle("stats-record-tokens", async (event, ev = {}) => {
     try {
       const stats = statsStore.recordTokens(ev);
+      // stats-recorder шлёт { sessionId, tokens }, но некоторые источники могут слать { delta }.
+      const incomingDelta =
+        Number(ev.delta != null ? ev.delta : ev.tokens) || 0;
       try {
         const ws = require("./window");
-        for (const ctx of ws.getAllContexts()) {
-          const total =
-            (ev.delta || 0) + ((ctx.tokenUsage && ctx.tokenUsage.total) || 0);
+        // Найдём контекст по отправителю (AI view), иначе broadcast во все окна.
+        const senderCtx = ws.getContextByWebContents(event.sender);
+        const contexts = senderCtx ? [senderCtx] : ws.getAllContexts();
+        for (const ctx of contexts) {
+          const prevTotal = (ctx.tokenUsage && ctx.tokenUsage.total) || 0;
+          const total = prevTotal + incomingDelta;
           ctx.tokenUsage = {
             total,
-            delta: ev.delta || 0,
+            delta: incomingDelta,
             context: total,
             at: Date.now(),
           };
           try {
             ctx.win.webContents.send("shell-token-updated", ctx.tokenUsage);
           } catch (_) {}
+          // TPS: скользящее окно 3 секунды — суммируем дельты, делим на фактический интервал.
           try {
             const now = Date.now();
-            const prev = ctx._tpsLast || { at: now, delta: 0 };
-            const elapsed = Math.max(1, now - prev.at);
-            const tps = (ev.delta || 0) / (elapsed / 1000);
-            if (tps > 0 && isFinite(tps)) {
-              ctx._tpsLast = { at: now, delta: ev.delta || 0 };
-              ctx.win.webContents.send("shell-tps-updated", {
-                tps: Math.round(tps * 10) / 10,
-              });
+            if (!ctx._tpsWindow) ctx._tpsWindow = [];
+            ctx._tpsWindow.push({ at: now, delta: incomingDelta });
+            const windowMs = 3000;
+            ctx._tpsWindow = ctx._tpsWindow.filter(
+              (x) => now - x.at <= windowMs,
+            );
+            const sumDelta = ctx._tpsWindow.reduce((s, x) => s + x.delta, 0);
+            if (ctx._tpsWindow.length >= 2 && sumDelta > 0) {
+              const oldest = ctx._tpsWindow[0].at;
+              const spanSec = Math.max(0.5, (now - oldest) / 1000);
+              const tps = sumDelta / spanSec;
+              if (isFinite(tps) && tps > 0) {
+                ctx._tpsLast = { at: now, tps };
+                ctx.win.webContents.send("shell-tps-updated", {
+                  tps: Math.round(tps * 10) / 10,
+                });
+              }
             }
           } catch (_) {}
         }

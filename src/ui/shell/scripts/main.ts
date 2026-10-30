@@ -74,10 +74,45 @@ try {
   console.error("[react-shell] 挂载失败", e);
 }
 
-// 上报壳页面真实可视尺寸（主进程据此精确布局，避免菜单栏高度误差盖住状态栏）
+// 上报壳页面真实可视尺寸
 function reportShellSize(): void {
   if (api.reportShellSize)
     api.reportShellSize(window.innerWidth, window.innerHeight);
 }
 reportShellSize();
-window.addEventListener("resize", reportShellSize);
+
+// Главный канал раскладки: измеряем реальный .viewport из DOM и шлём в main.
+// AI-view (WebContentsView) ставится ровно в эти координаты — больше никакой
+// хардкод-математики (сайдбар 320/48, toolbar, statusbar — всё берётся из CSS).
+function reportLayout(): void {
+  const vp = document.querySelector(".viewport") as HTMLElement | null;
+  if (!vp) return;
+  const r = vp.getBoundingClientRect();
+  const anyApi = api as any;
+  if (anyApi.reportLayout) {
+    anyApi.reportLayout({
+      x: r.left,
+      y: r.top,
+      width: r.width,
+      height: r.height,
+    });
+  }
+}
+// Дёргаем на: старте, resize, скролле layout-панелей (sidebar toggle).
+reportLayout();
+window.addEventListener("resize", () => {
+  reportShellSize();
+  reportLayout();
+});
+// На случай шрифтов/картинок, меняющих высоту — ещё раз через 300ms и 1.5s.
+setTimeout(reportLayout, 300);
+setTimeout(reportLayout, 1500);
+// ResizeObserver на .viewport — ловит любые изменения сайдбара/тулбара.
+try {
+  const vp = document.querySelector(".viewport");
+  if (vp) {
+    const ro = new ResizeObserver(() => reportLayout());
+    ro.observe(vp);
+    ro.observe(document.querySelector(".main-area") || document.body);
+  }
+} catch (_) {}
