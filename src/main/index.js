@@ -160,6 +160,8 @@ function createWindow(profile) {
     height: 900,
     title: "Cookie Code — " + provider.name + " — " + profileData.name,
     icon: APP_ICON,
+    frame: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "..", "preload", "shell-preload.js"),
       contextIsolation: true,
@@ -328,12 +330,18 @@ function createWindow(profile) {
     layoutWindow(windowState.getWindowContext(mainWindow.id)),
   );
 
-  // ========== 8. F12 devtools (на AI-странице) ==========
+  // ========== 8. F12 devtools / F11 fullscreen ==========
   view.webContents.on("before-input-event", (_e, input) => {
     if (input.key === "F12") view.webContents.toggleDevTools();
+    if (input.key === "F11" && input.type === "keyDown") {
+      mainWindow.setFullScreen(!mainWindow.isFullScreen());
+    }
   });
   mainWindow.webContents.on("before-input-event", (_e, input) => {
     if (input.key === "F12") mainWindow.webContents.toggleDevTools();
+    if (input.key === "F11" && input.type === "keyDown") {
+      mainWindow.setFullScreen(!mainWindow.isFullScreen());
+    }
   });
 
   // ========== 9. Close cleanup ==========
