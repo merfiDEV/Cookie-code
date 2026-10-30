@@ -112,7 +112,7 @@ function isHomePage() {
     // Дополнительная DOM-проверка: если на странице есть сообщения чата —
     // значит открыта сессия (SPA не меняет URL при переходе в чат).
     const hasChatMessages = !!document.querySelector(
-      ".ds-message, [class*=\"chat-message\"], [class*=\"message-item\"]",
+      '.ds-message, [class*="chat-message"], [class*="message-item"]',
     );
     return !hasChatMessages;
   } catch (_) {
@@ -141,8 +141,11 @@ function injectStyle() {
       left: 50%;
       transform: translateX(-50%);
       z-index: 2147483000;
-      width: 92vw;
-      max-width: 1400px;
+      width: auto;
+      max-width: 640px;
+      min-width: 380px;
+      max-height: calc(100vh - 220px);
+      overflow-y: auto;
       background: rgba(20, 22, 38, 0.92);
       border: 1px solid rgba(139, 147, 255, 0.28);
       border-radius: 18px;

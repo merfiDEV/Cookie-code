@@ -623,24 +623,44 @@ function registerShellIpc({
   });
 
   // ===== Промпты (prompts-store) =====
+  function getProjectDir(ctx) {
+    return ctx && ctx.sessionStore && ctx.sessionStore.state
+      ? ctx.sessionStore.state.selectedProjectDir ||
+          ctx.sessionStore.state.lastProjectDir ||
+          null
+      : null;
+  }
   ipcMain.handle("shell-list-snippets", async (event) => {
     const ctx = windowState.getContextByWebContents(event.sender);
-    if (!ctx || !ctx.projectDir) return { success: true, snippets: [] };
+    const projectDir = getProjectDir(ctx);
+    if (!projectDir) return { success: true, snippets: [] };
     try {
-      return { success: true, snippets: promptsStore.list(ctx.projectDir) };
+      const list = promptsStore.list(projectDir);
+      // Приводим к формату фронта: { id, name, content, autoSend }
+      const snippets = (list || []).map((p) => ({
+        id: p.name,
+        name: p.name,
+        content: p.text,
+        autoSend: true,
+      }));
+      return { success: true, snippets };
     } catch (e) {
       return { success: true, snippets: [] };
     }
   });
   ipcMain.handle("shell-save-snippets", async (event, { snippets } = {}) => {
     const ctx = windowState.getContextByWebContents(event.sender);
-    if (!ctx || !ctx.projectDir) return { success: false };
+    const projectDir = getProjectDir(ctx);
+    if (!projectDir) return { success: false, error: "no project" };
     try {
       // Полная замена: удалить всё, потом записать
-      const existing = promptsStore.list(ctx.projectDir);
-      for (const p of existing) promptsStore.remove(ctx.projectDir, p.name);
-      for (const s of snippets || [])
-        promptsStore.save(ctx.projectDir, s.name, s.text);
+      const existing = promptsStore.list(projectDir);
+      for (const p of existing) promptsStore.remove(projectDir, p.name);
+      for (const s of snippets || []) {
+        const name = s.name || s.id;
+        const text = s.content !== undefined ? s.content : s.text;
+        if (name) promptsStore.save(projectDir, name, text);
+      }
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
