@@ -541,9 +541,25 @@ function registerShellIpc({
       return { success: false, error: e.message, data: {} };
     }
   });
+  // Рассылаем изменения настроек во все AI-страницы (фон/шрифты/пет/чипы и т.д.).
+  function broadcastSettingsChanged(patch) {
+    try {
+      for (const ctx of windowState.getAllContexts()) {
+        try {
+          const { getAIWebContents } = windowState;
+          const aiWc = getAIWebContents(ctx.win);
+          if (aiWc && !aiWc.isDestroyed()) {
+            aiWc.send("cuckoo-settings-changed", patch || null);
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
   ipcMain.handle("shell-save-settings", async (_e, data) => {
     try {
       settingsStore.writeSettings(data || {});
+      broadcastSettingsChanged(data || null);
       return { success: true };
     } catch (e) {
       return { success: false, error: e.message };
@@ -552,7 +568,8 @@ function registerShellIpc({
   ipcMain.handle("shell-reset-settings", async () => {
     try {
       settingsStore.writeSettings({});
-      return { success: true };
+      broadcastSettingsChanged(null);
+      return { success: true, data: settingsStore.readSettings() };
     } catch (e) {
       return { success: false, error: e.message };
     }

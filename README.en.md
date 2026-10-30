@@ -193,11 +193,28 @@ The AI remembers **both you and the project** — memory is split into two indep
 
 ### ⌨️ **Hotkeys**
 
-| Key    | Action                                      |
-| ------ | ------------------------------------------- |
-| **F1** | Show the current CHANGELOG (What's New box) |
+| Key     | Action                                       |
+| ------- | -------------------------------------------- |
+| Key     | Action                                       |
+| ------- | -------------------------------------------- |
+| **F1**  | Show the current CHANGELOG (What's New box)  |
+| **F11** | Fullscreen mode (like in a browser)          |
+| **F12** | Developer tools (DevTools)                   |
 
 The What's New window (F1) is **draggable by its header** and adapts its width to the screen.
+
+## 🆕 What's New
+
+Recent major changes:
+
+- **VS Code-style shell** — rewritten UI: activity bar, sidebar pages (Home, Workspaces, Files, Prompts, Skills, Subagents, MCP, Token, About) and status bar. Frameless window with custom window controls; **F11** toggles fullscreen.
+- **Project file tree** — folders **and subfolders** with expansion; the **@** button inserts `User mentioned file: <absolute path>` (or `folder`) into the chat; Monaco preview with "open in system".
+- **Subagents open as lightweight windows** — no shell chrome, just a DeepSeek chat with the task prompt and isolated context.
+- **TPS / tokens** — real-time output speed (tokens/sec) from server `accumulated_token_usage` diff, with text-length fallback. Context and speed are shown in the status bar.
+- **"Task detected" block + History** on Home — current command/task, running indicator, **Kill** button, collapsible history of executed commands.
+- **Project prompts** — stored in `.cookie/prompts/*.md`; create/edit/delete, click to insert (optional auto-send). IPC fixed to use the real project dir.
+- **Updates** — "Check for updates" shows an honest result (up to date / vX.Y.Z available / downloaded / error / unavailable in dev). Version on the About page comes from the latest `CHANGELOG.md` entry.
+- **Misc** — clicking an agent/skill inserts `Use the <name> agent` / `Use the <name> skill` (English); app icon from build on the About page; compact stats heatmap; agents/skills discovered in `cookie/agents`, `.cuckoo/agents`, `~/.cookie/agents`.
 
 ### 📊 **Git Integration**
 

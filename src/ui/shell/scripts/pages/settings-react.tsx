@@ -103,9 +103,71 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   ]);
   const [pets, setPets] = useState<any[]>([]);
   const [logInfo, setLogInfo] = useState<any>(null);
+  const [appVersion, setAppVersion] = useState("—");
+  const [updateChecking, setUpdateChecking] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<{
+    text: string;
+    kind: "info" | "success" | "error";
+  } | null>(null);
 
   const dirtyRef = useRef(false);
   const saveTimer = useRef<any>(null);
+
+  // Версия приложения из API (CHANGELOG / package.json).
+  useEffect(() => {
+    const anyApi = api as any;
+    if (anyApi.getAppInfo) {
+      anyApi
+        .getAppInfo()
+        .then((r: any) => {
+          if (r && r.success) setAppVersion(r.version || "—");
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const checkUpdates = useCallback(async () => {
+    const anyApi = api as any;
+    if (!anyApi.checkUpdate) return;
+    setUpdateChecking(true);
+    setUpdateStatus({ text: "Проверка обновлений…", kind: "info" });
+    try {
+      const r: any = await anyApi.checkUpdate();
+      const st = r && r.status;
+      if (st === "dev")
+        setUpdateStatus({
+          text: "Проверка обновлений недоступна в dev-режиме",
+          kind: "info",
+        });
+      else if (st === "available")
+        setUpdateStatus({
+          text: "Доступна новая версия: v" + (r.version || "?"),
+          kind: "success",
+        });
+      else if (st === "ready")
+        setUpdateStatus({
+          text: "Обновление скачано — перезапустите приложение",
+          kind: "success",
+        });
+      else if (st === "up-to-date")
+        setUpdateStatus({
+          text: "Обновлений нет — у вас последняя версия",
+          kind: "success",
+        });
+      else
+        setUpdateStatus({
+          text: "Ошибка проверки: " + ((r && r.error) || "неизвестно"),
+          kind: "error",
+        });
+    } catch (e: any) {
+      setUpdateStatus({
+        text: "Ошибка: " + (e && e.message ? e.message : String(e)),
+        kind: "error",
+      });
+    } finally {
+      setUpdateChecking(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!api.getSettings) {
@@ -420,7 +482,12 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       { label: "Язык интерфейса" },
       createElement(Select, {
         value: data.language || "ru",
-        onChange: (v: string) => upd("language", v),
+        onChange: (v: string) => {
+          upd("language", v);
+          try {
+            (window as any).__ckSetLang?.(v === "en" ? "en" : "ru");
+          } catch (_) {}
+        },
         options: [
           { value: "ru", label: "Русский" },
           { value: "en", label: "English" },
@@ -637,7 +704,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       createElement(
         "span",
         { style: { fontFamily: "monospace", fontSize: 13 } },
-        "5.0.9",
+        appVersion || "—",
       ),
     ),
     createElement(
@@ -647,14 +714,30 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         "button",
         {
           className: "ck-btn",
-          onClick: () => {
-            const anyApi = api as any;
-            if (anyApi.checkUpdate) anyApi.checkUpdate();
-          },
+          disabled: updateChecking,
+          onClick: checkUpdates,
         },
-        "Проверить",
+        updateChecking ? "Проверка…" : "Проверить",
       ),
     ),
+    updateStatus
+      ? createElement(
+          "div",
+          {
+            className: "ck-set-row-desc",
+            style: {
+              marginTop: 8,
+              color:
+                updateStatus.kind === "error"
+                  ? "#e55"
+                  : updateStatus.kind === "success"
+                    ? "#4ade80"
+                    : "var(--ck-text-dim)",
+            },
+          },
+          updateStatus.text,
+        )
+      : null,
     createElement(
       SettingRow,
       { label: "Исходники" },
@@ -673,6 +756,24 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     ),
   );
 
+  // Иконки Material Symbols (outlined, 24x24) для навигации.
+  const ICONS: Record<string, string> = {
+    appearance:
+      "M12 3a9 9 0 1 0 9 9c0-1.1-.9-2-2-2h-1.2a2 2 0 0 1-1.7-3l.3-.5c.6-1 .2-2.3-.9-2.7A9 9 0 0 0 12 3zM7 10a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z",
+    language:
+      "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM4.1 9h3.1c.2-1.6.6-3 1.2-4.2A8 8 0 0 0 4.1 9zm0 6a8 8 0 0 0 4.3 4.2A15 15 0 0 1 7.2 15H4.1zm3.1-2h9.6a13 13 0 0 0 0-2H7.2a13 13 0 0 0 0 2zm2.2-8.2c-.6 1.2-1 2.6-1.2 4.2H11V4.8c-.5 0-1 .1-1.5.2zM13 4.8V9h3.8c-.2-1.6-.6-3-1.2-4.2-.8 0-1.7 0-2.6 0zM13 15v4.2c.9 0 1.8 0 2.6-.1.6-1.2 1-2.6 1.2-4.1H13zm-2 4.2V15H7.2c.2 1.6.6 3 1.2 4.2.5.1 1 .2 1.6.2s1.1-.1 1.6-.2zm5.3.4A8 8 0 0 0 19.9 15h-3.1c-.2 1.7-.6 3.1-1.2 4.3.2 0 .4 0 .7-.1zM16.8 4.8c.6 1.2 1 2.6 1.2 4.2h3.1a8 8 0 0 0-4.3-4.2z",
+    behavior:
+      "M12 2 4 6v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V6l-8-4zm0 4.5 5 2.5v3c0 3.5-2.2 6.9-5 8-2.8-1.1-5-4.5-5-8V9l5-2.5z",
+    telegram:
+      "M21.9 4.6 2.8 11.9c-1 .4-1 1.8.1 2.1l4.8 1.5 1.8 5.6c.3.9 1.4 1.1 2 .4l2.6-2.6 4.8 3.5c.8.6 1.9.2 2.1-.8l2.4-11.3c.2-1-.7-1.8-1.5-1.7zM9.3 14.1l-.3 3.1-1-3.1 7.4-4.7-6.1 4.7z",
+    stats: "M4 20h16v-2H4v2zM6 16h2v-6H6v6zm5 0h2V4h-2v12zm5 0h2v-8h-2v8z",
+    security:
+      "M12 2 4 5v6c0 5.5 3.4 10.7 8 12 4.6-1.3 8-6.5 8-12V5l-8-3zm0 2.2 6 2.3v4.5c0 4.4-2.7 8.5-6 9.8-3.3-1.3-6-5.4-6-9.8V6.5l6-2.3zM12 8a2 2 0 0 0-1 3.7V15h2v-3.3A2 2 0 0 0 12 8z",
+    logs: "M6 2h9l5 5v15H6V2zm8 2v4h4l-4-4zM8 12h8v2H8v-2zm0 4h8v2H8v-2z",
+    about:
+      "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z",
+  };
+
   const NAV: [string, string][] = [
     ["appearance", "Внешний вид"],
     ["language", "Язык"],
@@ -683,6 +784,20 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     ["logs", "Логи"],
     ["about", "О программе"],
   ];
+
+  const navIcon = (id: string) =>
+    createElement(
+      "svg",
+      {
+        className: "ck-set-nav-icon",
+        viewBox: "0 0 24 24",
+        width: 18,
+        height: 18,
+        fill: "currentColor",
+        "aria-hidden": true,
+      },
+      createElement("path", { d: ICONS[id] || ICONS.about }),
+    );
 
   let content: any = null;
   if (active === "appearance") content = appearance;
@@ -738,7 +853,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 className: "ck-set-nav-item" + (active === id ? " active" : ""),
                 onClick: () => setActive(id),
               },
-              label,
+              navIcon(id),
+              createElement("span", null, label),
             ),
           ),
           createElement(

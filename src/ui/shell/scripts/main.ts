@@ -26,7 +26,11 @@ import { initThemePresenter } from "./theme-presenter.js";
 import { mountShellFrame, registerPage } from "./shell-frame.js";
 import { mountStatusBar } from "./statusbar.js";
 import { bindInitPrompt } from "./init-prompt.js";
-import { installAutoTranslate } from "./i18n.js";
+import { installAutoTranslate, setLang } from "./i18n.js";
+// Экспортируем setLang в window — настройки применяют смену языка на лету.
+try {
+  (window as any).__ckSetLang = setLang;
+} catch (_) {}
 import { HomePage } from "./pages/home-react.js";
 import { TokenPage } from "./pages/token-react.js";
 import { AboutPage } from "./pages/about-react.js";
@@ -47,6 +51,20 @@ try {
 } catch (_) {
   /* ignore */
 }
+
+// Язык интерфейса из настроек (ru/en) — до рендера страниц.
+try {
+  const anyApi = api as any;
+  if (anyApi.getSettings) {
+    anyApi.getSettings().then((r: any) => {
+      if (r && r.success && r.data && r.data.language) {
+        try {
+          setLang(r.data.language === "en" ? "en" : "ru");
+        } catch (_) {}
+      }
+    });
+  }
+} catch (_) {}
 
 // ⚛ React 壳框架（feat/shell-react）
 try {
