@@ -4,6 +4,7 @@ import { api } from "../shared.js";
 
 export function AboutPage() {
   const [version, setVersion] = useState("—");
+  const [iconUrl, setIconUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const anyApi = api as any;
@@ -15,6 +16,15 @@ export function AboutPage() {
         })
         .catch(() => {});
     }
+    // Иконка приложения из build/icon.png
+    if (anyApi.getAssetUrl) {
+      anyApi
+        .getAssetUrl("build/icon.png")
+        .then((r: any) => {
+          if (r && r.success && r.url) setIconUrl(r.url);
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const openGithub = useCallback(() => {
@@ -23,9 +33,54 @@ export function AboutPage() {
       anyApi.openExternal("https://github.com/merfiDEV/Cookie-code");
   }, []);
 
-  const checkUpdate = useCallback(() => {
+  const [updateStatus, setUpdateStatus] = useState<{
+    text: string;
+    kind: "info" | "success" | "error";
+  } | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const checkUpdate = useCallback(async () => {
     const anyApi = api as any;
-    if (anyApi.checkUpdate) anyApi.checkUpdate();
+    if (!anyApi.checkUpdate) return;
+    setChecking(true);
+    setUpdateStatus({ text: "Проверка обновлений…", kind: "info" });
+    try {
+      const r: any = await anyApi.checkUpdate();
+      const status = r && r.status;
+      if (status === "dev") {
+        setUpdateStatus({
+          text: "Проверка обновлений недоступна в dev-режиме",
+          kind: "info",
+        });
+      } else if (status === "available") {
+        setUpdateStatus({
+          text: "Доступна новая версия: v" + (r.version || "?"),
+          kind: "success",
+        });
+      } else if (status === "ready") {
+        setUpdateStatus({
+          text: "Обновление скачано — перезапустите приложение",
+          kind: "success",
+        });
+      } else if (status === "up-to-date") {
+        setUpdateStatus({
+          text: "Обновлений нет — у вас последняя версия",
+          kind: "success",
+        });
+      } else {
+        setUpdateStatus({
+          text: "Ошибка проверки: " + ((r && r.error) || "неизвестно"),
+          kind: "error",
+        });
+      }
+    } catch (e: any) {
+      setUpdateStatus({
+        text: "Ошибка: " + (e && e.message ? e.message : String(e)),
+        kind: "error",
+      });
+    } finally {
+      setChecking(false);
+    }
   }, []);
 
   return createElement(
@@ -34,7 +89,22 @@ export function AboutPage() {
     createElement(
       "div",
       { className: "ck-about-head" },
-      createElement("div", { className: "ck-about-logo" }, "C"),
+      createElement(
+        "div",
+        { className: "ck-about-logo" },
+        iconUrl
+          ? createElement("img", {
+              src: iconUrl,
+              alt: "Cookie Code",
+              style: {
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                borderRadius: "inherit",
+              },
+            })
+          : "C",
+      ),
       createElement("div", { className: "ck-about-title" }, "Cookie Code"),
       createElement(
         "div",
@@ -49,9 +119,33 @@ export function AboutPage() {
       createElement("div", { className: "ck-about-group-title" }, "Обновления"),
       createElement(
         "button",
-        { className: "ck-btn", onClick: checkUpdate },
-        "Проверить обновления",
+        {
+          className: "ck-btn",
+          onClick: checkUpdate,
+          disabled: checking,
+          style: checking ? { opacity: 0.6, cursor: "default" } : undefined,
+        },
+        checking ? "Проверка…" : "Проверить обновления",
       ),
+      updateStatus
+        ? createElement(
+            "div",
+            {
+              className: "ck-about-update-status",
+              style: {
+                marginTop: 10,
+                fontSize: 12,
+                color:
+                  updateStatus.kind === "error"
+                    ? "#e55"
+                    : updateStatus.kind === "success"
+                      ? "#4ade80"
+                      : "var(--ck-text-dim)",
+              },
+            },
+            updateStatus.text,
+          )
+        : null,
     ),
     createElement(
       "div",

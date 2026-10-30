@@ -596,6 +596,21 @@ function registerShellIpc({
   });
 
   // Overlay-кнопки (перенесены из старой панели): выполняем в AI-странице
+  ipcMain.handle("shell-kill-process", async (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (!ctx || !ctx.view) return { success: false, error: "no view" };
+    try {
+      const { processManager } = require("./process-manager");
+      const result = await processManager.killAll();
+      try {
+        ctx.view.webContents.stop();
+      } catch (_) {}
+      return { success: true, stopped: true, count: result.count };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle("shell-overlay-action", async (event, { action } = {}) => {
     const ctx = windowState.getContextByWebContents(event.sender);
     if (!ctx || !ctx.view) return { success: false, error: "no view" };
@@ -1114,10 +1129,10 @@ function registerShellIpc({
   });
   ipcMain.handle("shell-check-update", async () => {
     try {
-      updater.checkForUpdates();
-      return { success: true };
+      const result = await updater.checkForUpdatesWithResult();
+      return { success: true, ...result };
     } catch (e) {
-      return { success: false, error: e.message };
+      return { success: false, status: "error", error: e.message };
     }
   });
   ipcMain.handle("shell-open-external", async (_e, { url } = {}) => {

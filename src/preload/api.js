@@ -45,6 +45,9 @@ let electronAPI = {
   killProcess: () => {
     return ipcRenderer.invoke("kill-process");
   },
+  // Broadcast task/status/history в shell-сайдбар (React Home)
+  shellBroadcastTask: (payload) =>
+    ipcRenderer.send("shell-broadcast-task", payload),
   // ===== Telegram-бот =====
   telegramApply: () => ipcRenderer.invoke("telegram-apply"),
   telegramStatus: () => ipcRenderer.invoke("telegram-status"),

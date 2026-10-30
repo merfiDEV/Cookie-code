@@ -156,6 +156,38 @@ export function HomePage() {
   const [version, setVersion] = useState("");
   const panels = useSlot(PANEL_SLOT);
   const footers = useSlot(FOOTER_SLOT);
+  // Task/history из AI-страницы (detector/observer)
+  const [task, setTask] = useState<{
+    command?: string;
+    timestamp?: number;
+  } | null>(null);
+  const [running, setRunning] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    const anyApi = api as any;
+    if (typeof anyApi.onTaskUpdate !== "function") return;
+    anyApi.onTaskUpdate((d: any) => {
+      if (!d) return;
+      if (d.kind === "task") {
+        setTask({ command: d.command, timestamp: d.timestamp });
+      } else if (d.kind === "status") {
+        setRunning(!!d.running);
+      } else if (d.kind === "history" && Array.isArray(d.history)) {
+        setHistory(d.history);
+      }
+    });
+  }, []);
+
+  const killTask = useCallback(() => {
+    const anyApi = api as any;
+    if (typeof anyApi.killProcess === "function") {
+      anyApi.killProcess().catch(() => {});
+    }
+    setRunning(false);
+    setTask(null);
+  }, []);
 
   useEffect(() => {
     const anyApi = api as any;
@@ -375,12 +407,82 @@ export function HomePage() {
       createElement("div", {
         style: { height: 1, background: "var(--ck-border)", margin: "14px 0" },
       }),
+      // Блок «Обнаружена задача» + «История» (перенос из старой overlay-панели)
       createElement(
         "div",
-        { className: "ck-list", id: "ck-home-panels" },
-        panels.length === 0
-          ? createElement("div", { className: "ck-list-empty" }, "暂无插件面板")
-          : panels.map(renderItem),
+        { className: "ck-task-block" },
+        createElement(
+          "div",
+          { className: "ck-task-title" },
+          "Обнаружена задача:",
+          running
+            ? createElement(
+                "span",
+                { className: "ck-task-running" },
+                createElement("span", { className: "ck-task-spinner" }),
+                " выполняется",
+                createElement(
+                  "button",
+                  {
+                    className: "ck-task-kill",
+                    title: "Остановить",
+                    onClick: killTask,
+                  },
+                  "Kill",
+                ),
+              )
+            : null,
+        ),
+        createElement(
+          "div",
+          { className: "ck-task-cmd" },
+          task && task.command ? task.command : "Нет",
+        ),
+        createElement(
+          "div",
+          {
+            className: "ck-task-history-toggle",
+            onClick: () => setHistoryOpen((v) => !v),
+          },
+          createElement(
+            "span",
+            { className: "ck-task-caret" + (historyOpen ? " open" : "") },
+            "▾",
+          ),
+          "ИСТОРИЯ",
+        ),
+        historyOpen
+          ? createElement(
+              "div",
+              { className: "ck-task-history" },
+              history.length === 0
+                ? createElement(
+                    "div",
+                    { className: "ck-task-history-empty" },
+                    "Записей нет",
+                  )
+                : history.map((h, i) =>
+                    createElement(
+                      "div",
+                      { key: h.id || i, className: "ck-task-history-item" },
+                      createElement(
+                        "span",
+                        { className: "ck-task-history-cmd" },
+                        h.command || "",
+                      ),
+                      createElement(
+                        "span",
+                        {
+                          className:
+                            "ck-task-history-status " +
+                            (h.canceled ? "" : h.success ? "success" : "error"),
+                        },
+                        h.canceled ? "⏹" : h.success ? "✅" : "❌",
+                      ),
+                    ),
+                  ),
+            )
+          : null,
       ),
     ),
     // 底部动作（固定，滚动不影响）

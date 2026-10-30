@@ -1348,6 +1348,16 @@ function registerIpcHandlers() {
     }
   });
 
+  // Трансляция task/status/history из AI-страницы в shell-сайдбар (React Home)
+  ipcMain.on("shell-broadcast-task", (event, payload) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (ctx && ctx.win && !ctx.win.isDestroyed()) {
+        ctx.win.webContents.send("shell-task-update", payload || {});
+      }
+    } catch (_) {}
+  });
+
   // Остановить текущую задачу окна и активные дочерние процессы.
   // AI-ответ может выполняться без child process, поэтому одного killAll() недостаточно.
   ipcMain.handle("kill-process", async (event) => {

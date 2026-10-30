@@ -406,6 +406,14 @@ function setTaskStatus(running) {
   if (status) {
     status.classList.toggle("cuckoo-hidden", !running);
   }
+  try {
+    if (window.electronAPI && window.electronAPI.shellBroadcastTask) {
+      window.electronAPI.shellBroadcastTask({
+        kind: "status",
+        running: !!running,
+      });
+    }
+  } catch (_) {}
 }
 
 /**
@@ -466,6 +474,16 @@ function displayCommand(cmdData) {
   if (preview) preview.textContent = cmdData.command;
   if (resultSection) resultSection.classList.add("cuckoo-hidden");
   showToast("发现可执行的命令");
+  try {
+    if (window.electronAPI && window.electronAPI.shellBroadcastTask) {
+      window.electronAPI.shellBroadcastTask({
+        kind: "task",
+        command: cmdData.command,
+        timestamp: cmdData.timestamp,
+        id: cmdData.id,
+      });
+    }
+  } catch (_) {}
 }
 
 /**
@@ -488,6 +506,15 @@ function addHistory(entry) {
   commandHistory.unshift(entry);
   if (commandHistory.length > 50) commandHistory.pop();
   renderHistory();
+  // Broadcast в shell-сайдбар (React)
+  try {
+    if (window.electronAPI && window.electronAPI.shellBroadcastTask) {
+      window.electronAPI.shellBroadcastTask({
+        kind: "history",
+        history: commandHistory.slice(0, 20),
+      });
+    }
+  } catch (_) {}
 }
 
 /**

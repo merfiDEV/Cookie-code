@@ -148,6 +148,9 @@ const shellAPI = {
   // ===== Token / auto-compact =====
   overlayAction: (action) =>
     ipcRenderer.invoke("shell-overlay-action", { action }),
+  onTaskUpdate: (cb) =>
+    ipcRenderer.on("shell-task-update", (_e, d) => cb(d || {})),
+  killProcess: () => ipcRenderer.invoke("shell-kill-process"),
   getAutoCompact: () => ipcRenderer.invoke("shell-get-auto-compact"),
   saveAutoCompact: (data) =>
     ipcRenderer.invoke("shell-save-auto-compact", data),

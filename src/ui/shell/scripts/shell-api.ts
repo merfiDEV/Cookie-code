@@ -127,6 +127,10 @@ export interface ShellAPI {
   getTokenUsage?: () => Promise<any>;
   /** Overlay-действия из старой панели (gen-doc / immersive / manual-parse / context-port / prompts / diff) */
   overlayAction?: (action: string) => Promise<any>;
+  /** Task/status/history из AI-страницы (detector/observer) */
+  onTaskUpdate?: (cb: (data: any) => void) => void;
+  /** Остановить текущую задачу в AI-странице */
+  killProcess?: () => Promise<any>;
   getAutoCompact?: () => Promise<any>;
   saveAutoCompact?: (data: any) => Promise<any>;
   triggerCompact?: () => Promise<any>;
