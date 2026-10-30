@@ -13,6 +13,7 @@ const { getProviderByUrl } = require("../providers");
  * @param {object} windowState window 管理模块引用
  */
 function createSessionStore(profileId, storeDir, windowState) {
+  const { getAIWebContents } = windowState;
   const STORE_FILE = path.join(
     storeDir,
     "session-dir-map-" + profileId + ".json",
@@ -68,6 +69,45 @@ function createSessionStore(profileId, storeDir, windowState) {
     if (match) return match[1];
     const altMatch = url.match(/\/s\/([a-f0-9-]+)/i);
     return altMatch ? altMatch[1] : null;
+  }
+
+  function listSessions() {
+    const store = readSessionStore();
+    const out = [];
+    for (const [sessionId, val] of Object.entries(store)) {
+      if (typeof val === "string") {
+        out.push({
+          sessionId,
+          projectDir: val,
+          title: null,
+          archived: false,
+          kind: "main",
+          parentId: null,
+          superseded: false,
+          ts: 0,
+        });
+      } else if (val && typeof val === "object") {
+        const stat = (() => {
+          try {
+            return require("fs").statSync(STORE_FILE).mtimeMs;
+          } catch (_) {
+            return 0;
+          }
+        })();
+        const meta = val._meta || {};
+        out.push({
+          sessionId,
+          projectDir: val.projectDir || "",
+          title: meta.title || null,
+          archived: !!meta.archived,
+          kind: meta.kind || "main",
+          parentId: meta.parentId || null,
+          superseded: !!meta.superseded,
+          ts: meta.ts || stat,
+        });
+      }
+    }
+    return out;
   }
 
   const state = {
@@ -189,8 +229,11 @@ function createSessionStore(profileId, storeDir, windowState) {
         state.lastProjectDir = state.pendingProjectDir;
         state.pendingProjectDir = null;
         if (win && !win.isDestroyed()) {
-          win.webContents.send("project-dir-updated", state.selectedProjectDir);
-          win.webContents.send("session-restored", {
+          getAIWebContents(win).send(
+            "project-dir-updated",
+            state.selectedProjectDir,
+          );
+          getAIWebContents(win).send("session-restored", {
             sessionId,
             projectDir: state.selectedProjectDir,
           });
@@ -204,16 +247,16 @@ function createSessionStore(profileId, storeDir, windowState) {
         state.selectedProjectDir = restoredDir;
         state.lastProjectDir = restoredDir;
         if (win && !win.isDestroyed()) {
-          win.webContents.send("session-restored", {
+          getAIWebContents(win).send("session-restored", {
             sessionId,
             projectDir: restoredDir,
           });
-          win.webContents.send("project-dir-updated", restoredDir);
+          getAIWebContents(win).send("project-dir-updated", restoredDir);
         }
       } else {
         state.selectedProjectDir = null;
         if (win && !win.isDestroyed()) {
-          win.webContents.send("project-dir-updated", null);
+          getAIWebContents(win).send("project-dir-updated", null);
         }
       }
     } else {
@@ -224,12 +267,15 @@ function createSessionStore(profileId, storeDir, windowState) {
       if (!state.pendingProjectDir) {
         state.selectedProjectDir = null;
         if (win && !win.isDestroyed()) {
-          win.webContents.send("project-dir-updated", null);
+          getAIWebContents(win).send("project-dir-updated", null);
         }
       } else {
         state.selectedProjectDir = state.pendingProjectDir;
         if (win && !win.isDestroyed()) {
-          win.webContents.send("project-dir-updated", state.pendingProjectDir);
+          getAIWebContents(win).send(
+            "project-dir-updated",
+            state.pendingProjectDir,
+          );
         }
       }
     }
@@ -238,7 +284,7 @@ function createSessionStore(profileId, storeDir, windowState) {
   function tryRestoreSessionFromUrl(targetWindow) {
     const win = targetWindow || (windowState && windowState.getMainWindow());
     if (!win || win.isDestroyed()) return;
-    const url = win.webContents.getURL();
+    const url = getAIWebContents(win).getURL();
     handleUrlChange(url, win);
   }
 
@@ -250,6 +296,7 @@ function createSessionStore(profileId, storeDir, windowState) {
     extractSessionIdFromUrl,
     handleUrlChange,
     tryRestoreSessionFromUrl,
+    listSessions,
     state,
   };
 }

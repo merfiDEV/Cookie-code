@@ -112,9 +112,9 @@ async function init() {
     safe("init.goalEngine", () => goalEngine.init());
     safe("init.goalCommand", () => goalCommand.install());
 
-    // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события
-    safe("init.injectCSS", () => ui.injectCSS());
-    safe("init.injectOverlay", () => ui.injectOverlay());
+    // SHELL MODE: overlay disabled (панель теперь в shell.html)
+    // safe("init.injectCSS", () => ui.injectCSS());
+    // safe("init.injectOverlay", () => ui.injectOverlay());
     // Перенос контекста: если мы в середине операции (после reload) — продолжаем.
     safe("init.contextPortResume", () => contextPort.resume());
 
@@ -146,7 +146,8 @@ async function init() {
     safe("init.initProjectDirSection", () =>
       projectDir.initProjectDirSection(),
     );
-    safe("init.bindEvents", () => bindEvents());
+    // SHELL MODE: bindEvents disabled (панельные кнопки больше не нужны)
+    // safe("init.bindEvents", () => bindEvents());
     safe("init.updateHomeMode", () => ui.updateHomeMode());
 
     // Сохранить токены текущего диалога перед уходом/закрытием.
@@ -193,7 +194,8 @@ async function init() {
     safe("init.startStealthWatcher", () => stealth.startStealthWatcher());
 
     // 启动设置面板标签注入
-    safe("init.settingsTabStart", () => settingsTab.start());
+    // SHELL MODE: settings-tab отключён (настройки теперь в shell)
+    // safe("init.settingsTabStart", () => settingsTab.start());
 
     // Slash-команды: автодополнение (review/summarize)
     safe("init.commandsStart", () => commands.start());

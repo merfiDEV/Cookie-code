@@ -11,6 +11,7 @@
 const { telegramBot, TelegramBot } = require("./telegram");
 const settingsStore = require("../src/main/settings-store");
 const windowState = require("../src/main/window");
+const { getAIWebContents } = windowState;
 const i18n = require("./i18n");
 
 let started = false;
@@ -133,35 +134,10 @@ async function _sendToChat(text) {
     if (!win || win.isDestroyed())
       return { success: false, error: "нет активного окна" };
 
-    const safe = JSON.stringify(String(text));
-    const script = `(function(){
-      const ta = document.querySelector('textarea[placeholder], textarea[name="search"], textarea.ds-scroll-area');
-      if (!ta) return { ok: false, error: 'textarea not found' };
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-      setter.call(ta, ${safe});
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
-      ta.focus();
-      return { ok: true };
-    })()`;
-
-    await win.webContents.executeJavaScript(script, true);
-    // Небольшая пауза, чтобы React обработал ввод.
-    await new Promise((r) => setTimeout(r, 150));
-    // Отправляем нативный Enter (тот же приём, что chat-send-enter).
-    win.webContents.sendInputEvent({
-      type: "keyDown",
-      keyCode: "Return",
-      key: "Enter",
-    });
-    win.webContents.sendInputEvent({
-      type: "char",
-      keyCode: "Return",
-      key: "\r",
-    });
-    win.webContents.sendInputEvent({
-      type: "keyUp",
-      keyCode: "Return",
-      key: "Enter",
+    // Send via IPC to view's preload (uses proper ProseMirror handling)
+    getAIWebContents(win).send("fill-input", {
+      text: String(text),
+      autoSend: true,
     });
     return { success: true };
   } catch (err) {
@@ -178,7 +154,7 @@ async function _evalInWindow(script) {
   if (!win || win.isDestroyed())
     return { success: false, error: "нет активного окна" };
   try {
-    const result = await win.webContents.executeJavaScript(script, true);
+    const result = await getAIWebContents(win).executeJavaScript(script, true);
     return { success: true, result };
   } catch (err) {
     return { success: false, error: err.message };
@@ -285,13 +261,13 @@ async function _captureActiveWindow(targetWin) {
     win.focus();
     if (typeof win.moveTop === "function") win.moveTop();
     try {
-      win.webContents.focus();
+      getAIWebContents(win).focus();
     } catch (_) {}
 
     // Даём окну отрисоваться/подняться.
     await new Promise((r) => setTimeout(r, 350));
 
-    const image = await win.webContents.capturePage();
+    const image = await getAIWebContents(win).capturePage();
     const png = image.toPNG();
     const outPath = path.join(
       app.getPath("temp"),
@@ -1798,14 +1774,9 @@ async function _cmdStop() {
     const win = windowState.getParentWindow
       ? windowState.getParentWindow()
       : windowState.getMainWindow();
-    if (
-      win &&
-      !win.isDestroyed() &&
-      win.webContents &&
-      !win.webContents.isDestroyed()
-    ) {
+    if (win && !win.isDestroyed() && !getAIWebContents(win).isDestroyed()) {
       try {
-        win.webContents.stop();
+        getAIWebContents(win).stop();
       } catch (_) {}
     }
     const { processManager } = require("../src/main/process-manager");
@@ -2059,7 +2030,7 @@ async function _cmdNew() {
   // Fire-and-forget: не await-им executeJavaScript, т.к. loadURL внутри
   // newChat() выгружает контекст и промис не вернётся.
   try {
-    win.webContents
+    getAIWebContents(win)
       .executeJavaScript(
         "try { window.electronAPI.newChat(); } catch (e) {} true",
         true,
@@ -2156,7 +2127,7 @@ async function _renderDiffImage(diffText, filePath, status) {
     );
     // Ждём отрисовку.
     await new Promise((r) => setTimeout(r, 300));
-    const wc = win.webContents;
+    const wc = getAIWebContents(win);
     const size = await wc.executeJavaScript(
       "({ w: document.body.scrollWidth, h: document.body.scrollHeight })",
       true,
@@ -2416,9 +2387,9 @@ async function _sendGoalCommand(action, text) {
     return { success: false, error: "нет активного окна" };
   try {
     if (action === "start") {
-      win.webContents.send("goal-start", { text: String(text || "") });
+      getAIWebContents(win).send("goal-start", { text: String(text || "") });
     } else {
-      win.webContents.send("goal-control", { action });
+      getAIWebContents(win).send("goal-control", { action });
     }
     return { success: true };
   } catch (err) {
@@ -2554,7 +2525,7 @@ async function _readTogglesState() {
   })()`;
 
   try {
-    const res = await win.webContents.executeJavaScript(script, true);
+    const res = await getAIWebContents(win).executeJavaScript(script, true);
     return res || { think: null, search: null };
   } catch (err) {
     _log("error", "_readTogglesState error:", err.message);
@@ -2583,7 +2554,7 @@ async function _toggleDeepSeek(name) {
   })()`;
 
   try {
-    const res = await win.webContents.executeJavaScript(script, true);
+    const res = await getAIWebContents(win).executeJavaScript(script, true);
     if (!res || !res.ok)
       return { ok: false, error: (res && res.error) || "unknown" };
     // Даём React время отрисовать новое состояние
@@ -3145,13 +3116,13 @@ async function _doInitProject(chatId, dir) {
   let homeUrl = null;
   try {
     const { getProviderByUrl } = require("../src/providers");
-    const provider = getProviderByUrl(win.webContents.getURL());
+    const provider = getProviderByUrl(getAIWebContents(win).getURL());
     if (provider && provider.homeUrl) homeUrl = provider.homeUrl;
   } catch (_) {}
   if (!homeUrl) homeUrl = "https://chat.deepseek.com/";
 
   try {
-    await win.webContents.loadURL(homeUrl);
+    await getAIWebContents(win).loadURL(homeUrl);
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -3168,13 +3139,15 @@ async function _doInitProject(chatId, dir) {
       const { buildInitPrompt } = require("../src/main/project-context");
       const combined = await buildInitPrompt(dir, providerId);
       if (combined && !win.isDestroyed()) {
-        win.webContents.send("initial-prompt", combined);
+        getAIWebContents(win).send("initial-prompt", combined);
         sent = true;
       }
     } catch (_) {}
   };
   try {
-    win.webContents.once("did-finish-load", () => setTimeout(doSend, 1200));
+    getAIWebContents(win).once("did-finish-load", () =>
+      setTimeout(doSend, 1200),
+    );
   } catch (_) {}
   setTimeout(doSend, 4000);
 
@@ -3552,7 +3525,7 @@ async function _navigateToSession(id) {
   let url = null;
   try {
     const { getProviderByUrl } = require("../src/providers");
-    const provider = getProviderByUrl(win.webContents.getURL());
+    const provider = getProviderByUrl(getAIWebContents(win).getURL());
     if (provider && typeof provider.getSessionUrl === "function") {
       url = provider.getSessionUrl(id);
     } else if (provider && provider.sessionUrlBase) {
@@ -3561,7 +3534,7 @@ async function _navigateToSession(id) {
   } catch (_) {}
   if (!url) url = "https://chat.deepseek.com/a/chat/s/" + id;
   try {
-    await win.webContents.loadURL(url);
+    await getAIWebContents(win).loadURL(url);
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
@@ -3866,7 +3839,7 @@ function _tgTempDir() {
  */
 async function _sendInWindow(win) {
   try {
-    const wc = win.webContents;
+    const wc = getAIWebContents(win);
     const clickScript = `(function(){
       const sels = ['button[type="submit"]','button[aria-label*="send"]','button[aria-label*="发送"]','button[data-testid="send-button"]','button[data-testid="send"]','.send-btn','.submit-btn'];
       for (const s of sels) {
@@ -3918,14 +3891,14 @@ async function _insertImageToWindow(absPath, caption, send) {
       ta.focus();
       return { ok: true };
     })()`;
-    await win.webContents.executeJavaScript(script, true);
+    await getAIWebContents(win).executeJavaScript(script, true);
     await new Promise((r) => setTimeout(r, 150));
-    win.webContents.sendInputEvent({
+    getAIWebContents(win).sendInputEvent({
       type: "keyDown",
       keyCode: "V",
       modifiers: ["control"],
     });
-    win.webContents.sendInputEvent({
+    getAIWebContents(win).sendInputEvent({
       type: "keyUp",
       keyCode: "V",
       modifiers: ["control"],
@@ -3970,7 +3943,7 @@ async function _attachFileToWindow(absPath, caption, send) {
       mimeType,
       UPLOAD_TIMEOUT_MS,
     );
-    const result = await win.webContents.executeJavaScript(code, true);
+    const result = await getAIWebContents(win).executeJavaScript(code, true);
     if (!result || result.success !== true)
       return {
         success: false,
@@ -3987,7 +3960,7 @@ async function _attachFileToWindow(absPath, caption, send) {
         ta.focus();
         return { ok: true };
       })()`;
-      await win.webContents.executeJavaScript(script, true);
+      await getAIWebContents(win).executeJavaScript(script, true);
       await new Promise((r) => setTimeout(r, 300));
       if (send) await _sendInWindow(win);
     }
@@ -5323,8 +5296,8 @@ function _notifySettingsChanged(patch) {
     for (const win of wins) {
       try {
         if (!win || win.isDestroyed()) continue;
-        if (!win.webContents || win.webContents.isDestroyed()) continue;
-        win.webContents.send("cuckoo-settings-changed", patch || null);
+        if (getAIWebContents(win).isDestroyed()) continue;
+        getAIWebContents(win).send("cuckoo-settings-changed", patch || null);
       } catch (_) {}
     }
   } catch (_) {}

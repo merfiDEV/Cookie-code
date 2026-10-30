@@ -414,6 +414,40 @@ function registerIpcListeners() {
     applyInitialPrompt(content);
   });
 
+  // Вставка из Telegram (и др. источников) — заполнить + отправить
+  ipcRenderer.on("fill-input", (_event, data) => {
+    try {
+      const text = (data && data.text) || "";
+      const autoSend = !!(data && data.autoSend);
+      if (!text) return;
+      const input = findInputArea();
+      if (!input) return;
+      if (!setInputContent(input, text)) return;
+      if (autoSend) {
+        setTimeout(() => triggerSend(input), 300);
+      }
+    } catch (err) {
+      console.error("[Cookie Code] fill-input error:", err.message);
+    }
+  });
+
+  // Дописать в input (без очистки)
+  ipcRenderer.on("append-input", (_event, data) => {
+    try {
+      const text = (data && data.text) || "";
+      if (!text) return;
+      const input = findInputArea();
+      if (!input) return;
+      const cur =
+        input.tagName === "TEXTAREA" || input.tagName === "INPUT"
+          ? String(input.value || "")
+          : String(input.textContent || "");
+      setInputContent(input, cur ? cur + " " + text : text);
+    } catch (err) {
+      console.error("[Cookie Code] append-input error:", err.message);
+    }
+  });
+
   // Pull-модель: если push initial-prompt потерялся (окно субагента долго
   // грузилось и не успело подписаться на канал), через 20с сами запросим его
   // у main-процесса. Актуально только для окна-субагента.

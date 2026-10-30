@@ -1,12 +1,18 @@
 /**
- * 窗口管理（多窗口 + 每窗口 profile 上下文）
- * 每个窗口关联一个 profileId，拥有独立的 sessionStore 实例。
+ * Управление окнами (многооконный + профиль на окно).
+ *
+ * Новая архитектура (VS Code-style shell):
+ *   win  — BrowserWindow, webContents = shell.html (toolbar/sidebar/statusbar)
+ *   view — WebContentsView, webContents = AI-страница (DeepSeek/Claude)
+ *
+ * Каждое окно связано с profileId, имеет свой sessionStore.
  */
-const windows = new Map(); // windowId -> { win, profileId, providerId, sessionStore, isSubagent, subagentConfig }
+const windows = new Map(); // windowId -> { win, view, profileId, providerId, sessionStore, isSubagent, subagentConfig, projectDir, sidebarWidth, tokenUsage }
 let lastActiveWindowId = null;
 
 function addWindow(
   win,
+  view,
   profileId,
   providerId,
   sessionStore,
@@ -15,14 +21,17 @@ function addWindow(
 ) {
   windows.set(win.id, {
     win,
+    view,
     profileId,
     providerId,
     sessionStore,
     isSubagent: !!isSubagent,
     subagentConfig: subagentConfig || null,
-    // Ограничение инструментов для субагента (whitelist из agent.tools).
-    // null = без ограничений. Заполняется в subagent.js::runAgent.
     toolsWhitelist: null,
+    // Поля layout, обновляются через shell-report-size / shell-toggle-sidebar
+    projectDir: null,
+    sidebarWidth: 260,
+    tokenUsage: null,
   });
   lastActiveWindowId = win.id;
   win.on("closed", () => {
@@ -44,13 +53,47 @@ function removeWindow(windowId) {
   }
 }
 
+/**
+ * Возвращает webContents AI-страницы для окна.
+ * Если view не привязан — fallback на win.webContents (совместимость с субагентом,
+ * которому иногда подсовывают обычный BrowserWindow без WebContentsView).
+ */
+function getAIWebContents(win) {
+  if (!win) return null;
+  if (win.__aiWebContents && !win.__aiWebContents.isDestroyed?.()) {
+    return win.__aiWebContents;
+  }
+  // Fallback через реестр окон
+  for (const ctx of windows.values()) {
+    if (ctx.win === win && ctx.view && ctx.view.webContents) {
+      return ctx.view.webContents;
+    }
+  }
+  return win.webContents;
+}
+
+/**
+ * Привязывает AI-страницу (WebContentsView) к BrowserWindow.
+ * После вызова все getAIWebContents(win) будут возвращать view.webContents.
+ */
+function attachAIView(win, view) {
+  if (!win || !view) return;
+  win.__aiView = view;
+  win.__aiWebContents = view.webContents;
+}
+
 function getWindowContext(windowId) {
   return windows.get(windowId) || null;
 }
 
+/**
+ * Ищет контекст по webContents. Подходит как для shell (win.webContents),
+ * так и для AI-страницы (view.webContents).
+ */
 function getContextByWebContents(webContents) {
   for (const ctx of windows.values()) {
-    if (ctx.win.webContents === webContents) return ctx;
+    if (ctx.win && ctx.win.webContents === webContents) return ctx;
+    if (ctx.view && ctx.view.webContents === webContents) return ctx;
   }
   return null;
 }
@@ -62,9 +105,7 @@ function getMainWindow() {
 }
 
 /**
- * Родительское окно (НЕ субагент). Для TG-бота: команды пользователя
- * должны всегда попадать в главное окно, даже если открыто окно субагента.
- * Берём самое свежее не-субагентское окно; если такого нет — падаем на getMainWindow().
+ * Родительское окно (НЕ субагент). Для TG-бота.
  */
 function getParentWindow() {
   let fallback = null;
@@ -76,7 +117,6 @@ function getParentWindow() {
   return fallback || getMainWindow();
 }
 
-/** Родительский контекст (не субагент). Аналогично getParentWindow(). */
 function getParentContext() {
   let fallback = null;
   for (const [id, ctx] of windows) {
@@ -120,6 +160,8 @@ module.exports = {
   addWindow,
   removeWindow,
   getWindowContext,
+  getAIWebContents,
+  attachAIView,
   getContextByWebContents,
   getMainWindow,
   getMainContext,

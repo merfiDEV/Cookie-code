@@ -936,7 +936,36 @@ function registerIpcHandlers() {
 
   ipcMain.handle("stats-record-tokens", async (_event, ev = {}) => {
     try {
-      return { success: true, stats: statsStore.recordTokens(ev) };
+      const stats = statsStore.recordTokens(ev);
+      try {
+        const ws = require("./window");
+        for (const ctx of ws.getAllContexts()) {
+          const total =
+            (ev.delta || 0) + ((ctx.tokenUsage && ctx.tokenUsage.total) || 0);
+          ctx.tokenUsage = {
+            total,
+            delta: ev.delta || 0,
+            context: total,
+            at: Date.now(),
+          };
+          try {
+            ctx.win.webContents.send("shell-token-updated", ctx.tokenUsage);
+          } catch (_) {}
+          try {
+            const now = Date.now();
+            const prev = ctx._tpsLast || { at: now, delta: 0 };
+            const elapsed = Math.max(1, now - prev.at);
+            const tps = (ev.delta || 0) / (elapsed / 1000);
+            if (tps > 0 && isFinite(tps)) {
+              ctx._tpsLast = { at: now, delta: ev.delta || 0 };
+              ctx.win.webContents.send("shell-tps-updated", {
+                tps: Math.round(tps * 10) / 10,
+              });
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+      return { success: true, stats };
     } catch (err) {
       return { success: false, error: err.message };
     }

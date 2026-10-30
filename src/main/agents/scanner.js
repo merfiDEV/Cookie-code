@@ -2,7 +2,7 @@
  * Сканер субагентов: проектные + пользовательские каталоги -> AgentMeta[].
  *
  * Правила:
- *  - Сканируется только <base>/cookie/agents/ — один уровень, только .md
+ *  - Сканируется только <base>/.cuckoo/agents/ — один уровень, только .md
  *  - Имя: frontmatter.name || basename(file, '.md')
  *  - Описание: frontmatter.description || первый непустой абзац тела
  *  - Без имени/описания — агент пропускается (нельзя показать в промпте)
@@ -26,7 +26,7 @@ function firstParagraph(body) {
 
 /**
  * Просканировать одну папку agents (без рекурсии).
- * @param {string} agentsDir абсолютный путь к cookie/agents
+ * @param {string} agentsDir абсолютный путь к .cuckoo/agents
  * @param {'project'|'user'} source
  * @returns {AgentMeta[]}
  */
@@ -105,12 +105,37 @@ function scanAgents(projectDir) {
   try {
     userHome = os.homedir();
   } catch (_) {}
-  const user = userHome
-    ? scanAgentsRoot(path.join(userHome, "cookie", "agents"), "user")
+  // Пользовательские: ~/.cookie/agents (наш форк), .cuckoo/agents, ~/cookie/agents — legacy
+  const userCandidates = userHome
+    ? [
+        path.join(userHome, ".cookie", "agents"),
+        path.join(userHome, ".cuckoo", "agents"),
+        path.join(userHome, "cookie", "agents"),
+      ]
     : [];
-  const project = projectDir
-    ? scanAgentsRoot(path.join(projectDir, "cookie", "agents"), "project")
+  let user = [];
+  for (const dir of userCandidates) {
+    const list = scanAgentsRoot(dir, "user");
+    if (list.length) {
+      user = list;
+      break;
+    }
+  }
+  // Проектные: <projectDir>/cookie/agents (наш форк), .cuckoo/agents — legacy
+  const projectCandidates = projectDir
+    ? [
+        path.join(projectDir, "cookie", "agents"),
+        path.join(projectDir, ".cuckoo", "agents"),
+      ]
     : [];
+  let project = [];
+  for (const dir of projectCandidates) {
+    const list = scanAgentsRoot(dir, "project");
+    if (list.length) {
+      project = list;
+      break;
+    }
+  }
   return mergeAgents(project, user);
 }
 

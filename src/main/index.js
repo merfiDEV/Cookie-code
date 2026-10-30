@@ -141,9 +141,6 @@ async function flushAllSessions() {
  */
 function createWindow(profile) {
   const profileData = profile || profileManager.getDefaultProfile();
-  // Всегда DeepSeek — жёстко, независимо от providerId профиля.
-  // Выбор платформы полностью отключён (см. запрос пользователя).
-  // partition остаётся профильным, чтобы не потерять cookies/сессии.
   const provider = getProvider("deepseek");
   const storeDir = app.getPath("userData");
   const sessionStore = createSessionStore(
@@ -152,96 +149,104 @@ function createWindow(profile) {
     windowState,
   );
 
-  // Субагент-конфиг передаётся дочернему окну через additionalArguments.
-  // Bridge в preload сам распознаёт, что это окно-субагент, и запускает цикл.
   const subagentArg = profileData.subagentConfig
     ? "--cuckoo-subagent=" +
       encodeURIComponent(JSON.stringify(profileData.subagentConfig))
     : null;
 
+  // ========== 1. BrowserWindow = shell.html (toolbar + sidebar + statusbar) ==========
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 900,
-    title: profileData.isSubagent
-      ? "Cookie Code Pro - " + provider.name + " - " + profileData.name
-      : "Cookie Code Pro - " + provider.name + " - " + profileData.name,
+    title: "Cookie Code — " + provider.name + " — " + profileData.name,
     icon: APP_ICON,
+    webPreferences: {
+      preload: path.join(__dirname, "..", "preload", "shell-preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      partition: profileData.partition,
+      backgroundThrottling: false,
+      additionalArguments: [
+        "--cuckoo-user-data=" + app.getPath("userData"),
+        "--cuckoo-platform=" + process.platform,
+        ...(subagentArg ? [subagentArg] : []),
+      ],
+    },
+  });
+
+  // ========== 2. WebContentsView = AI page (DeepSeek) ==========
+  const { WebContentsView } = require("electron");
+  const view = new WebContentsView({
     webPreferences: {
       preload: path.join(__dirname, "..", "..", "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      partition: profileData.partition, // 每个 profile 独立持久化 session
+      partition: profileData.partition,
       backgroundThrottling: false,
-      additionalArguments: subagentArg
-        ? ["--cuckoo-user-data=" + app.getPath("userData"), subagentArg]
-        : ["--cuckoo-user-data=" + app.getPath("userData")],
+      additionalArguments: [
+        "--cuckoo-user-data=" + app.getPath("userData"),
+        ...(subagentArg ? [subagentArg] : []),
+      ],
     },
   });
+  mainWindow.contentView.addChildView(view);
+  windowState.attachAIView(mainWindow, view);
 
-  // 保存 session 引用（窗口销毁后 webContents 不可访问）
-  const winSession = mainWindow.webContents.session;
+  const winSession = view.webContents.session;
+  sessionsToFlush.add(winSession);
 
-  // Регистрируем контекст окна — providerId жёстко 'deepseek'.
+  // Forward renderer console for shell and AI page → main log
+  const forwardConsole = (label) => (event, level, message) => {
+    console.log("[Renderer " + label + "]", message);
+    if (RENDERER_LOG_DIR) {
+      try {
+        fs.appendFileSync(
+          path.join(RENDERER_LOG_DIR, "renderer.log"),
+          "[" + new Date().toISOString() + "][" + label + "] " + message + "\n",
+          "utf-8",
+        );
+      } catch (_) {}
+    }
+  };
+  mainWindow.webContents.on("console-message", forwardConsole("SHELL"));
+  view.webContents.on("console-message", forwardConsole("AI"));
+  mainWindow.webContents.on("preload-error", (_e, p, err) =>
+    console.error("[SHELL preload-error]", p, err && err.message),
+  );
+  view.webContents.on("preload-error", (_e, p, err) =>
+    console.error("[AI preload-error]", p, err && err.message),
+  );
+
+  // ========== 3. Регистрируем контекст ==========
   windowState.addWindow(
     mainWindow,
+    view,
     profileData.id,
     "deepseek",
     sessionStore,
     profileData.isSubagent,
     profileData.subagentConfig,
   );
-  sessionsToFlush.add(winSession);
-
-  // 更新主窗口引用
   windowState.setMainWindow(mainWindow);
 
-  // 初始化自动更新（仅第一个窗口时初始化）
   if (windowState.getAllWindows().length === 1) {
     updater.initAutoUpdater(mainWindow);
   }
 
-  // 转发渲染进程的 console.log 到主进程，并按平台写入独立日志文件
-  mainWindow.webContents.on(
-    "console-message",
-    (_event, level, message, _line, _sourceId) => {
-      console.log("[Renderer Console][" + profileData.name + "]", message);
-
-      // 打包版不进行日志持久化
-      if (!RENDERER_LOG_DIR) return;
-
-      // 根据当前窗口上下文确定 providerId，未确定用 default
-      let providerId = profileData.providerId || "default";
-      const ctx = windowState.getContextByWebContents(mainWindow.webContents);
-      if (ctx && ctx.providerId) providerId = ctx.providerId;
-
-      const logFile = path.join(RENDERER_LOG_DIR, providerId + ".log");
-      const timeIso = new Date().toISOString();
-      fs.appendFileSync(
-        logFile,
-        "[" + timeIso + "][" + profileData.name + "] " + message + "\n",
-        "utf-8",
-      );
-    },
-  );
-
-  mainWindow.maximize();
-
-  // 设置与 Electron 33（Chromium 130）匹配的普通 Chrome UA：
-  // 1. 不带 Electron 标识，避免 DeepSeek 识别为第三方客户端
-  // 2. 与内核版本一致，避免 Google OAuth 因 UA/sec-ch-ua 不一致报“浏览器不安全”
-  const userAgent =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
-  mainWindow.webContents.setUserAgent(userAgent);
-
-  // ========== Диагностика причин «белого окна» (особенно у субагентов) ==========
-  // Логируем в консоль main-процесса и в <userData>/wyp/log/<name>.diagnostics.log
+  // ========== 4. Диагностика ==========
   const diagLog = (msg) => {
     try {
-      const tag = profileData.isSubagent
-        ? "Subagent:" + (profileData.name || "?")
-        : "Window:" + (profileData.name || "?");
-      const line = "[" + new Date().toISOString() + "][" + tag + "] " + msg;
+      const tag = profileData.isSubagent ? "Subagent:" : "Window:";
+      const line =
+        "[" +
+        new Date().toISOString() +
+        "][" +
+        tag +
+        (profileData.name || "?") +
+        "] " +
+        msg;
       console.log("[Cookie Code][Diag] " + line);
       if (RENDERER_LOG_DIR) {
         fs.appendFileSync(
@@ -253,147 +258,91 @@ function createWindow(profile) {
     } catch (_) {}
   };
 
-  mainWindow.webContents.on(
-    "did-fail-load",
-    (_e, errorCode, errorDescription, validatedURL, isMainFrame) => {
-      diagLog(
-        "did-fail-load code=" +
-          errorCode +
-          " desc=" +
-          errorDescription +
-          " url=" +
-          validatedURL +
-          " mainFrame=" +
-          isMainFrame,
-      );
-    },
-  );
-  mainWindow.webContents.on("did-finish-load", () => {
-    diagLog("did-finish-load url=" + mainWindow.webContents.getURL());
-  });
-  mainWindow.webContents.on("preload-error", (_e, preloadPath, error) => {
-    diagLog(
-      "preload-error path=" +
-        preloadPath +
-        " msg=" +
-        (error && error.message ? error.message : String(error)),
+  // ========== 5. Загрузка shell.html ==========
+  const shellHtml = path.join(__dirname, "..", "ui", "shell.html");
+  if (fs.existsSync(shellHtml)) {
+    mainWindow
+      .loadFile(shellHtml)
+      .catch((err) => diagLog("shell loadFile reject: " + err.message));
+  } else {
+    diagLog("shell.html НЕ НАЙДЕН, загружаем fallback");
+    mainWindow.loadURL(
+      "data:text/html,<h1>shell.html missing, run: node scripts/build-shell.mjs</h1>",
     );
-  });
-  mainWindow.webContents.on("render-process-gone", (_e, details) => {
-    diagLog(
-      "render-process-gone reason=" +
-        (details && details.reason) +
-        " exitCode=" +
-        (details && details.exitCode),
-    );
-  });
-  mainWindow.webContents.on("unresponsive", () => {
-    diagLog("unresponsive");
-  });
-  mainWindow.webContents.on("responsive", () => {
-    diagLog("responsive");
-  });
-  // Проверка, что preload вообще отработал: ждём первый console-message от рендера.
-  let preloadSeen = false;
-  mainWindow.webContents.on("console-message", (_e, _lvl, message) => {
-    if (!preloadSeen && /Preload script/i.test(message)) {
-      preloadSeen = true;
-      diagLog("preload executed (первое сообщение preload получено)");
-    }
-  });
-  // Таймер-страховка: если через 15с preload не подал признаков жизни — логируем.
-  setTimeout(() => {
-    try {
-      if (mainWindow && !mainWindow.isDestroyed() && !preloadSeen) {
-        diagLog(
-          "ВНИМАНИЕ: за 15с preload не отправил '[Cookie Code] Preload script 开始执行'. " +
-            "URL=" +
-            mainWindow.webContents.getURL() +
-            " loading=" +
-            mainWindow.webContents.isLoading(),
-        );
-      }
-    } catch (_) {}
-  }, 15000);
+  }
 
-  // Всегда открываем homeUrl провайдера (DeepSeek). Выбор платформы отключён.
-  diagLog("loadURL старт: " + provider.homeUrl);
-  mainWindow.loadURL(provider.homeUrl).catch((err) => {
-    diagLog(
-      "loadURL reject: " + (err && err.message ? err.message : String(err)),
-    );
-  });
+  // ========== 6. AI-страница ==========
+  const userAgent =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+  view.webContents.setUserAgent(userAgent);
+  diagLog("AI loadURL: " + provider.homeUrl);
+  view.webContents
+    .loadURL(provider.homeUrl)
+    .catch((err) => diagLog("AI loadURL reject: " + err.message));
 
-  // Инжект перехватчика токенов в ОСНОВНОЙ мир: preload в изолированном мире
-  // (contextIsolation: true) не видит window.fetch сайта, поэтому патч ставим
-  // через executeJavaScript и шлём данные в preload через postMessage.
+  // Инжект токен-перехватчика
   const injectTokenInterceptor = () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (!view || !view.webContents || view.webContents.isDestroyed()) return;
     try {
       const {
         buildTokenInterceptorScript,
       } = require("./token-interceptor-inject");
-      mainWindow.webContents
+      view.webContents
         .executeJavaScript(buildTokenInterceptorScript(), true)
         .catch(() => {});
     } catch (_) {}
   };
-  mainWindow.webContents.on("dom-ready", injectTokenInterceptor);
+  view.webContents.on("dom-ready", injectTokenInterceptor);
 
-  mainWindow.webContents.on("did-finish-load", () => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
+  view.webContents.on("did-finish-load", () => {
+    if (!view.webContents.isDestroyed()) {
       injectTokenInterceptor();
-      mainWindow.webContents.send("page-loaded");
       sessionStore.tryRestoreSessionFromUrl(mainWindow);
-
-      // Whats-new: отправить в окно один раз, если был апдейт.
-      // consumePendingForWindow() очищает pending, поэтому на F5 или
-      // повторный did-finish-load модалка не появится снова.
-      if (__whatsNewCheck && __whatsNewCheck.shouldShow) {
-        const pending = whatsNew.consumePendingForWindow();
-        if (pending) {
-          try {
-            mainWindow.webContents.send("whats-new-show", pending);
-          } catch (_) {}
-        }
-      }
+      // URL update for shell
+      try {
+        mainWindow.webContents.send("shell-url-updated", {
+          url: view.webContents.getURL(),
+        });
+      } catch (_) {}
     }
   });
 
-  const notifyPlanMode = () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    const sid = sessionStore.state.currentSessionId || null;
-    const enabled = planMode.isPlanMode(mainWindow.webContents.id, sid);
+  view.webContents.on("did-navigate", (_e, url) => {
+    sessionStore.handleUrlChange(url, mainWindow);
     try {
-      mainWindow.webContents.send("plan-mode-changed", {
-        enabled,
-        sessionId: sid,
-      });
+      mainWindow.webContents.send("shell-url-updated", { url });
     } catch (_) {}
-  };
-
-  mainWindow.webContents.on("did-navigate", (_event, url) => {
+  });
+  view.webContents.on("did-navigate-in-page", (_e, url) => {
     sessionStore.handleUrlChange(url, mainWindow);
-    notifyPlanMode();
+    try {
+      mainWindow.webContents.send("shell-url-updated", { url });
+    } catch (_) {}
   });
 
-  mainWindow.webContents.on("did-navigate-in-page", (_event, url) => {
-    sessionStore.handleUrlChange(url, mainWindow);
-    notifyPlanMode();
+  // ========== 7. Layout ==========
+  const { layoutWindow } = require("./shell-ipc");
+  const ctx = windowState.getWindowContext(mainWindow.id);
+  layoutWindow(ctx);
+  mainWindow.on("resize", () =>
+    layoutWindow(windowState.getWindowContext(mainWindow.id)),
+  );
+
+  // ========== 8. F12 devtools (на AI-странице) ==========
+  view.webContents.on("before-input-event", (_e, input) => {
+    if (input.key === "F12") view.webContents.toggleDevTools();
+  });
+  mainWindow.webContents.on("before-input-event", (_e, input) => {
+    if (input.key === "F12") mainWindow.webContents.toggleDevTools();
   });
 
-  mainWindow.webContents.on("before-input-event", (_event, input) => {
-    if (input.key === "F12") {
-      mainWindow.webContents.toggleDevTools();
-    }
-  });
-
+  // ========== 9. Close cleanup ==========
   mainWindow.on("closed", () => {
     sessionsToFlush.delete(winSession);
     windowState.removeWindow(mainWindow.id);
   });
 
-  // Возвращаем id окна: нужно для субагента (родитель ждёт дочернее окно по id).
+  mainWindow.maximize();
   return mainWindow.id;
 }
 
@@ -525,6 +474,17 @@ function setupAppMenu() {
 
 // ========== IPC 处理器 ==========
 registerIpcHandlers();
+
+// ========== Shell IPC (VS Code-style UI) ==========
+const { registerShellIpc } = require("./shell-ipc");
+const projectContext = require("./project-context");
+registerShellIpc({
+  windowState,
+  profileManager,
+  getProvider,
+  createWindow,
+  projectContext,
+});
 
 // ========== Субагенты (Agents) ==========
 // Инжектим в tool runAgent реальный раннер и определитель «окно-субагент»,
@@ -870,7 +830,6 @@ if (!gotSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
-    // Убираем системное меню Electron (Файл / Правка / Вид / ...)
     Menu.setApplicationMenu(null);
     createWindow(null);
 

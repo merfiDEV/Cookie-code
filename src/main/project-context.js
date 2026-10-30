@@ -7,6 +7,7 @@ const fs = require("fs");
 const path = require("path");
 
 const windowState = require("./window");
+const { getAIWebContents } = windowState;
 const { toolRegistry } = require("./tool-registry");
 const mcpClient = require("./mcp-client");
 const { getSkillManager } = require("../main/skill-manager");
@@ -111,7 +112,7 @@ async function initProject(skipPrompt = false, windowContext = null) {
   // 无论用户是否选择目录，对话框关闭后都恢复主窗口焦点（避免输入框失效）
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.focus();
-    mainWindow.webContents.focus();
+    getAIWebContents(mainWindow).focus();
   }
 
   if (!result || result.length === 0) {
@@ -141,7 +142,7 @@ async function initProject(skipPrompt = false, windowContext = null) {
       // 如果未能获取会话ID，尝试从当前URL提取
       let sessionId = null;
       if (mainWindow && !mainWindow.isDestroyed()) {
-        const url = mainWindow.webContents.getURL();
+        const url = getAIWebContents(mainWindow).getURL();
         sessionId = sessionStore.extractSessionIdFromUrl(url);
       }
       if (sessionId) {
@@ -162,7 +163,7 @@ async function initProject(skipPrompt = false, windowContext = null) {
 
   // 发送目录更新事件到渲染进程
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("project-dir-updated", selectedDir);
+    getAIWebContents(mainWindow).send("project-dir-updated", selectedDir);
   }
 
   // 如果只是修改目录，跳过发送初始提示
@@ -188,7 +189,7 @@ async function initProject(skipPrompt = false, windowContext = null) {
     combined.length,
   );
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("initial-prompt", combined);
+    getAIWebContents(mainWindow).send("initial-prompt", combined);
   }
 
   return {
@@ -244,7 +245,7 @@ async function setProjectByDir(selectedDir, windowContext = null) {
     let url = null;
     try {
       const { getProviderByUrl } = require("../providers");
-      const provider = getProviderByUrl(mainWindow.webContents.getURL());
+      const provider = getProviderByUrl(getAIWebContents(mainWindow).getURL());
       if (provider && typeof provider.getSessionUrl === "function") {
         url = provider.getSessionUrl(existingSessionId);
       } else if (provider && provider.sessionUrlBase) {
@@ -253,7 +254,7 @@ async function setProjectByDir(selectedDir, windowContext = null) {
     } catch (_) {}
     if (!url) url = "https://chat.deepseek.com/a/chat/s/" + existingSessionId;
     try {
-      await mainWindow.webContents.loadURL(url);
+      await getAIWebContents(mainWindow).loadURL(url);
     } catch (err) {
       console.error(
         "[Cookie Code] setProjectByDir: loadURL failed:",
@@ -279,7 +280,7 @@ async function setProjectByDir(selectedDir, windowContext = null) {
       let sessionId = null;
       if (mainWindow && !mainWindow.isDestroyed()) {
         try {
-          const url = mainWindow.webContents.getURL();
+          const url = getAIWebContents(mainWindow).getURL();
           sessionId = sessionStore.extractSessionIdFromUrl(url);
         } catch (_) {}
       }
@@ -295,7 +296,7 @@ async function setProjectByDir(selectedDir, windowContext = null) {
   // Обновляем display пути и список сессий в renderer.
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
-      mainWindow.webContents.send("project-dir-updated", dir);
+      getAIWebContents(mainWindow).send("project-dir-updated", dir);
     } catch (_) {}
   }
 

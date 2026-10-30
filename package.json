@@ -4,7 +4,9 @@
   "description": "DeepSeek 桌面应用——内嵌浏览器，自动识别 AI 回复中的命令和工具调用并执行",
   "main": "main.js",
   "scripts": {
-    "start": "node start.js",
+    "build:shell": "node scripts/build-shell.mjs",
+    "copy:monaco": "node scripts/copy-monaco.mjs",
+    "start": "node scripts/build-shell.mjs && node scripts/copy-monaco.mjs && node start.js",
     "test": "node --test --test-concurrency=1 test/tools/*.test.js test/main/*.test.js test/preload/*.test.js",
     "test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-reporter=lcov test/tools/*.test.js test/main/*.test.js test/preload/*.test.js > coverage.lcov",
     "test:ci": "node --test --test-concurrency=1 test/tools/*.test.js test/main/*.test.js test/preload/*.test.js",
@@ -44,6 +46,8 @@
   },
   "homepage": "https://github.com/merfiDEV/Cookie-code#readme",
   "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
     "electron": "^33.0.0",
     "electron-builder": "^24.13.3",
     "prettier": "^3.3.3"
@@ -134,8 +138,13 @@
     "docx": "^9.7.1",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.9",
+    "esbuild": "^0.24.0",
+    "katex": "^0.16.11",
     "material-icon-theme": "^5.38.1",
+    "monaco-editor": "^0.52.0",
     "mysql2": "^3.24.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "turndown": "^7.2.4"
   },
   "allowScripts": {
