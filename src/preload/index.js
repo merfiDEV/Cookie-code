@@ -116,7 +116,7 @@ async function init() {
     // Сама панель (injectOverlay) отключена — она теперь в shell.html.
     safe("init.injectCSS", () => ui.injectCSS());
 
-        // safe("init.injectOverlay", () => ui.injectOverlay());
+    safe("init.injectOverlay", () => ui.injectOverlay());
     // Перенос контекста: если мы в середине операции (после reload) — продолжаем.
     safe("init.contextPortResume", () => contextPort.resume());
 
@@ -148,8 +148,9 @@ async function init() {
     safe("init.initProjectDirSection", () =>
       projectDir.initProjectDirSection(),
     );
-    // SHELL MODE: bindEvents disabled (панельные кнопки больше не нужны)
-    // safe("init.bindEvents", () => bindEvents());
+    // Overlay-кнопки теперь в shell-сайдбаре, но bindEvents нужен для модалов
+    // (diff / window-manager / mcp / goal). Сама панель скрыта через CSS.
+    safe("init.bindEvents", () => bindEvents());
     safe("init.updateHomeMode", () => ui.updateHomeMode());
 
     // Сохранить токены текущего диалога перед уходом/закрытием.

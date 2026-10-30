@@ -13336,6 +13336,20 @@ body {
       } catch (_) {
       }
     }, []);
+    const overlayAction = (0, import_react8.useCallback)((action) => {
+      const anyApi = api;
+      if (typeof anyApi.overlayAction === "function") {
+        anyApi.overlayAction(action).catch(() => {
+        });
+      }
+    }, []);
+    const initProject = (0, import_react8.useCallback)(async () => {
+      const anyApi = api;
+      try {
+        if (anyApi.initProject) await anyApi.initProject();
+      } catch (_) {
+      }
+    }, []);
     const invokeCommand = (0, import_react8.useCallback)((spec) => {
       const anyApi = api;
       if (spec && spec.command && typeof anyApi.commandInvoke === "function")
@@ -13452,8 +13466,51 @@ body {
           },
           (0, import_react8.createElement)(
             UiButton,
-            { icon: "M12 5v14M5 12h14", onClick: newSession },
-            "\u65B0\u5EFA\u4F1A\u8BDD"
+            {
+              icon: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+              onClick: initProject
+            },
+            "\u0418\u043D\u0438\u0446\u0438\u0430\u043B\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u0440\u043E\u0435\u043A\u0442"
+          ),
+          (0, import_react8.createElement)(
+            UiButton,
+            {
+              icon: "M4 4h16v4H4zM6 8v12h12V8M9 12h6",
+              onClick: () => overlayAction("gen-doc")
+            },
+            "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u043E\u043F\u0438\u0441\u0430\u043D\u0438\u0435"
+          ),
+          (0, import_react8.createElement)(
+            UiButton,
+            {
+              icon: "M9 12h6M8 7H7a5 5 0 0 0 0 10h1M16 7h1a5 5 0 0 1 0 10h-1",
+              onClick: () => overlayAction("prompts")
+            },
+            "\u041F\u0440\u043E\u043C\u043F\u0442\u044B"
+          ),
+          (0, import_react8.createElement)(
+            UiButton,
+            {
+              icon: "M1,13c0-1.1,0.9-2,2-2s2,0.9,2,2s-0.9,2-2,2S1,14.1,1,13z M8.89,10.11l4.53-1.21L12.64,6L8.11,7.21 c-0.8,0.21-1.28,1.04-1.06,1.84l0,0C7.27,9.85,8.09,10.33,8.89,10.11z M20.5,5.9L23,3l-1-1l-3,3l-2,4l-9.48,2.87 c-0.82,0.2-1.39,0.89-1.5,1.68L5.24,18L2.4,21.8L4,23l3-4l1.14-3.14L14,14l5-3.5L20.5,5.9z",
+              onClick: () => overlayAction("immersive")
+            },
+            "\u041F\u043E\u0433\u0440\u0443\u0436\u0435\u043D\u0438\u0435"
+          ),
+          (0, import_react8.createElement)(
+            UiButton,
+            {
+              icon: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
+              onClick: () => overlayAction("manual-parse")
+            },
+            "\u0420\u0430\u0437\u043E\u0431\u0440\u0430\u0442\u044C \u0432\u0440\u0443\u0447\u043D\u0443\u044E"
+          ),
+          (0, import_react8.createElement)(
+            UiButton,
+            {
+              icon: "M3 4h18v4H3zM5 8v11h14V8M10 12h4",
+              onClick: () => overlayAction("diff")
+            },
+            "Diff"
           )
         ),
         (0, import_react8.createElement)("div", {
@@ -13736,7 +13793,11 @@ body {
         { className: "ck-skill-top" },
         (0, import_react11.createElement)("span", { className: "ck-skill-name" }, s.name)
       ),
-      (0, import_react11.createElement)("div", { className: "ck-skill-desc" }, s.description || "\uFF08\u65E0\u63CF\u8FF0\uFF09")
+      (0, import_react11.createElement)(
+        "div",
+        { className: "ck-skill-desc" },
+        s.description || "\uFF08\u65E0\u63CF\u8FF0\uFF09"
+      )
     );
   }
   function SkillsPage() {
@@ -13762,7 +13823,7 @@ body {
     const onSkillClick = (0, import_react11.useCallback)(async (name) => {
       if (api.appendSnippet) {
         try {
-          await api.appendSnippet("\u8BF7\u4F7F\u7528 " + name + " \u6280\u80FD");
+          await api.appendSnippet("Use the " + name + " skill");
         } catch (_) {
         }
       }
@@ -13777,13 +13838,24 @@ body {
       (0, import_react11.createElement)(
         "div",
         { className: "ck-actions" },
-        (0, import_react11.createElement)("span", { className: "ck-set-group-title", style: { flex: 1 } }, "\u6280\u80FD"),
+        (0, import_react11.createElement)(
+          "span",
+          { className: "ck-set-group-title", style: { flex: 1 } },
+          "\u6280\u80FD"
+        ),
         (0, import_react11.createElement)(
           "button",
           { className: "ck-icon-btn", title: "\u5237\u65B0", onClick: load },
           (0, import_react11.createElement)(
             "svg",
-            { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" },
+            {
+              viewBox: "0 0 24 24",
+              fill: "none",
+              stroke: "currentColor",
+              strokeWidth: 2,
+              strokeLinecap: "round",
+              strokeLinejoin: "round"
+            },
             (0, import_react11.createElement)("path", { d: "M21 12a9 9 0 1 1-2.64-6.36" }),
             (0, import_react11.createElement)("path", { d: "M21 3v6h-6" })
           )
@@ -13792,11 +13864,37 @@ body {
       (0, import_react11.createElement)(
         "div",
         { className: "ck-list" },
-        skills === null ? (0, import_react11.createElement)("div", { className: "ck-list-empty" }, "\u52A0\u8F7D\u4E2D\u2026") : err ? (0, import_react11.createElement)("div", { className: "ck-list-empty" }, "\u52A0\u8F7D\u5931\u8D25") : list.length === 0 ? (0, import_react11.createElement)("div", { className: "ck-list-empty" }, "\u672A\u53D1\u73B0\u6280\u80FD", (0, import_react11.createElement)("br"), "\uFF08.cuckoo/skills/ \u6216 ~/.cuckoo/skills/\uFF09") : [
-          userSkills.length ? (0, import_react11.createElement)("div", { key: "u-title", className: "ck-mcp-group-title" }, "\u7528\u6237\u7EA7") : null,
-          ...userSkills.map((s) => (0, import_react11.createElement)(SkillItem, { key: "u-" + s.name, s, onClick: () => onSkillClick(s.name) })),
-          projSkills.length ? (0, import_react11.createElement)("div", { key: "p-title", className: "ck-mcp-group-title" }, "\u9879\u76EE\u7EA7") : null,
-          ...projSkills.map((s) => (0, import_react11.createElement)(SkillItem, { key: "p-" + s.name, s, onClick: () => onSkillClick(s.name) }))
+        skills === null ? (0, import_react11.createElement)("div", { className: "ck-list-empty" }, "\u52A0\u8F7D\u4E2D\u2026") : err ? (0, import_react11.createElement)("div", { className: "ck-list-empty" }, "\u52A0\u8F7D\u5931\u8D25") : list.length === 0 ? (0, import_react11.createElement)(
+          "div",
+          { className: "ck-list-empty" },
+          "\u672A\u53D1\u73B0\u6280\u80FD",
+          (0, import_react11.createElement)("br"),
+          "\uFF08.cuckoo/skills/ \u6216 ~/.cookie/skills/\uFF09"
+        ) : [
+          userSkills.length ? (0, import_react11.createElement)(
+            "div",
+            { key: "u-title", className: "ck-mcp-group-title" },
+            "\u7528\u6237\u7EA7"
+          ) : null,
+          ...userSkills.map(
+            (s) => (0, import_react11.createElement)(SkillItem, {
+              key: "u-" + s.name,
+              s,
+              onClick: () => onSkillClick(s.name)
+            })
+          ),
+          projSkills.length ? (0, import_react11.createElement)(
+            "div",
+            { key: "p-title", className: "ck-mcp-group-title" },
+            "\u9879\u76EE\u7EA7"
+          ) : null,
+          ...projSkills.map(
+            (s) => (0, import_react11.createElement)(SkillItem, {
+              key: "p-" + s.name,
+              s,
+              onClick: () => onSkillClick(s.name)
+            })
+          )
         ]
       )
     );
@@ -14402,7 +14500,7 @@ body {
     const click = (0, import_react15.useCallback)(async (a) => {
       if (api.appendSnippet) {
         try {
-          await api.appendSnippet("\u8BF7\u4F7F\u7528 " + a.name + " \u5B50\u4EE3\u7406");
+          await api.appendSnippet("Use the " + a.name + " agent");
         } catch (_) {
         }
       }
@@ -14506,7 +14604,7 @@ body {
           { className: "ck-list-empty" },
           "\u672A\u53D1\u73B0\u5B50\u4EE3\u7406",
           (0, import_react15.createElement)("br"),
-          "\uFF08.cuckoo/agents/ \u6216 ~/.cuckoo/agents/\uFF09"
+          "\uFF08cookie/agents/ \u6216 ~/.cookie/agents/\uFF09"
         ) : [
           userAgents.length ? (0, import_react15.createElement)(
             "div",
@@ -14665,7 +14763,21 @@ body {
     text: "TXT",
     lock: "LCK"
   };
-  var MEDIA_EXTS = /* @__PURE__ */ new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "avif", "mp4", "mp3", "wav", "mov", "webm"]);
+  var MEDIA_EXTS = /* @__PURE__ */ new Set([
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "webp",
+    "bmp",
+    "ico",
+    "avif",
+    "mp4",
+    "mp3",
+    "wav",
+    "mov",
+    "webm"
+  ]);
   function fmtSize(n) {
     if (typeof n !== "number") return "";
     if (n < 1024) return n + " B";
@@ -14682,24 +14794,58 @@ body {
     return EXT_COLOR[ext] ? "ck-ft-c-" + EXT_COLOR[ext] : "ck-ft-c-file";
   }
   function FIcon({ name, type }) {
-    const svg = (d, extra) => (0, import_react16.createElement)("span", { className: "ck-ft-icon " + extra }, (0, import_react16.createElement)("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" }, (0, import_react16.createElement)("path", { d })));
+    const svg = (d, extra) => (0, import_react16.createElement)(
+      "span",
+      { className: "ck-ft-icon " + extra },
+      (0, import_react16.createElement)(
+        "svg",
+        {
+          viewBox: "0 0 24 24",
+          fill: "none",
+          stroke: "currentColor",
+          strokeWidth: 1.8,
+          strokeLinecap: "round",
+          strokeLinejoin: "round"
+        },
+        (0, import_react16.createElement)("path", { d })
+      )
+    );
     if (type === "dir") return svg(FOLDER, "ck-ft-i-dir");
     const ext = extOf(name);
     if (MEDIA_EXTS.has(ext)) return svg(IMG, "ck-ft-i-media");
     const badge = EXT_BADGE[ext];
-    if (badge) return (0, import_react16.createElement)("span", { className: "ck-ft-icon ck-ft-badge " + colorCls(name, "file") }, badge);
+    if (badge)
+      return (0, import_react16.createElement)(
+        "span",
+        { className: "ck-ft-icon ck-ft-badge " + colorCls(name, "file") },
+        badge
+      );
     return svg(FILE, "ck-ft-i-file");
   }
-  function AtBtn({ path }) {
-    return (0, import_react16.createElement)("span", { className: "ck-ft-at", title: "\u8FFD\u52A0 @" + path + " \u5230\u8F93\u5165\u6846", onClick: async (e) => {
-      e.stopPropagation();
-      if (api.appendSnippet) {
-        try {
-          await api.appendSnippet("@" + path);
-        } catch (_) {
+  function AtBtn({
+    absPath,
+    relPath,
+    isDir
+  }) {
+    const target = absPath || relPath;
+    const label = isDir ? "User mentioned folder: " : "User mentioned file: ";
+    return (0, import_react16.createElement)(
+      "span",
+      {
+        className: "ck-ft-at",
+        title: label + target,
+        onClick: async (e) => {
+          e.stopPropagation();
+          if (api.appendSnippet) {
+            try {
+              await api.appendSnippet(label + target);
+            } catch (_) {
+            }
+          }
         }
-      }
-    } }, "@");
+      },
+      "@"
+    );
   }
   function Highlight({ text, kw }) {
     if (!kw) return (0, import_react16.createElement)("span", null, text);
@@ -14707,9 +14853,25 @@ body {
     const k = kw.toLowerCase();
     const idx = low.indexOf(k);
     if (idx < 0) return (0, import_react16.createElement)("span", null, text);
-    return (0, import_react16.createElement)("span", null, text.slice(0, idx), (0, import_react16.createElement)("mark", { className: "ck-ft-hl" }, text.slice(idx, idx + kw.length)), text.slice(idx + kw.length));
+    return (0, import_react16.createElement)(
+      "span",
+      null,
+      text.slice(0, idx),
+      (0, import_react16.createElement)(
+        "mark",
+        { className: "ck-ft-hl" },
+        text.slice(idx, idx + kw.length)
+      ),
+      text.slice(idx + kw.length)
+    );
   }
-  function TreeNodes({ nodes, depth, expanded, onToggle, onFile }) {
+  function TreeNodes({
+    nodes,
+    depth,
+    expanded,
+    onToggle,
+    onFile
+  }) {
     return (0, import_react16.createElement)(
       "div",
       { style: { display: "contents" } },
@@ -14722,22 +14884,61 @@ body {
             { key: n.path, style: { display: "contents" } },
             (0, import_react16.createElement)(
               "div",
-              { className: "ck-ft-row ck-ft-dir" + (open ? " open" : ""), style: { paddingLeft: pad }, onClick: () => onToggle(n.path) },
-              (0, import_react16.createElement)("span", { className: "ck-ft-caret" }, (0, import_react16.createElement)("svg", { viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, (0, import_react16.createElement)("path", { d: CARET }))),
+              {
+                className: "ck-ft-row ck-ft-dir" + (open ? " open" : ""),
+                style: { paddingLeft: pad },
+                onClick: () => onToggle(n.path)
+              },
+              (0, import_react16.createElement)(
+                "span",
+                { className: "ck-ft-caret" },
+                (0, import_react16.createElement)(
+                  "svg",
+                  {
+                    viewBox: "0 0 16 16",
+                    fill: "none",
+                    stroke: "currentColor",
+                    strokeWidth: 2,
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round"
+                  },
+                  (0, import_react16.createElement)("path", { d: CARET })
+                )
+              ),
               (0, import_react16.createElement)(FIcon, { name: n.name, type: "dir" }),
               (0, import_react16.createElement)("span", { className: "ck-ft-name" }, n.name),
-              (0, import_react16.createElement)(AtBtn, { path: n.path })
+              (0, import_react16.createElement)(AtBtn, {
+                relPath: n.path,
+                absPath: n.absPath,
+                isDir: true
+              })
             ),
-            open && n.children ? (0, import_react16.createElement)(TreeNodes, { nodes: n.children, depth: depth + 1, expanded, onToggle, onFile }) : null
+            open && n.children ? (0, import_react16.createElement)(TreeNodes, {
+              nodes: n.children,
+              depth: depth + 1,
+              expanded,
+              onToggle,
+              onFile
+            }) : null
           );
         }
         return (0, import_react16.createElement)(
           "div",
-          { key: n.path, className: "ck-ft-row ck-ft-file", title: n.path, style: { paddingLeft: pad }, onClick: () => onFile(n.path) },
+          {
+            key: n.path,
+            className: "ck-ft-row ck-ft-file",
+            title: n.path,
+            style: { paddingLeft: pad },
+            onClick: () => onFile(n.path)
+          },
           (0, import_react16.createElement)("span", { className: "ck-ft-caret" }),
           (0, import_react16.createElement)(FIcon, { name: n.name, type: "file" }),
-          (0, import_react16.createElement)("span", { className: "ck-ft-name " + colorCls(n.name, "file") }, n.name),
-          (0, import_react16.createElement)(AtBtn, { path: n.path })
+          (0, import_react16.createElement)(
+            "span",
+            { className: "ck-ft-name " + colorCls(n.name, "file") },
+            n.name
+          ),
+          (0, import_react16.createElement)(AtBtn, { relPath: n.path, absPath: n.absPath })
         );
       })
     );
@@ -14749,7 +14950,10 @@ body {
     }
     return out;
   }
-  function FilePreviewModal({ path, onClose }) {
+  function FilePreviewModal({
+    path,
+    onClose
+  }) {
     const [state, setState] = (0, import_react16.useState)({ status: "loading" });
     const monacoRef = (0, import_react16.useRef)(null);
     (0, import_react16.useEffect)(() => {
@@ -14771,7 +14975,11 @@ body {
             }
           }, 0);
         } catch (e) {
-          if (!cancelled) setState({ status: "err", error: e && e.message ? e.message : String(e) });
+          if (!cancelled)
+            setState({
+              status: "err",
+              error: e && e.message ? e.message : String(e)
+            });
         }
       })();
       return () => {
@@ -14787,13 +14995,22 @@ body {
     }, [onClose]);
     useHideAiView();
     const openExternal = (0, import_react16.useCallback)(() => {
-      if (api.openFileExternal) api.openFileExternal(path).catch(() => {
-      });
+      if (api.openFileExternal)
+        api.openFileExternal(path).catch(() => {
+        });
     }, [path]);
     return (0, import_react16.createElement)(
       "div",
       {
-        style: { position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 1e4, display: "flex", alignItems: "center", justifyContent: "center" },
+        style: {
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,.5)",
+          zIndex: 1e4,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center"
+        },
         onClick: (e) => {
           if (e.target === e.currentTarget) onClose();
         }
@@ -14801,27 +15018,115 @@ body {
       (0, import_react16.createElement)(
         "div",
         {
-          style: { background: "var(--ck-bg, #fff)", borderRadius: 10, width: "88vw", height: "85vh", maxWidth: 1200, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 12px 48px rgba(0,0,0,.35)", border: "1px solid var(--ck-border, #e0e0e0)" },
+          style: {
+            background: "var(--ck-bg, #fff)",
+            borderRadius: 10,
+            width: "88vw",
+            height: "85vh",
+            maxWidth: 1200,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            boxShadow: "0 12px 48px rgba(0,0,0,.35)",
+            border: "1px solid var(--ck-border, #e0e0e0)"
+          },
           onClick: (e) => e.stopPropagation()
         },
         (0, import_react16.createElement)(
           "div",
-          { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--ck-border, #e0e0e0)", flexShrink: 0 } },
-          (0, import_react16.createElement)("span", { style: { fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: path }, path),
-          state.size !== void 0 ? (0, import_react16.createElement)("span", { style: { fontSize: 12, opacity: 0.6 } }, fmtSize(state.size)) : null,
-          (0, import_react16.createElement)("button", { title: "\u7528\u7CFB\u7EDF\u7A0B\u5E8F\u6253\u5F00", onClick: openExternal, style: { border: "none", background: "transparent", cursor: "pointer", fontSize: 16, padding: "2px 8px" } }, "\u2197"),
-          (0, import_react16.createElement)("button", { title: "\u5173\u95ED", onClick: onClose, style: { border: "none", background: "transparent", cursor: "pointer", fontSize: 16, padding: "2px 8px" } }, "\u2715")
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 16px",
+              borderBottom: "1px solid var(--ck-border, #e0e0e0)",
+              flexShrink: 0
+            }
+          },
+          (0, import_react16.createElement)(
+            "span",
+            {
+              style: {
+                fontWeight: 600,
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap"
+              },
+              title: path
+            },
+            path
+          ),
+          state.size !== void 0 ? (0, import_react16.createElement)(
+            "span",
+            { style: { fontSize: 12, opacity: 0.6 } },
+            fmtSize(state.size)
+          ) : null,
+          (0, import_react16.createElement)(
+            "button",
+            {
+              title: "\u7528\u7CFB\u7EDF\u7A0B\u5E8F\u6253\u5F00",
+              onClick: openExternal,
+              style: {
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 16,
+                padding: "2px 8px"
+              }
+            },
+            "\u2197"
+          ),
+          (0, import_react16.createElement)(
+            "button",
+            {
+              title: "\u5173\u95ED",
+              onClick: onClose,
+              style: {
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 16,
+                padding: "2px 8px"
+              }
+            },
+            "\u2715"
+          )
         ),
         (0, import_react16.createElement)(
           "div",
           { style: { flex: 1, minHeight: 0, position: "relative" } },
-          state.status === "loading" ? (0, import_react16.createElement)("div", { style: { padding: 20, opacity: 0.6 } }, "\u52A0\u8F7D\u4E2D\u2026") : state.status === "err" ? (0, import_react16.createElement)("div", { style: { padding: 20, color: "#e55" } }, state.error) : (0, import_react16.createElement)("div", { ref: monacoRef, style: { width: "100%", height: "100%" } })
+          state.status === "loading" ? (0, import_react16.createElement)(
+            "div",
+            { style: { padding: 20, opacity: 0.6 } },
+            "\u52A0\u8F7D\u4E2D\u2026"
+          ) : state.status === "err" ? (0, import_react16.createElement)(
+            "div",
+            { style: { padding: 20, color: "#e55" } },
+            state.error
+          ) : (0, import_react16.createElement)("div", {
+            ref: monacoRef,
+            style: { width: "100%", height: "100%" }
+          })
         )
       )
     );
   }
   function RefreshIcon3() {
-    return (0, import_react16.createElement)("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, (0, import_react16.createElement)("path", { d: "M21 12a9 9 0 1 1-2.64-6.36" }), (0, import_react16.createElement)("path", { d: "M21 3v6h-6" }));
+    return (0, import_react16.createElement)(
+      "svg",
+      {
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: 2,
+        strokeLinecap: "round",
+        strokeLinejoin: "round"
+      },
+      (0, import_react16.createElement)("path", { d: "M21 12a9 9 0 1 1-2.64-6.36" }),
+      (0, import_react16.createElement)("path", { d: "M21 3v6h-6" })
+    );
   }
   function FilesPage() {
     const [tree, setTree] = (0, import_react16.useState)([]);
@@ -14840,7 +15145,10 @@ body {
           return;
         }
         setErr(null);
-        if (r.root) setRoot(String(r.root).replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "\u9879\u76EE\u6587\u4EF6");
+        if (r.root)
+          setRoot(
+            String(r.root).replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "\u9879\u76EE\u6587\u4EF6"
+          );
         setTree(r.tree || []);
         setTruncated(!!r.truncated);
       } catch (_) {
@@ -14851,10 +15159,11 @@ body {
       load();
     }, [load]);
     (0, import_react16.useEffect)(() => {
-      if (api.onProjectDir) api.onProjectDir(() => {
-        setExpanded(/* @__PURE__ */ new Set());
-        load();
-      });
+      if (api.onProjectDir)
+        api.onProjectDir(() => {
+          setExpanded(/* @__PURE__ */ new Set());
+          load();
+        });
     }, [load]);
     const onToggle = (0, import_react16.useCallback)((p) => {
       setExpanded((s) => {
@@ -14873,52 +15182,120 @@ body {
       const all = flatten(tree, []);
       const low = kw.toLowerCase();
       const matched = all.filter((n) => n.path.toLowerCase().includes(low));
-      if (matched.length === 0) body = (0, import_react16.createElement)("div", { className: "ck-list-empty" }, "\u65E0\u5339\u914D\u7ED3\u679C");
+      if (matched.length === 0)
+        body = (0, import_react16.createElement)("div", { className: "ck-list-empty" }, "\u65E0\u5339\u914D\u7ED3\u679C");
       else {
-        matched.sort((a, b) => a.type !== b.type ? a.type === "file" ? -1 : 1 : a.path.localeCompare(b.path));
+        matched.sort(
+          (a, b) => a.type !== b.type ? a.type === "file" ? -1 : 1 : a.path.localeCompare(b.path)
+        );
         const shown = matched.slice(0, 500);
         body = (0, import_react16.createElement)(
           "div",
           { style: { display: "contents" } },
-          shown.map((n) => (0, import_react16.createElement)(
+          shown.map(
+            (n) => (0, import_react16.createElement)(
+              "div",
+              {
+                key: n.path,
+                className: "ck-ft-row " + (n.type === "dir" ? "ck-ft-dir" : "ck-ft-file"),
+                title: n.path,
+                onClick: n.type === "file" ? () => onFile(n.path) : () => onToggle(n.path)
+              },
+              (0, import_react16.createElement)(FIcon, { name: n.name, type: n.type }),
+              (0, import_react16.createElement)(
+                "span",
+                { className: "ck-ft-name " + colorCls(n.name, n.type) },
+                (0, import_react16.createElement)(Highlight, { text: n.name, kw })
+              ),
+              (0, import_react16.createElement)(
+                "span",
+                { className: "ck-ft-path" },
+                (0, import_react16.createElement)(Highlight, { text: n.path, kw })
+              ),
+              (0, import_react16.createElement)(AtBtn, {
+                relPath: n.path,
+                absPath: n.absPath,
+                isDir: n.type === "dir"
+              })
+            )
+          ),
+          matched.length > 500 ? (0, import_react16.createElement)(
             "div",
-            { key: n.path, className: "ck-ft-row " + (n.type === "dir" ? "ck-ft-dir" : "ck-ft-file"), title: n.path, onClick: n.type === "file" ? () => onFile(n.path) : () => onToggle(n.path) },
-            (0, import_react16.createElement)(FIcon, { name: n.name, type: n.type }),
-            (0, import_react16.createElement)("span", { className: "ck-ft-name " + colorCls(n.name, n.type) }, (0, import_react16.createElement)(Highlight, { text: n.name, kw })),
-            (0, import_react16.createElement)("span", { className: "ck-ft-path" }, (0, import_react16.createElement)(Highlight, { text: n.path, kw })),
-            (0, import_react16.createElement)(AtBtn, { path: n.path })
-          )),
-          matched.length > 500 ? (0, import_react16.createElement)("div", { className: "ck-ft-truncated" }, "\uFF08\u7ED3\u679C\u8FC7\u591A\uFF0C\u4EC5\u663E\u793A\u524D 500 \u9879\uFF09") : null
+            { className: "ck-ft-truncated" },
+            "\uFF08\u7ED3\u679C\u8FC7\u591A\uFF0C\u4EC5\u663E\u793A\u524D 500 \u9879\uFF09"
+          ) : null
         );
       }
-    } else if (tree.length === 0) body = (0, import_react16.createElement)("div", { className: "ck-list-empty" }, "\u7A7A\u76EE\u5F55");
-    else body = (0, import_react16.createElement)(
-      "div",
-      { style: { display: "contents" } },
-      (0, import_react16.createElement)(TreeNodes, { nodes: tree, depth: 0, expanded, onToggle, onFile }),
-      truncated ? (0, import_react16.createElement)("div", { className: "ck-ft-truncated" }, "\uFF08\u8282\u70B9\u8FC7\u591A\uFF0C\u5DF2\u622A\u65AD\u663E\u793A\uFF09") : null
-    );
+    } else if (tree.length === 0)
+      body = (0, import_react16.createElement)("div", { className: "ck-list-empty" }, "\u7A7A\u76EE\u5F55");
+    else
+      body = (0, import_react16.createElement)(
+        "div",
+        { style: { display: "contents" } },
+        (0, import_react16.createElement)(TreeNodes, {
+          nodes: tree,
+          depth: 0,
+          expanded,
+          onToggle,
+          onFile
+        }),
+        truncated ? (0, import_react16.createElement)(
+          "div",
+          { className: "ck-ft-truncated" },
+          "\uFF08\u8282\u70B9\u8FC7\u591A\uFF0C\u5DF2\u622A\u65AD\u663E\u793A\uFF09"
+        ) : null
+      );
     return (0, import_react16.createElement)(
       "div",
       { className: "ck-tab ck-tab-active" },
       (0, import_react16.createElement)(
         "div",
         { className: "ck-actions" },
-        (0, import_react16.createElement)("span", { className: "ck-set-group-title", style: { flex: 1 } }, root),
-        (0, import_react16.createElement)("button", { className: "ck-icon-btn", title: "\u5237\u65B0", onClick: load }, (0, import_react16.createElement)(RefreshIcon3))
+        (0, import_react16.createElement)(
+          "span",
+          { className: "ck-set-group-title", style: { flex: 1 } },
+          root
+        ),
+        (0, import_react16.createElement)(
+          "button",
+          { className: "ck-icon-btn", title: "\u5237\u65B0", onClick: load },
+          (0, import_react16.createElement)(RefreshIcon3)
+        )
       ),
       (0, import_react16.createElement)(
         "div",
         { className: "ck-ft-search" },
-        (0, import_react16.createElement)("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }, (0, import_react16.createElement)("circle", { cx: 11, cy: 11, r: 7 }), (0, import_react16.createElement)("path", { d: "M21 21l-4-4" })),
-        (0, import_react16.createElement)("input", { className: "ck-ft-search-input", placeholder: "\u641C\u7D22\u6587\u4EF6\u540D\u2026", spellCheck: false, autoComplete: "off", value: kw, onChange: (e) => setKw(e.target.value) })
+        (0, import_react16.createElement)(
+          "svg",
+          {
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            strokeWidth: 2,
+            strokeLinecap: "round",
+            strokeLinejoin: "round"
+          },
+          (0, import_react16.createElement)("circle", { cx: 11, cy: 11, r: 7 }),
+          (0, import_react16.createElement)("path", { d: "M21 21l-4-4" })
+        ),
+        (0, import_react16.createElement)("input", {
+          className: "ck-ft-search-input",
+          placeholder: "\u641C\u7D22\u6587\u4EF6\u540D\u2026",
+          spellCheck: false,
+          autoComplete: "off",
+          value: kw,
+          onChange: (e) => setKw(e.target.value)
+        })
       ),
       (0, import_react16.createElement)(
         "div",
         { className: "ck-files-cols" },
         (0, import_react16.createElement)("div", { className: "ck-list ck-ft", id: "ft-list" }, body)
       ),
-      previewPath ? (0, import_react16.createElement)(FilePreviewModal, { path: previewPath, onClose: () => setPreviewPath(null) }) : null
+      previewPath ? (0, import_react16.createElement)(FilePreviewModal, {
+        path: previewPath,
+        onClose: () => setPreviewPath(null)
+      }) : null
     );
   }
 

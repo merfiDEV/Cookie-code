@@ -478,6 +478,50 @@ function registerIpcListeners() {
     }
   } catch (_) {}
 
+  // Overlay-кнопки из shell-сайдбара: выполняем ту же логику, что была в overlay.
+  ipcRenderer.on("overlay-action", async (_event, data) => {
+    const action = data && data.action;
+    try {
+      const events = require("../overlay/events");
+      switch (action) {
+        case "gen-doc": {
+          const msg =
+            "根据当前项目生成一个项目说明文件，并将文件放到当前项目 .cuckooCode/CUCKOO.md";
+          sendToChat(msg, "生成文档", 300);
+          break;
+        }
+        case "immersive": {
+          const msg =
+            "现在你的任何疑问,或没有疑问的选择都需要和我确认 , 确认的方式是 你问一个问题我回答一个问题,然后你再问下一个问题, 最好给我选项, 也要给我个其他的选项, 谢谢 爱你哦";
+          sendToChat(msg, "沉浸式交流", 300);
+          break;
+        }
+        case "manual-parse": {
+          const { handleManualParse } = require("./observer");
+          handleManualParse();
+          break;
+        }
+        case "context-port": {
+          const contextPort = require("./context-port");
+          await contextPort.startTransfer();
+          break;
+        }
+        case "prompts": {
+          require("../overlay/prompts-panel").open();
+          break;
+        }
+        case "diff": {
+          require("../overlay/diff-panel").toggleDiffPanel();
+          break;
+        }
+        default:
+          console.warn("[Cookie Code] неизвестный overlay-action:", action);
+      }
+    } catch (err) {
+      console.error("[Cookie Code] overlay-action error:", err && err.message);
+    }
+  });
+
   // Ответ из окна кастомного уведомления — сразу вставляем в чат и отправляем.
   ipcRenderer.on("cuckoo-notif-reply", (_event, text) => {
     const msg = String(text || "").trim();

@@ -36,7 +36,14 @@ try {
 function injectCSS() {
   const style = document.createElement("style");
   style.id = "cuckoo-overlay-css";
-  style.textContent = OVERLAY_CSS;
+  // Shell-режим: старая панель и FAB не нужны (кнопки в сайдбаре),
+  // но модалы (diff / window-manager / mcp / goal) остаются рабочими.
+  const HIDE_LEGACY = [
+    "#cuckoo-overlay { display: none !important; }",
+    "#cuckoo-fab { display: none !important; }",
+    ".cuckoo-fab { display: none !important; }",
+  ].join("\n");
+  style.textContent = OVERLAY_CSS + "\n" + HIDE_LEGACY;
   document.head.appendChild(style);
 }
 

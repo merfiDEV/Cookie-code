@@ -279,7 +279,7 @@ export function AgentsPage() {
   const click = useCallback(async (a: Agent) => {
     if (api.appendSnippet) {
       try {
-        await api.appendSnippet("请使用 " + a.name + " 子代理");
+        await api.appendSnippet("Use the " + a.name + " agent");
       } catch (_) {}
     }
     addRecent("agent", a.name);
@@ -390,7 +390,7 @@ export function AgentsPage() {
               { className: "ck-list-empty" },
               "未发现子代理",
               createElement("br"),
-              "（.cuckoo/agents/ 或 ~/.cuckoo/agents/）",
+              "（cookie/agents/ 或 ~/.cookie/agents/）",
             )
           : [
               userAgents.length

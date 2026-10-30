@@ -146,6 +146,8 @@ const shellAPI = {
     }),
 
   // ===== Token / auto-compact =====
+  overlayAction: (action) =>
+    ipcRenderer.invoke("shell-overlay-action", { action }),
   getAutoCompact: () => ipcRenderer.invoke("shell-get-auto-compact"),
   saveAutoCompact: (data) =>
     ipcRenderer.invoke("shell-save-auto-compact", data),

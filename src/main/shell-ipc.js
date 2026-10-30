@@ -595,6 +595,18 @@ function registerShellIpc({
     }
   });
 
+  // Overlay-кнопки (перенесены из старой панели): выполняем в AI-странице
+  ipcMain.handle("shell-overlay-action", async (event, { action } = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (!ctx || !ctx.view) return { success: false, error: "no view" };
+    try {
+      ctx.view.webContents.send("overlay-action", { action });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
   // ===== Промпты (prompts-store) =====
   ipcMain.handle("shell-list-snippets", async (event) => {
     const ctx = windowState.getContextByWebContents(event.sender);
@@ -663,7 +675,13 @@ function registerShellIpc({
   ipcMain.handle("shell-list-agents", async (event) => {
     const ctx = windowState.getContextByWebContents(event.sender);
     try {
-      const list = agentsModule.scanAgents(ctx ? ctx.projectDir : null);
+      const projectDir =
+        ctx && ctx.sessionStore && ctx.sessionStore.state
+          ? ctx.sessionStore.state.selectedProjectDir ||
+            ctx.sessionStore.state.lastProjectDir ||
+            null
+          : null;
+      const list = agentsModule.scanAgents(projectDir);
       return {
         success: true,
         agents: Array.isArray(list) ? list : list.merged || [],
@@ -1072,11 +1090,28 @@ function registerShellIpc({
   });
 
   // ===== О приложении =====
-  ipcMain.handle("shell-get-app-info", async () => ({
-    success: true,
-    version: app.getVersion(),
-    name: app.getName(),
-  }));
+  ipcMain.handle("shell-get-app-info", async () => {
+    // Версия: последний заголовок "## [x.y.z]" из CHANGELOG.md;
+    // fallback — app.getVersion() (package.json).
+    let version = app.getVersion();
+    try {
+      const candidates = [
+        path.join(app.getAppPath(), "CHANGELOG.md"),
+        path.join(process.cwd(), "CHANGELOG.md"),
+        path.join(__dirname, "..", "..", "CHANGELOG.md"),
+      ];
+      for (const p of candidates) {
+        if (!fs.existsSync(p)) continue;
+        const text = fs.readFileSync(p, "utf-8");
+        const m = text.match(/^##\s*\[([0-9][^\]]*)\]/m);
+        if (m && m[1]) {
+          version = m[1].trim();
+          break;
+        }
+      }
+    } catch (_) {}
+    return { success: true, version, name: app.getName() };
+  });
   ipcMain.handle("shell-check-update", async () => {
     try {
       updater.checkForUpdates();
@@ -1136,9 +1171,11 @@ function buildTree(root, depth = 0, rel = "") {
       .map((e) => {
         const isDir = e.isDirectory();
         const relPath = rel ? rel + "/" + e.name : e.name;
+        const absPath = path.join(root, e.name).replace(/\\/g, "/");
         return {
           name: e.name,
           path: relPath,
+          absPath,
           type: isDir ? "dir" : "file",
           isDir,
           children: isDir

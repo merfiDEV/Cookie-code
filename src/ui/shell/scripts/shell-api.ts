@@ -125,6 +125,8 @@ export interface ShellAPI {
   setProfileAutoOpen?: (id: string, on: boolean) => Promise<any>;
   // Token / 自动压缩
   getTokenUsage?: () => Promise<any>;
+  /** Overlay-действия из старой панели (gen-doc / immersive / manual-parse / context-port / prompts / diff) */
+  overlayAction?: (action: string) => Promise<any>;
   getAutoCompact?: () => Promise<any>;
   saveAutoCompact?: (data: any) => Promise<any>;
   triggerCompact?: () => Promise<any>;
