@@ -957,34 +957,28 @@ function registerIpcHandlers() {
           try {
             ctx.win.webContents.send("shell-token-updated", ctx.tokenUsage);
           } catch (_) {}
-          // TPS: скользящее окно 3 секунды — суммируем дельты, делим на фактический интервал.
-          try {
-            const now = Date.now();
-            if (!ctx._tpsWindow) ctx._tpsWindow = [];
-            ctx._tpsWindow.push({ at: now, delta: incomingDelta });
-            const windowMs = 3000;
-            ctx._tpsWindow = ctx._tpsWindow.filter(
-              (x) => now - x.at <= windowMs,
-            );
-            const sumDelta = ctx._tpsWindow.reduce((s, x) => s + x.delta, 0);
-            if (ctx._tpsWindow.length >= 2 && sumDelta > 0) {
-              const oldest = ctx._tpsWindow[0].at;
-              const spanSec = Math.max(0.5, (now - oldest) / 1000);
-              const tps = sumDelta / spanSec;
-              if (isFinite(tps) && tps > 0) {
-                ctx._tpsLast = { at: now, tps };
-                ctx.win.webContents.send("shell-tps-updated", {
-                  tps: Math.round(tps * 10) / 10,
-                });
-              }
-            }
-          } catch (_) {}
+          // TPS теперь приходит точным каналом (stats-record-tps) из preload:
+          // token-interceptor (accumulated diff) + observer (fallback по тексту).
+          // Старое дельта-окно отключено, чтобы не перебивать точное значение.
         }
       } catch (_) {}
       return { success: true, stats };
     } catch (err) {
       return { success: false, error: err.message };
     }
+  });
+
+  // Точный TPS из preload (token-interceptor / observer) → broadcast в shell.
+  ipcMain.on("stats-record-tps", (event, payload = {}) => {
+    try {
+      const tps = Number(payload.tps);
+      if (!Number.isFinite(tps) || tps <= 0) return;
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (!ctx || !ctx.win || ctx.win.isDestroyed()) return;
+      const rounded = Math.round(tps * 10) / 10;
+      ctx._tpsLast = { at: Date.now(), tps: rounded };
+      ctx.win.webContents.send("shell-tps-updated", { tps: rounded });
+    } catch (_) {}
   });
 
   ipcMain.handle("stats-record-session", async (_event, ev = {}) => {

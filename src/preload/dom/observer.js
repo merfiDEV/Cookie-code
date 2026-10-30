@@ -36,6 +36,28 @@ const { hasTool, toolNamesList } = require("../tool-names");
 const { t } = require("../i18n/i18n");
 const state = require("./state");
 const { safe } = require("./safe");
+const { createTpsMeter } = require("./tps");
+
+// Fallback-TPS по длине текста (для ChatGPT/Claude и как страховка, если серверный
+// accumulated_token_usage не приходит).
+const textTpsMeter = createTpsMeter();
+let lastTextTpsSentAt = 0;
+function reportTextTps(text, finished) {
+  try {
+    const tps = textTpsMeter.update(text, finished, null);
+    if (!finished && tps > 0) {
+      const now = Date.now();
+      if (now - lastTextTpsSentAt < 400) return;
+      lastTextTpsSentAt = now;
+      if (
+        window.electronAPI &&
+        typeof window.electronAPI.statsRecordTps === "function"
+      ) {
+        window.electronAPI.statsRecordTps({ tps });
+      }
+    }
+  } catch (_) {}
+}
 
 /**
  * 手动解析按钮点击处理
@@ -932,6 +954,23 @@ function startObserver() {
           : null;
       if (latestForMeta) responseMeta.startTimer(latestForMeta);
     } catch (_) {}
+
+    // Fallback-TPS по длине текста (ChatGPT/Claude, страховка).
+    if (isGenerating()) {
+      try {
+        const cands = getMessageCandidates();
+        const last = cands.length > 0 ? cands[cands.length - 1] : null;
+        if (last) {
+          const md = getMessageMarkdown(last);
+          const text = md && md.textContent ? md.textContent : "";
+          reportTextTps(text, false);
+        }
+      } catch (_) {}
+    } else {
+      try {
+        reportTextTps("", true);
+      } catch (_) {}
+    }
 
     // 回复结束后读取最新 AI 回复；完成判定内部已含必要等待
     if (hasNewContent && !isProcessingResponse) {

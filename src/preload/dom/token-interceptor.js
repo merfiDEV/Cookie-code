@@ -22,6 +22,10 @@
  */
 
 const { safe } = require("./safe");
+const { createTpsMeter } = require("./tps");
+
+// Один счётчик на страницу: считает TPS по разнице accumulated_token_usage.
+const tpsMeter = createTpsMeter();
 
 const COMPLETION_URL_PART = "/api/v0/chat/completion";
 const EVENT_NAME = "cuckoo:token-update";
@@ -144,6 +148,23 @@ function publish(usage) {
   } catch (_) {
     /* CustomEvent недоступен — молча */
   }
+  // TPS по разнице accumulated_token_usage (точный серверный счётчик).
+  try {
+    const tps = tpsMeter.update("", false, usage.total);
+    if (tps > 0) {
+      try {
+        window.dispatchEvent(
+          new CustomEvent("cuckoo:tps-update", { detail: { tps } }),
+        );
+      } catch (_) {}
+      if (
+        window.electronAPI &&
+        typeof window.electronAPI.statsRecordTps === "function"
+      ) {
+        window.electronAPI.statsRecordTps({ tps });
+      }
+    }
+  } catch (_) {}
   // Прямой IPC в main — не зависим от stats-recorder (он может быть отключён).
   try {
     if (

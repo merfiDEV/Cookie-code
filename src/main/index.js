@@ -139,6 +139,109 @@ async function flushAllSessions() {
  * 创建窗口（绑定指定 profile）
  * @param {object|null} profile profile 对象，null 则使用默认 profile
  */
+/**
+ * Окно субагента: простое BrowserWindow без shell-обвязки (toolbar/sidebar/statusbar).
+ * Сразу грузит AI-страницу (provider.homeUrl) с preload AI-страницы.
+ */
+function createSubagentWindow(
+  profileData,
+  provider,
+  sessionStore,
+  subagentArg,
+) {
+  const win = new BrowserWindow({
+    width: 1100,
+    height: 820,
+    title: "Cookie Code — " + (profileData.name || "Subagent"),
+    icon: APP_ICON,
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, "..", "..", "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      partition: profileData.partition,
+      backgroundThrottling: false,
+      additionalArguments: [
+        "--cuckoo-user-data=" + app.getPath("userData"),
+        ...(subagentArg ? [subagentArg] : []),
+      ],
+    },
+  });
+
+  // Регистрируем контекст: view = null (AI-страница = сам win.webContents).
+  windowState.addWindow(
+    win,
+    null,
+    profileData.id,
+    "deepseek",
+    sessionStore,
+    profileData.isSubagent,
+    profileData.subagentConfig,
+  );
+
+  const diagLog = (msg) => {
+    try {
+      console.log(
+        "[" +
+          new Date().toISOString() +
+          "][Subagent:" +
+          (profileData.name || "?") +
+          "] " +
+          msg,
+      );
+    } catch (_) {}
+  };
+
+  const userAgent =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+  win.webContents.setUserAgent(userAgent);
+  diagLog("loadURL: " + provider.homeUrl);
+  win.webContents
+    .loadURL(provider.homeUrl)
+    .catch((err) => diagLog("loadURL reject: " + err.message));
+
+  const injectTokenInterceptor = () => {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) return;
+    try {
+      const {
+        buildTokenInterceptorScript,
+      } = require("./token-interceptor-inject");
+      win.webContents
+        .executeJavaScript(buildTokenInterceptorScript(), true)
+        .catch(() => {});
+    } catch (_) {}
+  };
+  win.webContents.on("dom-ready", injectTokenInterceptor);
+
+  win.webContents.on("did-finish-load", () => {
+    if (!win.isDestroyed()) {
+      injectTokenInterceptor();
+      sessionStore.tryRestoreSessionFromUrl(win);
+    }
+  });
+  win.webContents.on("did-navigate", (_e, url) => {
+    sessionStore.handleUrlChange(url, win);
+  });
+  win.webContents.on("did-navigate-in-page", (_e, url) => {
+    sessionStore.handleUrlChange(url, win);
+  });
+
+  win.webContents.on("before-input-event", (_e, input) => {
+    if (input.key === "F12") win.webContents.toggleDevTools();
+    if (input.key === "F11" && input.type === "keyDown") {
+      win.setFullScreen(!win.isFullScreen());
+    }
+  });
+
+  win.on("closed", () => {
+    windowState.removeWindow(win.id);
+  });
+
+  win.maximize();
+  return win.id;
+}
+
 function createWindow(profile) {
   const profileData = profile || profileManager.getDefaultProfile();
   const provider = getProvider("deepseek");
@@ -153,6 +256,16 @@ function createWindow(profile) {
     ? "--cuckoo-subagent=" +
       encodeURIComponent(JSON.stringify(profileData.subagentConfig))
     : null;
+
+  // ========== Субагент: простое окно без shell ==========
+  if (profileData.isSubagent) {
+    return createSubagentWindow(
+      profileData,
+      provider,
+      sessionStore,
+      subagentArg,
+    );
+  }
 
   // ========== 1. BrowserWindow = shell.html (toolbar + sidebar + statusbar) ==========
   const mainWindow = new BrowserWindow({

@@ -130,11 +130,11 @@ function ensureStyles() {
   style.id = STYLE_ID;
   style.textContent = `
     #${DIALOG_ID} { position:fixed; inset:0; z-index:2147483647; display:flex; align-items:center; justify-content:center; background:rgba(5,8,18,.62); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    #${DIALOG_ID} .cuckoo-plan-card { position:relative; width:min(760px,calc(100vw - 32px)); max-height:calc(100vh - 48px); display:flex; flex-direction:column; color:#eef1ff; background:#171b2c; border:1px solid rgba(145,158,255,.42); border-radius:12px; box-shadow:0 20px 70px rgba(0,0,0,.55); overflow:hidden; }
-    #${DIALOG_ID} .cuckoo-plan-head { display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.08); cursor:move; user-select:none; }
+    #${DIALOG_ID} .cuckoo-plan-card { position:relative; width:min(760px,calc(100vw - 32px)); max-height:calc(100vh - 48px); display:flex; flex-direction:column; color:var(--ck-text, #e8eaff); background:var(--ck-bg, #141726); border:1px solid var(--ck-border, rgba(145,158,255,.28)); border-radius:12px; box-shadow:0 20px 70px rgba(0,0,0,.55); overflow:hidden; }
+    #${DIALOG_ID} .cuckoo-plan-head { display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--ck-border, rgba(255,255,255,.08)); cursor:move; user-select:none; }
     #${DIALOG_ID} .cuckoo-plan-head h2 { margin:0; font-size:17px; flex:1; }
-    #${DIALOG_ID} .cuckoo-plan-close { border:0; background:transparent; color:#9aa2c6; font-size:20px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:6px; }
-    #${DIALOG_ID} .cuckoo-plan-close:hover { background:rgba(255,255,255,.08); color:#fff; }
+    #${DIALOG_ID} .cuckoo-plan-close { border:0; background:transparent; color:var(--ck-text-2, #9aa2c6); font-size:20px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:6px; }
+    #${DIALOG_ID} .cuckoo-plan-close:hover { background:var(--ck-bg-sub, rgba(255,255,255,.08)); color:var(--ck-text, #fff); }
     #${DIALOG_ID} .cuckoo-plan-body { padding:18px 22px; overflow:auto; flex:1; line-height:1.6; font-size:14px; }
     #${DIALOG_ID} .cuckoo-plan-p { margin:0 0 10px; }
     #${DIALOG_ID} .cuckoo-plan-h { margin:16px 0 8px; line-height:1.3; }
@@ -142,28 +142,28 @@ function ensureStyles() {
     #${DIALOG_ID} h2.cuckoo-plan-h { font-size:17px; }
     #${DIALOG_ID} h3.cuckoo-plan-h { font-size:15px; }
     #${DIALOG_ID} .cuckoo-plan-ul, #${DIALOG_ID} .cuckoo-plan-ol { margin:0 0 12px; padding-left:22px; }
-    #${DIALOG_ID} .cuckoo-plan-pre { margin:0 0 12px; padding:12px; background:#0f1322; border:1px solid rgba(255,255,255,.12); border-radius:8px; overflow:auto; font-family:"Consolas",monospace; font-size:12px; line-height:1.5; }
-    #${DIALOG_ID} code { font-family:"Consolas",monospace; font-size:12px; background:rgba(255,255,255,.08); padding:1px 5px; border-radius:4px; }
+    #${DIALOG_ID} .cuckoo-plan-pre { margin:0 0 12px; padding:12px; background:var(--ck-bg-sub, #0f1322); border:1px solid var(--ck-border, rgba(255,255,255,.12)); border-radius:8px; overflow:auto; font-family:"Consolas",monospace; font-size:12px; line-height:1.5; }
+    #${DIALOG_ID} code { font-family:"Consolas",monospace; font-size:12px; background:var(--ck-bg-sub, rgba(255,255,255,.08)); padding:1px 5px; border-radius:4px; }
     #${DIALOG_ID} .cuckoo-plan-pre code { background:transparent; padding:0; }
-    #${DIALOG_ID} .cuckoo-plan-hr { border:0; border-top:1px solid rgba(255,255,255,.12); margin:16px 0; }
-    #${DIALOG_ID} a { color:#8ea2ff; }
-    #${DIALOG_ID} .cuckoo-plan-foot { display:flex; gap:10px; justify-content:flex-end; padding:14px 20px; border-top:1px solid rgba(255,255,255,.08); flex-wrap:wrap; }
+    #${DIALOG_ID} .cuckoo-plan-hr { border:0; border-top:1px solid var(--ck-border, rgba(255,255,255,.12)); margin:16px 0; }
+    #${DIALOG_ID} a { color:var(--ck-primary, #8ea2ff); }
+    #${DIALOG_ID} .cuckoo-plan-foot { display:flex; gap:10px; justify-content:flex-end; padding:14px 20px; border-top:1px solid var(--ck-border, rgba(255,255,255,.08)); flex-wrap:wrap; }
     #${DIALOG_ID} button.cuckoo-plan-btn { padding:10px 18px; border:0; border-radius:8px; color:#fff; cursor:pointer; font-weight:600; font-size:13px; }
     #${DIALOG_ID} .cuckoo-plan-deny { background:rgba(255,107,122,.16); border:1px solid rgba(255,107,122,.5) !important; color:#ff9aa5; }
     #${DIALOG_ID} .cuckoo-plan-deny:hover { background:rgba(255,107,122,.3); }
-    #${DIALOG_ID} .cuckoo-plan-comment { background:rgba(139,147,255,.22); border:1px solid rgba(139,147,255,.5) !important; color:#cfd3ff; margin-right:auto; }
-    #${DIALOG_ID} .cuckoo-plan-comment:hover { background:rgba(139,147,255,.4); color:#fff; }
-    .cuckoo-plan-comment-fab { position:absolute; z-index:2147483647; width:34px; height:34px; padding:0; border-radius:8px; border:1px solid rgba(139,147,255,.6); background:#3a3f66; color:#fff; font-size:16px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.4); }
-    .cuckoo-plan-comment-fab:hover { background:#6574ee; }
-    #${DIALOG_ID} .cuckoo-comment-box { margin:8px 0 12px; padding:10px; border-left:3px solid #6574ee; background:rgba(101,116,238,.1); border-radius:8px; }
-    #${DIALOG_ID} .cuckoo-comment-quote { font-size:12px; color:#a7adcf; margin-bottom:6px; }
-    #${DIALOG_ID} .cuckoo-comment-input { width:100%; box-sizing:border-box; background:#0f1322; color:#eef1ff; border:1px solid rgba(145,158,255,.4); border-radius:8px; padding:8px; font-size:13px; font-family:inherit; resize:vertical; }
+    #${DIALOG_ID} .cuckoo-plan-comment { background:var(--ck-bg-sub, rgba(139,147,255,.22)); border:1px solid var(--ck-border, rgba(139,147,255,.5)) !important; color:var(--ck-text, #cfd3ff); margin-right:auto; }
+    #${DIALOG_ID} .cuckoo-plan-comment:hover { background:var(--ck-bg-hover, rgba(139,147,255,.4)); color:var(--ck-text, #fff); }
+    .cuckoo-plan-comment-fab { position:absolute; z-index:2147483647; width:34px; height:34px; padding:0; border-radius:8px; border:1px solid var(--ck-border, rgba(139,147,255,.6)); background:var(--ck-bg-sub, #3a3f66); color:var(--ck-text, #fff); font-size:16px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.4); }
+    .cuckoo-plan-comment-fab:hover { background:var(--ck-primary, #6574ee); }
+    #${DIALOG_ID} .cuckoo-comment-box { margin:8px 0 12px; padding:10px; border-left:3px solid var(--ck-primary, #6574ee); background:var(--ck-bg-sub, rgba(101,116,238,.1)); border-radius:8px; }
+    #${DIALOG_ID} .cuckoo-comment-quote { font-size:12px; color:var(--ck-text-2, #a7adcf); margin-bottom:6px; }
+    #${DIALOG_ID} .cuckoo-comment-input { width:100%; box-sizing:border-box; background:var(--ck-bg-sub, #0f1322); color:var(--ck-text, #eef1ff); border:1px solid var(--ck-border, rgba(145,158,255,.4)); border-radius:8px; padding:8px; font-size:13px; font-family:inherit; resize:vertical; }
     #${DIALOG_ID} .cuckoo-comment-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
-    #${DIALOG_ID} .cuckoo-comment-actions button { padding:6px 12px; border-radius:7px; border:1px solid rgba(145,158,255,.4); background:transparent; color:#cfd3ff; cursor:pointer; font-size:12px; }
-    #${DIALOG_ID} .cuckoo-comment-save { background:#6574ee !important; border-color:#6574ee !important; color:#fff !important; }
-    #${DIALOG_ID} .cuckoo-has-comment { box-shadow: inset 3px 0 0 #6574ee; background:rgba(101,116,238,.08); }
-    #${DIALOG_ID} .cuckoo-plan-approve { background:#6574ee; }
-    #${DIALOG_ID} .cuckoo-plan-approve:hover { background:#7785ff; }
+    #${DIALOG_ID} .cuckoo-comment-actions button { padding:6px 12px; border-radius:7px; border:1px solid var(--ck-border, rgba(145,158,255,.4)); background:transparent; color:var(--ck-text, #cfd3ff); cursor:pointer; font-size:12px; }
+    #${DIALOG_ID} .cuckoo-comment-save { background:var(--ck-primary, #6574ee) !important; border-color:var(--ck-primary, #6574ee) !important; color:#fff !important; }
+    #${DIALOG_ID} .cuckoo-has-comment { box-shadow: inset 3px 0 0 var(--ck-primary, #6574ee); background:var(--ck-bg-sub, rgba(101,116,238,.08)); }
+    #${DIALOG_ID} .cuckoo-plan-approve { background:var(--ck-primary, #6574ee); }
+    #${DIALOG_ID} .cuckoo-plan-approve:hover { background:var(--ck-primary-hover, #7785ff); }
   `;
   document.head.appendChild(style);
 }

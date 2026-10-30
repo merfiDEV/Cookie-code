@@ -23,9 +23,9 @@ function ensureStyles() {
     '  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }',
     "#" +
       MODAL_ID +
-      " .wn-card { background: #141726; border: 1px solid rgba(139,147,255,0.35);",
+      " .wn-card { background: var(--ck-bg, #141726); border: 1px solid var(--ck-border, rgba(139,147,255,0.35));",
     "  border-radius: 14px; width: 92vw; max-width: 1100px; max-height: 85vh; display: flex;",
-    "  flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.6); color: #dde1ff;",
+    "  flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.6); color: var(--ck-text, #dde1ff);",
     "  position: relative; }",
     "#" + MODAL_ID + " .wn-head { cursor: grab; user-select: none; }",
     "#" + MODAL_ID + " .wn-head:active { cursor: grabbing; }",
@@ -35,10 +35,10 @@ function ensureStyles() {
     "  display: flex; justify-content: space-between; align-items: center; }",
     "#" +
       MODAL_ID +
-      " .wn-title { font-size: 17px; font-weight: 700; color: #eef0ff; }",
+      " .wn-title { font-size: 17px; font-weight: 700; color: var(--ck-text, #eef0ff); }",
     "#" +
       MODAL_ID +
-      " .wn-sub { font-size: 12px; color: #8a90b8; margin-top: 4px; }",
+      " .wn-sub { font-size: 12px; color: var(--ck-text-dim, #8a90b8); margin-top: 4px; }",
     "#" +
       MODAL_ID +
       " .wn-body { flex: 1; overflow: auto; padding: 16px 22px; font-size: 13.5px;",
@@ -65,7 +65,7 @@ function ensureStyles() {
       " .wn-btn:hover { background: rgba(139,147,255,0.24); color: #fff; }",
     "#" +
       MODAL_ID +
-      " .wn-btn-primary { background: linear-gradient(90deg,#8b93ff,#5b63d6);",
+      " .wn-btn-primary { background: var(--ck-primary, #6574ee);",
     "  color: #fff; border-color: transparent; }",
     "#" + MODAL_ID + " .wn-btn-primary:hover { filter: brightness(1.1); }",
     "#" +
