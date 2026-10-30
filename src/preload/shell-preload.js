@@ -45,6 +45,8 @@ const shellAPI = {
       extraPrompt,
       noDialog,
     }),
+  sendInitMessage: (text, projectDir) =>
+    ipcRenderer.invoke("shell-send-init-message", { text, projectDir }),
   updateProjectDir: () =>
     ipcRenderer.invoke("shell-init-project", { noDialog: false }),
   getProjectDir: () => ipcRenderer.invoke("shell-get-project-dir"),

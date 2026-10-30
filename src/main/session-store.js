@@ -14,6 +14,17 @@ const { getProviderByUrl } = require("../providers");
  */
 function createSessionStore(profileId, storeDir, windowState) {
   const { getAIWebContents } = windowState;
+
+  /** Отправить обновление projectDir в AI-страницу и shell-страницу */
+  function notifyProjectDir(win, dir) {
+    if (!win || win.isDestroyed()) return;
+    try {
+      getAIWebContents(win).send("project-dir-updated", dir);
+    } catch (_) {}
+    try {
+      win.webContents.send("shell-project-dir", dir);
+    } catch (_) {}
+  }
   const STORE_FILE = path.join(
     storeDir,
     "session-dir-map-" + profileId + ".json",
@@ -229,10 +240,7 @@ function createSessionStore(profileId, storeDir, windowState) {
         state.lastProjectDir = state.pendingProjectDir;
         state.pendingProjectDir = null;
         if (win && !win.isDestroyed()) {
-          getAIWebContents(win).send(
-            "project-dir-updated",
-            state.selectedProjectDir,
-          );
+          notifyProjectDir(win, state.selectedProjectDir);
           getAIWebContents(win).send("session-restored", {
             sessionId,
             projectDir: state.selectedProjectDir,
@@ -251,12 +259,12 @@ function createSessionStore(profileId, storeDir, windowState) {
             sessionId,
             projectDir: restoredDir,
           });
-          getAIWebContents(win).send("project-dir-updated", restoredDir);
+          notifyProjectDir(win, restoredDir);
         }
       } else {
         state.selectedProjectDir = null;
         if (win && !win.isDestroyed()) {
-          getAIWebContents(win).send("project-dir-updated", null);
+          notifyProjectDir(win, null);
         }
       }
     } else {
@@ -267,15 +275,12 @@ function createSessionStore(profileId, storeDir, windowState) {
       if (!state.pendingProjectDir) {
         state.selectedProjectDir = null;
         if (win && !win.isDestroyed()) {
-          getAIWebContents(win).send("project-dir-updated", null);
+          notifyProjectDir(win, null);
         }
       } else {
         state.selectedProjectDir = state.pendingProjectDir;
         if (win && !win.isDestroyed()) {
-          getAIWebContents(win).send(
-            "project-dir-updated",
-            state.pendingProjectDir,
-          );
+          notifyProjectDir(win, state.pendingProjectDir);
         }
       }
     }

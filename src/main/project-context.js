@@ -161,9 +161,14 @@ async function initProject(skipPrompt = false, windowContext = null) {
     }
   }
 
-  // 发送目录更新事件到渲染进程
+  // 发送目录更新事件到渲染进程（AI + shell）
   if (mainWindow && !mainWindow.isDestroyed()) {
-    getAIWebContents(mainWindow).send("project-dir-updated", selectedDir);
+    try {
+      getAIWebContents(mainWindow).send("project-dir-updated", selectedDir);
+    } catch (_) {}
+    try {
+      mainWindow.webContents.send("shell-project-dir", selectedDir);
+    } catch (_) {}
   }
 
   // 如果只是修改目录，跳过发送初始提示
@@ -293,10 +298,13 @@ async function setProjectByDir(selectedDir, windowContext = null) {
     }
   }
 
-  // Обновляем display пути и список сессий в renderer.
+  // Обновляем display пути и список сессий в renderer (AI + shell).
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
       getAIWebContents(mainWindow).send("project-dir-updated", dir);
+    } catch (_) {}
+    try {
+      mainWindow.webContents.send("shell-project-dir", dir);
     } catch (_) {}
   }
 

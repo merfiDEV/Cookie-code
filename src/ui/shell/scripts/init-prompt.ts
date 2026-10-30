@@ -92,13 +92,13 @@ export function bindInitPrompt() {
       alert("请先选择项目目录");
       return;
     }
-    if (!text) return;
+    // Поле ввода опционально: пустой текст допустим — отправим только systemPrompt
 
     sendBtn.disabled = true;
     sendBtn.textContent = "发送中...";
     try {
       if (!api.sendInitMessage) {
-        throw new Error("缺少必要的 API");
+        throw new Error("缺少必要的 API: sendInitMessage");
       }
       const res = await api.sendInitMessage(text, dirInput.value);
       if (res && res.success) {

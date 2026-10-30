@@ -12,6 +12,20 @@ function registerShellIpc({
   createWindow,
   projectContext,
 }) {
+  /** Получить провайдер текущего окна (по providerId из контекста или URL) */
+  function getCurrentProvider(ctx) {
+    if (!ctx) return null;
+    if (ctx.providerId) return getProvider(ctx.providerId);
+    try {
+      const url =
+        ctx.view && ctx.view.webContents ? ctx.view.webContents.getURL() : "";
+      const { getProviderByUrl } = require("../providers");
+      return getProviderByUrl(url) || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   const settingsStore = require("./settings-store");
   const mcpConfig = require("./mcp-config");
   const mcpClient = require("./mcp-client");
@@ -158,7 +172,7 @@ function registerShellIpc({
     const dir =
       ctx && ctx.sessionStore && ctx.sessionStore.state
         ? ctx.sessionStore.state.selectedProjectDir ||
-          ctx.sessionStore.state.lastKnownProjectDir ||
+          ctx.sessionStore.state.lastProjectDir ||
           null
         : null;
     return { success: true, dir };
@@ -166,18 +180,109 @@ function registerShellIpc({
   ipcMain.handle("shell-init-project", async (event, opts = {}) => {
     const ctx = windowState.getContextByWebContents(event.sender);
     if (!ctx) return { success: false };
+
+    // Если указан dir — устанавливаем проект без диалога
+    if (opts.dir) {
+      try {
+        const res = await projectContext.setProjectByDir(opts.dir, ctx);
+        if (!res.success) return res;
+        // Обновляем UI проекта в shell-странице
+        if (ctx.win && !ctx.win.isDestroyed()) {
+          try {
+            ctx.win.webContents.send("shell-project-dir", opts.dir);
+          } catch (_) {}
+        }
+        // Собираем и отправляем initial-prompt в AI-страницу
+        const providerId = (ctx && ctx.providerId) || "";
+        const combined = await projectContext.buildInitPrompt(
+          opts.dir,
+          providerId,
+        );
+        const { getAIWebContents } = windowState;
+        const aiWc = getAIWebContents(ctx.win);
+        if (aiWc && !aiWc.isDestroyed()) {
+          aiWc.send("initial-prompt", combined);
+        }
+        return { success: true, dir: opts.dir };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+
+    // Иначе — обычная инициализация с диалогом (старая сигнатура)
     try {
-      const res = await projectContext.initProject(ctx, {
-        dir: opts.dir,
-        isCompaction: !!opts.isCompaction,
-        extraPrompt: opts.extraPrompt,
-        noDialog: !!opts.noDialog,
-      });
+      const res = await projectContext.initProject(!!opts.isCompaction, ctx);
       return { success: true, ...res };
     } catch (e) {
       return { success: false, error: e.message };
     }
   });
+  ipcMain.handle(
+    "shell-send-init-message",
+    async (event, { text, projectDir } = {}) => {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (!ctx) return { success: false, error: "窗口上下文不存在" };
+      if (!projectDir) return { success: false, error: "未指定项目目录" };
+      try {
+        const provider = getCurrentProvider(ctx) || getProvider("deepseek");
+        const { getAIWebContents } = windowState;
+        const aiWc = getAIWebContents(ctx.win);
+        if (!aiWc || aiWc.isDestroyed()) {
+          return { success: false, error: "AI 页面不可用" };
+        }
+
+        // 1. Устанавливаем проект (может переключить на существующую сессию — это ок)
+        const setRes = await projectContext.setProjectByDir(projectDir, ctx);
+        if (!setRes.success) return setRes;
+
+        // 2. Собираем промпт
+        const providerId = (ctx && ctx.providerId) || "";
+        const combined = await projectContext.buildInitPrompt(
+          projectDir,
+          providerId,
+        );
+
+        // 3. Создаём НОВЫЙ чат: переходим на homeUrl провайдера
+        if (provider && provider.homeUrl) {
+          // Сбрасываем текущую сессию и помечаем проект как pending — привяжется
+          // к новому sessionId, когда чат создастся.
+          if (ctx.sessionStore && ctx.sessionStore.state) {
+            ctx.sessionStore.state.currentSessionId = null;
+            ctx.sessionStore.state.selectedProjectDir = projectDir;
+            ctx.sessionStore.state.lastProjectDir = projectDir;
+            ctx.sessionStore.state.pendingProjectDir = projectDir;
+          }
+          const loadPromise = new Promise((resolve) => {
+            const done = () => {
+              aiWc.removeListener("did-finish-load", done);
+              aiWc.removeListener("did-fail-load", done);
+              resolve();
+            };
+            aiWc.once("did-finish-load", done);
+            aiWc.once("did-fail-load", done);
+            setTimeout(done, 15000);
+          });
+          await aiWc.loadURL(provider.homeUrl);
+          await loadPromise;
+        }
+
+        // 4. Обновляем UI проекта в shell-странице
+        if (ctx.win && !ctx.win.isDestroyed()) {
+          try {
+            ctx.win.webContents.send("shell-project-dir", projectDir);
+          } catch (_) {}
+        }
+
+        // 5. Отправляем промпт уже в новом чате
+        const fullPrompt = combined + (text ? "\n\n---\n\n" + text : "");
+        aiWc.send("initial-prompt", fullPrompt);
+
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    },
+  );
   ipcMain.on("cancel-init-prompt", (event) => {
     const ctx = windowState.getContextByWebContents(event.sender);
     if (ctx && ctx.win)
@@ -305,9 +410,46 @@ function registerShellIpc({
     async (event, { projectDir } = {}) => {
       const ctx = windowState.getContextByWebContents(event.sender);
       if (!ctx || !ctx.view) return { success: false };
-      const provider = getProvider("deepseek");
+      const provider = getCurrentProvider(ctx) || getProvider("deepseek");
+      if (!projectDir) return { success: false, error: "未指定项目目录" };
       try {
-        await ctx.view.webContents.loadURL(provider.homeUrl);
+        const aiWc = ctx.view.webContents;
+        // Сбрасываем текущую сессию; проект запоминаем как pending — привяжется
+        // к новому sessionId, когда DeepSeek создаст чат.
+        if (ctx.sessionStore && ctx.sessionStore.state) {
+          ctx.sessionStore.state.currentSessionId = null;
+          ctx.sessionStore.state.selectedProjectDir = projectDir;
+          ctx.sessionStore.state.lastProjectDir = projectDir;
+          ctx.sessionStore.state.pendingProjectDir = projectDir;
+        }
+        // Уведомляем shell-страницу
+        if (ctx.win && !ctx.win.isDestroyed()) {
+          try {
+            ctx.win.webContents.send("shell-project-dir", projectDir);
+          } catch (_) {}
+        }
+        // Собираем промпт проекта (system prompt + правила + инструменты)
+        const providerId = (ctx && ctx.providerId) || "";
+        const combined = await projectContext.buildInitPrompt(
+          projectDir,
+          providerId,
+        );
+        // Переходим на home и ждём реальной загрузки (иначе отправка пропадёт)
+        const loadPromise = new Promise((resolve) => {
+          const done = () => {
+            aiWc.removeListener("did-finish-load", done);
+            aiWc.removeListener("did-fail-load", done);
+            resolve();
+          };
+          aiWc.once("did-finish-load", done);
+          aiWc.once("did-fail-load", done);
+          setTimeout(done, 15000);
+        });
+        await aiWc.loadURL(provider.homeUrl);
+        await loadPromise;
+        // Отправляем system prompt — DeepSeek создаст новый чат,
+        // handleUrlChange привяжет pendingProjectDir к новому sessionId.
+        aiWc.send("initial-prompt", combined);
         return { success: true };
       } catch (e) {
         return { success: false, error: e.message };
@@ -722,7 +864,7 @@ function registerShellIpc({
   ipcMain.handle("shell-new-web-conversation", async (event) => {
     const ctx = windowState.getContextByWebContents(event.sender);
     if (!ctx || !ctx.view) return { success: false };
-    const provider = getProvider("deepseek");
+    const provider = getCurrentProvider(ctx) || getProvider("deepseek");
     try {
       await ctx.view.webContents.loadURL(provider.homeUrl);
       return { success: true };
@@ -984,21 +1126,26 @@ function layoutWindow(ctx) {
   });
 }
 
-function buildTree(root, depth = 0) {
-  if (depth > 3) return [];
+function buildTree(root, depth = 0, rel = "") {
+  if (depth > 6) return [];
   try {
     const entries = fs.readdirSync(root, { withFileTypes: true });
     return entries
       .filter((e) => !e.name.startsWith(".") && e.name !== "node_modules")
-      .slice(0, 200)
-      .map((e) => ({
-        name: e.name,
-        isDir: e.isDirectory(),
-        path: e.name,
-        children: e.isDirectory()
-          ? buildTree(path.join(root, e.name), depth + 1)
-          : undefined,
-      }));
+      .slice(0, 500)
+      .map((e) => {
+        const isDir = e.isDirectory();
+        const relPath = rel ? rel + "/" + e.name : e.name;
+        return {
+          name: e.name,
+          path: relPath,
+          type: isDir ? "dir" : "file",
+          isDir,
+          children: isDir
+            ? buildTree(path.join(root, e.name), depth + 1, relPath)
+            : undefined,
+        };
+      });
   } catch (_) {
     return [];
   }
