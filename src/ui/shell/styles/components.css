@@ -2540,6 +2540,137 @@ body {
   color: var(--ck-text);
 }
 
+/* ===== Git-страница ===== */
+.ck-git-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 10px;
+  overflow-y: auto;
+}
+.ck-git-branch-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--ck-surface);
+  border: 1px solid var(--ck-border);
+  border-radius: 10px;
+}
+.ck-git-branch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ck-text);
+}
+.ck-git-branch-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+.ck-git-upstream {
+  font-size: 11px;
+  color: var(--ck-text-dim);
+  margin-left: auto;
+  font-family: ui-monospace, monospace;
+}
+.ck-git-ab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.ck-git-ahead {
+  color: #4ade80;
+  font-weight: 700;
+}
+.ck-git-behind {
+  color: #e5a50a;
+  font-weight: 700;
+}
+.ck-git-noup {
+  color: var(--ck-text-dim);
+  font-style: italic;
+}
+.ck-git-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ck-git-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--ck-text);
+  background: var(--ck-surface);
+  border: 1px solid var(--ck-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.ck-git-btn:hover:not(:disabled) {
+  background: var(--ck-hover-bg);
+  border-color: var(--ck-border-strong);
+}
+.ck-git-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ck-git-btn-primary {
+  background: var(--ck-primary);
+  border-color: var(--ck-primary);
+  color: #fff;
+}
+.ck-git-btn-primary:hover:not(:disabled) {
+  background: var(--ck-primary-strong);
+  border-color: var(--ck-primary-strong);
+}
+.ck-git-hint {
+  font-size: 12px;
+  color: var(--ck-text-dim);
+  padding: 6px 0;
+}
+.ck-git-commit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--ck-surface);
+  border: 1px solid var(--ck-border);
+  border-radius: 10px;
+}
+.ck-git-commit-msg {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  background: var(--ck-bg);
+  color: var(--ck-text);
+  border: 1px solid var(--ck-border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12.5px;
+  resize: vertical;
+}
+.ck-git-toast {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.ck-git-toast.ok {
+  background: rgba(74, 222, 128, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+.ck-git-toast.err {
+  background: rgba(229, 85, 85, 0.12);
+  color: #e55;
+  border: 1px solid rgba(229, 85, 85, 0.3);
+}
+
 /* ===== Настройки: заголовки секций (классы из AI-страницы) ===== */
 .ck-set-content .cuckoo-section-title {
   font-size: 11px;

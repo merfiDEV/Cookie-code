@@ -100,6 +100,11 @@ const TABS: TabDef[] = [
     icon: "M9 12h6M8 7H7a5 5 0 0 0 0 10h1M16 7h1a5 5 0 0 1 0 10h-1",
   },
 
+  {
+    id: "git",
+    title: "Git",
+    icon: "M6 3v12M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9c0 3-2 5-5 6",
+  },
   { id: "token", title: "Token（词元）", icon: { text: "元" } },
 ];
 

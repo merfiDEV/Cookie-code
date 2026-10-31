@@ -1214,6 +1214,86 @@ function registerShellIpc({
     success: true,
     url: "file://" + path.join(__dirname, "..", "..", rel),
   }));
+
+  // ===== Git: ветка/upstream/ahead/behind + push/pull/fetch/sync/publish =====
+  const gitOps = require("./git-gitops");
+  function gitProjectDir(ctx) {
+    return ctx && ctx.sessionStore && ctx.sessionStore.state
+      ? ctx.sessionStore.state.selectedProjectDir ||
+          ctx.sessionStore.state.lastProjectDir ||
+          null
+      : null;
+  }
+  ipcMain.handle("shell-git-branch-status", async (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.getBranchStatus(dir);
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle("shell-git-commit", async (event, { message } = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.commitAll(dir, message);
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle("shell-git-push", async (event, opts = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.push(dir, opts || {});
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle("shell-git-pull", async (event, opts = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.pull(dir, opts || {});
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle("shell-git-fetch", async (event, opts = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.fetchRemote(dir, opts || {});
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle("shell-git-publish", async (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.publish(dir);
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle("shell-git-sync", async (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.sync(dir);
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
 }
 
 function layoutWindow(ctx) {

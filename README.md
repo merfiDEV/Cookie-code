@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/photo_1_2026-09-12_19-02-00.jpg" alt="Cookie Code — главное окно" width="900">
+  <img src="assets/photo_2026-10-31_15-05-24.jpg" alt="Cookie Code — главное окно" width="900">
 </p>
 
 **Превратите DeepSeek в настоящего помощника по коду.** Cookie Code соединяет AI-чат с вашей реальной кодовой базой — без API-токенов, без копипасты, только чистая автоматизация.

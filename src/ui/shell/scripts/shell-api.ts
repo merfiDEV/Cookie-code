@@ -97,6 +97,14 @@ export interface ShellAPI {
   readProjectFile?: (relPath: string) => Promise<any>;
   /** Записать файл проекта (редактор). */
   writeProjectFile?: (relPath: string, content: string) => Promise<any>;
+  // ===== Git =====
+  gitBranchStatus?: () => Promise<any>;
+  gitCommit?: (message: string) => Promise<any>;
+  gitPush?: (opts?: any) => Promise<any>;
+  gitPull?: (opts?: any) => Promise<any>;
+  gitFetch?: (opts?: any) => Promise<any>;
+  gitPublish?: () => Promise<any>;
+  gitSync?: () => Promise<any>;
   openFileExternal?: (relPath: string) => Promise<any>;
   setProjectArchived?: (dir: string, archived: boolean) => Promise<any>;
   setSessionTitle?: (sessionId: string, title: string) => Promise<any>;

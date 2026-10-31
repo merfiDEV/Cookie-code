@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/photo_1_2026-09-12_19-02-00.jpg" alt="Cookie Code — main window" width="900">
+  <img src="assets/photo_2026-10-31_15-05-24.jpg" alt="Cookie Code — main window" width="900">
 </p>
 
 **Turn DeepSeek into a real coding assistant.** Cookie Code bridges the gap between AI chat and your actual codebase — no API tokens, no copy-paste, just pure automation.

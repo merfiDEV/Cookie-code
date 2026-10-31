@@ -34,6 +34,7 @@ try {
 import { HomePage } from "./pages/home-react.js";
 import { TokenPage } from "./pages/token-react.js";
 import { AboutPage } from "./pages/about-react.js";
+import { GitPage } from "./pages/git-react.js";
 import { SkillsPage } from "./pages/skills-react.js";
 import { McpPage } from "./pages/mcp-react.js";
 import { SnippetsPage } from "./pages/snippets-react.js";
@@ -70,6 +71,7 @@ try {
 try {
   registerPage("home", HomePage);
   registerPage("about", AboutPage);
+  registerPage("git", GitPage);
   registerPage("skills", SkillsPage);
   registerPage("mcp", McpPage);
   registerPage("token", TokenPage);

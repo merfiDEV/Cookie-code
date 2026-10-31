@@ -193,6 +193,14 @@ const shellAPI = {
   getAppInfo: () => ipcRenderer.invoke("shell-get-app-info"),
   checkUpdate: () => ipcRenderer.invoke("shell-check-update"),
   getAssetUrl: (rel) => ipcRenderer.invoke("shell-get-asset-url", { rel }),
+  // ===== Git =====
+  gitBranchStatus: () => ipcRenderer.invoke("shell-git-branch-status"),
+  gitCommit: (message) => ipcRenderer.invoke("shell-git-commit", { message }),
+  gitPush: (opts) => ipcRenderer.invoke("shell-git-push", opts || {}),
+  gitPull: (opts) => ipcRenderer.invoke("shell-git-pull", opts || {}),
+  gitFetch: (opts) => ipcRenderer.invoke("shell-git-fetch", opts || {}),
+  gitPublish: () => ipcRenderer.invoke("shell-git-publish"),
+  gitSync: () => ipcRenderer.invoke("shell-git-sync"),
   openExternal: (url) => ipcRenderer.invoke("shell-open-external", { url }),
 };
 
