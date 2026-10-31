@@ -16,7 +16,7 @@ import {
   memo,
 } from "react";
 import { api } from "../shared.js";
-import { showInMonaco } from "../preview-monaco.js";
+import { showInMonaco, getMonacoValue } from "../preview-monaco.js";
 import { useHideAiView } from "../use-hide-ai-view.js";
 
 interface TreeNode {
@@ -386,6 +386,11 @@ function FilePreviewModal({
     size?: number;
     error?: string;
   }>({ status: "loading" });
+  const [content, setContent] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number>(0);
   const monacoRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -399,12 +404,10 @@ function FilePreviewModal({
           return;
         }
         setState({ status: "ok", size: r.size });
-        setTimeout(async () => {
-          if (cancelled || !monacoRef.current) return;
-          try {
-            await showInMonaco(monacoRef.current, path, r.content);
-          } catch (_) {}
-        }, 0);
+        setContent(typeof r.content === "string" ? r.content : "");
+        setEditing(false);
+        setDirty(false);
+        // Сам редактор создаётся во втором effect (реагирует на editing).
       } catch (e: any) {
         if (!cancelled)
           setState({
@@ -418,13 +421,88 @@ function FilePreviewModal({
     };
   }, [path]);
 
+  // Пересоздать Monaco при переключении режима просмотр/редактирование.
+  useEffect(() => {
+    if (state.status !== "ok" || !monacoRef.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await showInMonaco(monacoRef.current as HTMLElement, path, content, {
+          readOnly: !editing,
+          onChange: editing
+            ? () => {
+                if (!cancelled) setDirty(true);
+              }
+            : undefined,
+        });
+      } catch (_) {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, state.status]);
+
+  const startEdit = useCallback(() => {
+    setEditing(true);
+  }, []);
+
+  const cancelEdit = useCallback(() => {
+    // Перезагружаем файл с диска, отбрасывая правки.
+    (async () => {
+      try {
+        const r: any = await (api as any).readProjectFile(path);
+        if (r && r.success) setContent(r.content || "");
+      } catch (_) {}
+      setDirty(false);
+      setEditing(false);
+    })();
+  }, [path]);
+
+  const save = useCallback(async () => {
+    const anyApi = api as any;
+    if (!anyApi.writeProjectFile) return;
+    setSaving(true);
+    try {
+      const value = editing ? getMonacoValue() : content;
+      const r = await anyApi.writeProjectFile(path, value);
+      if (r && r.success) {
+        setDirty(false);
+        setSavedAt(Date.now());
+        setEditing(false);
+      } else {
+        setState({ status: "err", error: (r && r.error) || "保存失败" });
+      }
+    } catch (e: any) {
+      setState({
+        status: "err",
+        error: e && e.message ? e.message : String(e),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [path, content]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (editing) {
+          cancelEdit();
+        } else {
+          onClose();
+        }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
+        if (editing) {
+          e.preventDefault();
+          save();
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, editing, cancelEdit, save]);
 
   useHideAiView();
 
@@ -497,6 +575,79 @@ function FilePreviewModal({
               "span",
               { style: { fontSize: 12, opacity: 0.6 } },
               fmtSize(state.size),
+            )
+          : null,
+        dirty
+          ? createElement(
+              "span",
+              {
+                style: { fontSize: 12, color: "#e5a50a", fontWeight: 600 },
+                title: "Есть несохранённые изменения",
+              },
+              "● изменено",
+            )
+          : null,
+        savedAt && !dirty && !editing
+          ? createElement(
+              "span",
+              { style: { fontSize: 12, color: "#4ade80" }, title: "Сохранено" },
+              "✓ сохранено",
+            )
+          : null,
+        editing
+          ? createElement(
+              "button",
+              {
+                title: "Сохранить (Ctrl+S)",
+                onClick: save,
+                disabled: saving,
+                style: {
+                  border: "1px solid var(--ck-primary, #4d6bfe)",
+                  background: "var(--ck-primary, #4d6bfe)",
+                  color: "#fff",
+                  borderRadius: 6,
+                  cursor: saving ? "default" : "pointer",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: "4px 12px",
+                  opacity: saving ? 0.6 : 1,
+                },
+              },
+              saving ? "Сохранение…" : "Сохранить",
+            )
+          : createElement(
+              "button",
+              {
+                title: "Редактировать",
+                onClick: startEdit,
+                style: {
+                  border: "1px solid var(--ck-border, #e0e0e0)",
+                  background: "transparent",
+                  color: "inherit",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: 12,
+                  padding: "4px 12px",
+                },
+              },
+              "Редактировать",
+            ),
+        editing
+          ? createElement(
+              "button",
+              {
+                title: "Отменить правки",
+                onClick: cancelEdit,
+                style: {
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  padding: "4px 8px",
+                  opacity: 0.8,
+                },
+              },
+              "Отмена",
             )
           : null,
         createElement(

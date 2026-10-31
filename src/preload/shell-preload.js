@@ -95,6 +95,8 @@ const shellAPI = {
 
   // ===== Файлы проекта =====
   listProjectTree: () => ipcRenderer.invoke("shell-list-project-tree"),
+  writeProjectFile: (relPath, content) =>
+    ipcRenderer.invoke("shell-write-project-file", { relPath, content }),
   readProjectFile: (relPath) =>
     ipcRenderer.invoke("shell-read-project-file", { relPath }),
   openFileExternal: (relPath) =>

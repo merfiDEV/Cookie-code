@@ -13014,15 +13014,22 @@ body {
           getWorkerUrl: function(moduleId, label) {
             const base = "vendor/monaco/vs/";
             if (label === "json") return base + "language/json/json.worker.js";
-            if (label === "css" || label === "scss" || label === "less") return base + "language/css/css.worker.js";
-            if (label === "html" || label === "handlebars" || label === "razor") return base + "language/html/html.worker.js";
-            if (label === "typescript" || label === "javascript") return base + "language/typescript/ts.worker.js";
+            if (label === "css" || label === "scss" || label === "less")
+              return base + "language/css/css.worker.js";
+            if (label === "html" || label === "handlebars" || label === "razor")
+              return base + "language/html/html.worker.js";
+            if (label === "typescript" || label === "javascript")
+              return base + "language/typescript/ts.worker.js";
             return base + "editor/editor.worker.js";
           }
         };
-        req(["vs/editor/editor.main"], () => {
-          resolve(window.monaco);
-        }, (err) => reject(err || new Error("\u52A0\u8F7D\u5931\u8D25")));
+        req(
+          ["vs/editor/editor.main"],
+          () => {
+            resolve(window.monaco);
+          },
+          (err) => reject(err || new Error("\u52A0\u8F7D\u5931\u8D25"))
+        );
       } catch (e) {
         reject(e);
       }
@@ -13032,9 +13039,10 @@ body {
   function themeName() {
     return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "vs-dark" : "vs";
   }
-  async function showInMonaco(container, fileName, content) {
+  async function showInMonaco(container, fileName, content, opts) {
     const monaco = await loadMonaco();
     const lang = langOf(fileName);
+    const readOnly = opts && opts.readOnly === false ? false : true;
     if (!editor || editorContainer !== container) {
       if (editor) {
         try {
@@ -13046,7 +13054,7 @@ body {
         value: content,
         language: lang,
         theme: themeName(),
-        readOnly: true,
+        readOnly,
         automaticLayout: true,
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
@@ -13061,6 +13069,37 @@ body {
       const old = editor.getModel();
       editor.setModel(model);
       if (old) old.dispose();
+      try {
+        editor.updateOptions({ readOnly });
+      } catch (_) {
+      }
+    }
+    if (opts && typeof opts.onChange === "function") {
+      try {
+        if (editor.__ckChangeSub) editor.__ckChangeSub.dispose();
+        editor.__ckChangeSub = editor.onDidChangeModelContent(() => {
+          try {
+            opts.onChange(editor.getValue());
+          } catch (_) {
+          }
+        });
+      } catch (_) {
+      }
+    } else {
+      try {
+        if (editor.__ckChangeSub) {
+          editor.__ckChangeSub.dispose();
+          editor.__ckChangeSub = null;
+        }
+      } catch (_) {
+      }
+    }
+  }
+  function getMonacoValue() {
+    try {
+      return editor ? editor.getValue() : "";
+    } catch (_) {
+      return "";
     }
   }
   function syncMonacoTheme() {
@@ -17440,6 +17479,11 @@ body {
     onClose
   }) {
     const [state, setState] = (0, import_react16.useState)({ status: "loading" });
+    const [content, setContent] = (0, import_react16.useState)("");
+    const [editing, setEditing] = (0, import_react16.useState)(false);
+    const [dirty, setDirty] = (0, import_react16.useState)(false);
+    const [saving, setSaving] = (0, import_react16.useState)(false);
+    const [savedAt, setSavedAt] = (0, import_react16.useState)(0);
     const monacoRef = (0, import_react16.useRef)(null);
     (0, import_react16.useEffect)(() => {
       let cancelled = false;
@@ -17452,13 +17496,9 @@ body {
             return;
           }
           setState({ status: "ok", size: r.size });
-          setTimeout(async () => {
-            if (cancelled || !monacoRef.current) return;
-            try {
-              await showInMonaco(monacoRef.current, path, r.content);
-            } catch (_) {
-            }
-          }, 0);
+          setContent(typeof r.content === "string" ? r.content : "");
+          setEditing(false);
+          setDirty(false);
         } catch (e) {
           if (!cancelled)
             setState({
@@ -17472,12 +17512,80 @@ body {
       };
     }, [path]);
     (0, import_react16.useEffect)(() => {
+      if (state.status !== "ok" || !monacoRef.current) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          await showInMonaco(monacoRef.current, path, content, {
+            readOnly: !editing,
+            onChange: editing ? () => {
+              if (!cancelled) setDirty(true);
+            } : void 0
+          });
+        } catch (_) {
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [editing, state.status]);
+    const startEdit = (0, import_react16.useCallback)(() => {
+      setEditing(true);
+    }, []);
+    const cancelEdit = (0, import_react16.useCallback)(() => {
+      (async () => {
+        try {
+          const r = await api.readProjectFile(path);
+          if (r && r.success) setContent(r.content || "");
+        } catch (_) {
+        }
+        setDirty(false);
+        setEditing(false);
+      })();
+    }, [path]);
+    const save = (0, import_react16.useCallback)(async () => {
+      const anyApi = api;
+      if (!anyApi.writeProjectFile) return;
+      setSaving(true);
+      try {
+        const value = editing ? getMonacoValue() : content;
+        const r = await anyApi.writeProjectFile(path, value);
+        if (r && r.success) {
+          setDirty(false);
+          setSavedAt(Date.now());
+          setEditing(false);
+        } else {
+          setState({ status: "err", error: r && r.error || "\u4FDD\u5B58\u5931\u8D25" });
+        }
+      } catch (e) {
+        setState({
+          status: "err",
+          error: e && e.message ? e.message : String(e)
+        });
+      } finally {
+        setSaving(false);
+      }
+    }, [path, content]);
+    (0, import_react16.useEffect)(() => {
       const onKey = (e) => {
-        if (e.key === "Escape") onClose();
+        if (e.key === "Escape") {
+          if (editing) {
+            cancelEdit();
+          } else {
+            onClose();
+          }
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
+          if (editing) {
+            e.preventDefault();
+            save();
+          }
+        }
       };
       window.addEventListener("keydown", onKey);
       return () => window.removeEventListener("keydown", onKey);
-    }, [onClose]);
+    }, [onClose, editing, cancelEdit, save]);
     useHideAiView();
     const openExternal = (0, import_react16.useCallback)(() => {
       if (api.openFileExternal)
@@ -17547,6 +17655,71 @@ body {
             "span",
             { style: { fontSize: 12, opacity: 0.6 } },
             fmtSize(state.size)
+          ) : null,
+          dirty ? (0, import_react16.createElement)(
+            "span",
+            {
+              style: { fontSize: 12, color: "#e5a50a", fontWeight: 600 },
+              title: "\u0415\u0441\u0442\u044C \u043D\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F"
+            },
+            "\u25CF \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u043E"
+          ) : null,
+          savedAt && !dirty && !editing ? (0, import_react16.createElement)(
+            "span",
+            { style: { fontSize: 12, color: "#4ade80" }, title: "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E" },
+            "\u2713 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E"
+          ) : null,
+          editing ? (0, import_react16.createElement)(
+            "button",
+            {
+              title: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C (Ctrl+S)",
+              onClick: save,
+              disabled: saving,
+              style: {
+                border: "1px solid var(--ck-primary, #4d6bfe)",
+                background: "var(--ck-primary, #4d6bfe)",
+                color: "#fff",
+                borderRadius: 6,
+                cursor: saving ? "default" : "pointer",
+                fontSize: 12,
+                fontWeight: 600,
+                padding: "4px 12px",
+                opacity: saving ? 0.6 : 1
+              }
+            },
+            saving ? "\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435\u2026" : "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C"
+          ) : (0, import_react16.createElement)(
+            "button",
+            {
+              title: "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
+              onClick: startEdit,
+              style: {
+                border: "1px solid var(--ck-border, #e0e0e0)",
+                background: "transparent",
+                color: "inherit",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 12,
+                padding: "4px 12px"
+              }
+            },
+            "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C"
+          ),
+          editing ? (0, import_react16.createElement)(
+            "button",
+            {
+              title: "\u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u0440\u0430\u0432\u043A\u0438",
+              onClick: cancelEdit,
+              style: {
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 12,
+                padding: "4px 8px",
+                opacity: 0.8
+              }
+            },
+            "\u041E\u0442\u043C\u0435\u043D\u0430"
           ) : null,
           (0, import_react16.createElement)(
             "button",

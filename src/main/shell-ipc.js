@@ -502,6 +502,36 @@ function registerShellIpc({
       return { success: false, error: e.message };
     }
   });
+  ipcMain.handle(
+    "shell-write-project-file",
+    async (event, { relPath, content } = {}) => {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      const dir =
+        ctx && ctx.sessionStore && ctx.sessionStore.state
+          ? ctx.sessionStore.state.selectedProjectDir ||
+            ctx.sessionStore.state.lastKnownProjectDir ||
+            null
+          : null;
+      if (!dir) return { success: false, error: "no project" };
+      if (typeof relPath !== "string" || !relPath)
+        return { success: false, error: "no path" };
+      try {
+        const full = path.resolve(dir, relPath);
+        // Защита от выхода за пределы проекта.
+        const rootResolved = path.resolve(dir);
+        if (
+          full !== rootResolved &&
+          !full.startsWith(rootResolved + path.sep)
+        ) {
+          return { success: false, error: "path outside project" };
+        }
+        fs.writeFileSync(full, String(content == null ? "" : content), "utf8");
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    },
+  );
   ipcMain.handle("shell-read-project-file", async (event, { relPath } = {}) => {
     const ctx = windowState.getContextByWebContents(event.sender);
     const dir =

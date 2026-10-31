@@ -95,6 +95,8 @@ export interface ShellAPI {
     error?: string;
   }>;
   readProjectFile?: (relPath: string) => Promise<any>;
+  /** Записать файл проекта (редактор). */
+  writeProjectFile?: (relPath: string, content: string) => Promise<any>;
   openFileExternal?: (relPath: string) => Promise<any>;
   setProjectArchived?: (dir: string, archived: boolean) => Promise<any>;
   setSessionTitle?: (sessionId: string, title: string) => Promise<any>;
