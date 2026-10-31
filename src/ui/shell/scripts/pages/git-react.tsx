@@ -2,8 +2,14 @@
  * Git-страница (React): ветка/upstream/ahead/behind, commit, push/pull/fetch,
  * publish, sync. Порт UX из VS Code Source Control.
  */
-import { createElement, useState, useEffect, useCallback } from "react";
+import { createElement, useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../shared.js";
+
+interface BranchRef {
+  name: string;
+  remote: boolean;
+  current: boolean;
+}
 
 interface BranchInfo {
   name: string;
@@ -53,6 +59,9 @@ export function GitPage() {
   const [st, setSt] = useState<GitStatus | null>(null);
   const [busy, setBusy] = useState<string>("");
   const [msg, setMsg] = useState("");
+  const [branches, setBranches] = useState<BranchRef[]>([]);
+  const [branchOpen, setBranchOpen] = useState(false);
+  const branchRef = useRef<HTMLDivElement>(null);
   const [toast, setToast] = useState<{
     text: string;
     kind: "ok" | "err";
@@ -77,6 +86,41 @@ export function GitPage() {
     load();
   }, [load]);
 
+  // Список веток для переключателя (обновляем вместе со статусом).
+  const loadBranches = useCallback(async () => {
+    const anyApi = api as any;
+    if (!anyApi.gitListBranches) return;
+    try {
+      const r = await anyApi.gitListBranches();
+      if (r && r.ok && Array.isArray(r.branches)) setBranches(r.branches);
+      else setBranches([]);
+    } catch (_) {
+      setBranches([]);
+    }
+  }, []);
+  useEffect(() => {
+    loadBranches();
+  }, [loadBranches, st && (st as any).current]);
+
+  // Закрытие меню веток по клику вне / Escape.
+  useEffect(() => {
+    if (!branchOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (branchRef.current && !branchRef.current.contains(e.target as Node)) {
+        setBranchOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setBranchOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [branchOpen]);
+
   const run = useCallback(
     async (name: string, fn: () => Promise<any>, okText: string) => {
       setBusy(name);
@@ -92,9 +136,26 @@ export function GitPage() {
       } finally {
         setBusy("");
         load();
+        loadBranches();
       }
     },
-    [load],
+    [load, loadBranches],
+  );
+
+  // Переключение ветки (локальная / удалённая → создаём с upstream).
+  const switchBranch = useCallback(
+    async (br: BranchRef) => {
+      setBranchOpen(false);
+      if (br.current && !br.remote) return;
+      const anyApi = api as any;
+      if (!anyApi.gitCheckout) return;
+      await run(
+        "checkout",
+        () => anyApi.gitCheckout({ branch: br.name, remote: br.remote }),
+        "Ветка переключена: " + br.name,
+      );
+    },
+    [run],
   );
 
   const commit = useCallback(async () => {
@@ -147,9 +208,75 @@ export function GitPage() {
                 { className: "ck-git-branch-row" },
                 createElement(Ico, { d: ICONS.branch }),
                 createElement(
-                  "span",
-                  { className: "ck-git-branch-name" },
-                  b ? b.name : "—",
+                  "div",
+                  {
+                    className:
+                      "ck-git-branch-picker" + (branchOpen ? " open" : ""),
+                    ref: branchRef,
+                  },
+                  createElement(
+                    "button",
+                    {
+                      className: "ck-git-branch-trigger",
+                      title: "Переключить ветку",
+                      disabled: !!busy,
+                      onClick: () => setBranchOpen((v) => !v),
+                    },
+                    createElement(
+                      "span",
+                      { className: "ck-git-branch-name" },
+                      b ? b.name : "—",
+                    ),
+                    createElement(Ico, { d: ICONS.down }),
+                  ),
+                  branchOpen
+                    ? createElement(
+                        "div",
+                        { className: "ck-git-branch-menu" },
+                        branches.length === 0
+                          ? createElement(
+                              "div",
+                              { className: "ck-git-branch-empty" },
+                              "Нет веток",
+                            )
+                          : branches.map((br) =>
+                              createElement(
+                                "div",
+                                {
+                                  key: (br.remote ? "r:" : "l:") + br.name,
+                                  className:
+                                    "ck-git-branch-item" +
+                                    (br.current && !br.remote ? " active" : ""),
+                                  title: br.remote
+                                    ? "Удалённая ветка"
+                                    : "Локальная ветка",
+                                  onClick: () => switchBranch(br),
+                                },
+                                createElement(
+                                  "span",
+                                  { className: "ck-git-branch-item-name" },
+                                  br.name,
+                                ),
+                                br.remote
+                                  ? createElement(
+                                      "span",
+                                      { className: "ck-git-branch-item-tag" },
+                                      "remote",
+                                    )
+                                  : null,
+                                br.current && !br.remote
+                                  ? createElement(
+                                      "span",
+                                      { className: "ck-select-check" },
+                                      createElement(Ico, {
+                                        d: "M20 6L9 17l-5-5",
+                                      }),
+                                    )
+                                  : null,
+                              ),
+                            ),
+                      )
+                    : null,
                 ),
                 b && b.upstream
                   ? createElement(

@@ -99,6 +99,8 @@ export interface ShellAPI {
   writeProjectFile?: (relPath: string, content: string) => Promise<any>;
   // ===== Git =====
   gitBranchStatus?: () => Promise<any>;
+  gitListBranches?: () => Promise<any>;
+  gitCheckout?: (opts?: { branch?: string; remote?: boolean }) => Promise<any>;
   gitCommit?: (message: string) => Promise<any>;
   gitPush?: (opts?: any) => Promise<any>;
   gitPull?: (opts?: any) => Promise<any>;

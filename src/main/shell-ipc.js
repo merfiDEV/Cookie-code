@@ -1234,6 +1234,26 @@ function registerShellIpc({
       return { ok: false, error: e.message };
     }
   });
+  ipcMain.handle("shell-git-list-branches", async (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.listBranches(dir);
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle("shell-git-checkout", async (event, opts = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.checkout(dir, opts || {});
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
   ipcMain.handle("shell-git-commit", async (event, { message } = {}) => {
     const ctx = windowState.getContextByWebContents(event.sender);
     const dir = gitProjectDir(ctx);

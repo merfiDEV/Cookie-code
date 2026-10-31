@@ -195,6 +195,8 @@ const shellAPI = {
   getAssetUrl: (rel) => ipcRenderer.invoke("shell-get-asset-url", { rel }),
   // ===== Git =====
   gitBranchStatus: () => ipcRenderer.invoke("shell-git-branch-status"),
+  gitListBranches: () => ipcRenderer.invoke("shell-git-list-branches"),
+  gitCheckout: (opts) => ipcRenderer.invoke("shell-git-checkout", opts || {}),
   gitCommit: (message) => ipcRenderer.invoke("shell-git-commit", { message }),
   gitPush: (opts) => ipcRenderer.invoke("shell-git-push", opts || {}),
   gitPull: (opts) => ipcRenderer.invoke("shell-git-pull", opts || {}),

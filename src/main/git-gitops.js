@@ -235,10 +235,76 @@ async function sync(projectDir) {
   return { ok: true, results };
 }
 
+/**
+ * Список веток (локальные + удалённые) для переключателя на Git-странице.
+ * Возвращает { ok, branches: [{ name, remote, current }] }.
+ */
+async function listBranches(projectDir) {
+  const r = await runGit(projectDir, [
+    "for-each-ref",
+    "--format=%(HEAD)|%(refname)",
+    "refs/heads",
+    "refs/remotes",
+  ]);
+  if (!r.ok) return { ok: false, error: r.stderr || "git for-each-ref failed" };
+  const branches = [];
+  const seen = new Set();
+  for (const raw of r.stdout.split(/\r?\n/)) {
+    if (!raw.trim()) continue;
+    const sep = raw.indexOf("|");
+    if (sep < 0) continue;
+    const current = raw.slice(0, sep).trim() === "*";
+    let ref = raw.slice(sep + 1).trim();
+    // Пропускаем симлинк HEAD удалённых (origin/HEAD).
+    if (!ref || ref.endsWith("/HEAD")) continue;
+    const remote = ref.startsWith("refs/remotes/");
+    ref = ref.replace(/^refs\/(heads|remotes)\//, "");
+    if (!ref || seen.has(ref)) continue;
+    seen.add(ref);
+    branches.push({ name: ref, remote, current });
+  }
+  return { ok: true, branches };
+}
+
+/**
+ * Переключить ветку (git checkout). remote=true — удалённая ветка:
+ * создаём локальную с upstream, либо переключаемся на уже существующую.
+ */
+async function checkout(projectDir, { branch = "", remote = false } = {}) {
+  const target = String(branch || "").trim();
+  if (!target) return { ok: false, error: "no branch", code: "NoBranch" };
+  let args;
+  let local = target;
+  if (remote) {
+    local = target.replace(/^[^/]+\//, "");
+    const exists = await runGit(projectDir, [
+      "show-ref",
+      "--verify",
+      "--quiet",
+      "refs/heads/" + local,
+    ]);
+    args = exists.ok
+      ? ["checkout", local]
+      : ["checkout", "-b", local, "--track", target];
+  } else {
+    args = ["checkout", local];
+  }
+  const r = await runGit(projectDir, args);
+  if (!r.ok)
+    return {
+      ok: false,
+      error: (r.stderr || r.stdout || "git checkout failed").trim(),
+      code: "CheckoutFailed",
+    };
+  return { ok: true, branch: local };
+}
+
 module.exports = {
   runGit,
   getRemotes,
   getBranchStatus,
+  listBranches,
+  checkout,
   commitAll,
   push,
   pull,
