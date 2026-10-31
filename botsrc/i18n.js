@@ -455,6 +455,7 @@ const STRINGS = {
     "longproc.body": "Команда выполняется более {sec} с:",
     "longproc.kill": "🛑 Убить процесс",
     "longproc.killed": "🛑 Процесс остановлен пользователем",
+    "longproc.killedPc": "🛑 Процесс остановлен с ПК",
     "longproc.killFailed": "⚠️ Не удалось остановить процесс",
     "longproc.gone": "Процесс уже завершён",
 
@@ -937,6 +938,7 @@ const STRINGS = {
     "longproc.body": "Command has been running for over {sec}s:",
     "longproc.kill": "🛑 Kill process",
     "longproc.killed": "🛑 Process stopped by user",
+    "longproc.killedPc": "🛑 Process stopped from PC",
     "longproc.killFailed": "⚠️ Failed to stop process",
     "longproc.gone": "Process already finished",
 

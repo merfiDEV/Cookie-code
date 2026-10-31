@@ -324,6 +324,12 @@ const _planCallbackTokens = new Map();
  */
 const _longProcessTokens = new Map();
 /**
+ * Обратный индекс: pid → Set<token> для уведомлений о долгих процессах.
+ * Нужен, чтобы убрать кнопку «Убить процесс» из Telegram, когда процесс
+ * останавливают с ПК (overlay Kill / killAll), а не кнопкой в TG.
+ */
+const _longProcessByPid = new Map();
+/**
  * Реестр callback-кнопок выбора окна для /screen.
  * key = token ('sc_<n>' без префикса — храним 's<n>'), value = windowId.
  */
@@ -910,6 +916,12 @@ async function notifyLongProcess(pid, command, sec) {
     pid: numPid,
     messageId: res.messageId || null,
   });
+  let set = _longProcessByPid.get(numPid);
+  if (!set) {
+    set = new Set();
+    _longProcessByPid.set(numPid, set);
+  }
+  set.add(token);
   return { success: true, token };
 }
 
@@ -944,6 +956,41 @@ async function _handleLongProcessCallback(token, ref, cbq) {
       _t("longproc.title") + "\n" + statusText,
       { parseMode: "HTML", replyMarkup: { inline_keyboard: [] } },
     );
+  }
+  const pidSet = _longProcessByPid.get(ref.pid);
+  if (pidSet) {
+    pidSet.delete(token);
+    if (pidSet.size === 0) _longProcessByPid.delete(ref.pid);
+  }
+}
+
+/**
+ * Убрать кнопку «Убить процесс» из Telegram, если процесс остановлен с ПК
+ * (overlay Kill / killAll), а не кнопкой в TG. Редактирует все связанные
+ * сообщения: убирает клавиатуру и помечает «процесс остановлен».
+ * @param {number|number[]} pid  pid или массив pid
+ */
+async function notifyProcessKilled(pid) {
+  const pids = Array.isArray(pid) ? pid : [pid];
+  for (const p of pids) {
+    const numPid = Number(p);
+    if (!numPid) continue;
+    const set = _longProcessByPid.get(numPid);
+    if (!set) continue;
+    const tokens = Array.from(set);
+    _longProcessByPid.delete(numPid);
+    for (const token of tokens) {
+      const ref = _longProcessTokens.get(token);
+      _longProcessTokens.delete(token);
+      if (!ref || !ref.messageId) continue;
+      try {
+        await telegramBot.editMessageText(
+          ref.messageId,
+          _t("longproc.title") + "\n" + _t("longproc.killedPc"),
+          { parseMode: "HTML", replyMarkup: { inline_keyboard: [] } },
+        );
+      } catch (_) {}
+    }
   }
 }
 
@@ -5503,6 +5550,7 @@ module.exports = {
   requestPlanApproval,
   cancelPlanApproval,
   notifyLongProcess,
+  notifyProcessKilled,
   askQuestion,
   setOnQuestionAnswered,
   setOnQuestionCancelled,
