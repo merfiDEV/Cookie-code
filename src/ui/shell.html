@@ -16661,6 +16661,7 @@ body {
     const footers = useSlot(FOOTER_SLOT);
     const [task, setTask] = (0, import_react8.useState)(null);
     const [running, setRunning] = (0, import_react8.useState)(false);
+    const [runningLabel, setRunningLabel] = (0, import_react8.useState)("");
     const [history, setHistory] = (0, import_react8.useState)([]);
     const [historyOpen, setHistoryOpen] = (0, import_react8.useState)(false);
     (0, import_react8.useEffect)(() => {
@@ -16672,6 +16673,7 @@ body {
           setTask({ command: d.command, timestamp: d.timestamp });
         } else if (d.kind === "status") {
           setRunning(!!d.running);
+          setRunningLabel(d.running ? String(d.label || "") : "");
         } else if (d.kind === "history" && Array.isArray(d.history)) {
           setHistory(d.history);
         }
@@ -16877,6 +16879,14 @@ body {
               onClick: () => overlayAction("diff")
             },
             "Diff"
+          ),
+          (0, import_react8.createElement)(
+            UiButton,
+            {
+              icon: "M17 8l4 4-4 4M7 16l-4-4 4-4",
+              onClick: () => overlayAction("context-port")
+            },
+            "\u041F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438 \u043A\u043E\u043D\u0442\u0435\u043A\u0441\u0442"
           )
         ),
         (0, import_react8.createElement)("div", {
@@ -16909,7 +16919,7 @@ body {
           (0, import_react8.createElement)(
             "div",
             { className: "ck-task-cmd" },
-            task && task.command ? task.command : "\u041D\u0435\u0442"
+            task && task.command ? task.command : running ? runningLabel || "\u041F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043A\u0430..." : "\u041D\u0435\u0442"
           ),
           (0, import_react8.createElement)(
             "div",

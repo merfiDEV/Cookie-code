@@ -1097,7 +1097,7 @@ async function handleJsToolScript(code) {
   // 方向 C：不强制弹面板
   isExecuting = true;
   notifyJsScriptDetected(code);
-  setTaskStatus(true);
+  setTaskStatus(true, "Выполняется JS-скрипт");
   showToast(t("overlay.toast.execStarted"));
 
   const callId =
@@ -1215,7 +1215,7 @@ async function handleToolCall(toolCall) {
 
   // 方向 C：不强制弹面板
   isExecuting = true;
-  setTaskStatus(true);
+  setTaskStatus(true, "Инструмент: " + toolName);
   showToast(t("overlay.toast.execStarted"));
 
   try {

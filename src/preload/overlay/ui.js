@@ -402,7 +402,7 @@ function hideBannerNotification() {
  * 设置任务状态（检测到任务：后面的执行中提示）
  * @param {boolean} running - 是否执行中
  */
-function setTaskStatus(running) {
+function setTaskStatus(running, label) {
   const status = document.getElementById("cuckoo-task-status");
   if (status) {
     status.classList.toggle("cuckoo-hidden", !running);
@@ -412,6 +412,7 @@ function setTaskStatus(running) {
       window.electronAPI.shellBroadcastTask({
         kind: "status",
         running: !!running,
+        label: running && label ? String(label) : "",
       });
     }
   } catch (_) {}

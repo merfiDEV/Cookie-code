@@ -659,8 +659,15 @@ function registerShellIpc({
     try {
       const { processManager } = require("./process-manager");
       const result = await processManager.killAll();
+      // Останавливаем генерацию AI-страницы (ctx.view), иначе поток
+      // продолжит идти в чат, хотя дочерние процессы уже убиты.
       try {
         ctx.view.webContents.stop();
+      } catch (_) {}
+      // Сообщаем AI-странице, что задача отменена: preload сбросит
+      // статус «выполняется» в Home и в оверлее.
+      try {
+        ctx.view.webContents.send("overlay-action", { action: "kill-done" });
       } catch (_) {}
       return { success: true, stopped: true, count: result.count };
     } catch (e) {

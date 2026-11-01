@@ -162,6 +162,7 @@ export function HomePage() {
     timestamp?: number;
   } | null>(null);
   const [running, setRunning] = useState(false);
+  const [runningLabel, setRunningLabel] = useState("");
   const [history, setHistory] = useState<any[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -174,6 +175,7 @@ export function HomePage() {
         setTask({ command: d.command, timestamp: d.timestamp });
       } else if (d.kind === "status") {
         setRunning(!!d.running);
+        setRunningLabel(d.running ? String(d.label || "") : "");
       } else if (d.kind === "history" && Array.isArray(d.history)) {
         setHistory(d.history);
       }
@@ -403,6 +405,14 @@ export function HomePage() {
           },
           "Diff",
         ),
+        createElement(
+          UiButton,
+          {
+            icon: "M17 8l4 4-4 4M7 16l-4-4 4-4",
+            onClick: () => overlayAction("context-port"),
+          },
+          "Перенести контекст",
+        ),
       ),
       createElement("div", {
         style: { height: 1, background: "var(--ck-border)", margin: "14px 0" },
@@ -436,7 +446,11 @@ export function HomePage() {
         createElement(
           "div",
           { className: "ck-task-cmd" },
-          task && task.command ? task.command : "Нет",
+          task && task.command
+            ? task.command
+            : running
+              ? runningLabel || "Подготовка..."
+              : "Нет",
         ),
         createElement(
           "div",
