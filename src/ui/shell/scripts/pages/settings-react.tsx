@@ -70,7 +70,9 @@ function BackgroundPreview({
     createElement("img", {
       src: item.url,
       alt: item.name || item.id,
-      style: { filter: "blur(" + (blur || 0) + "px)" },
+      style: {
+        transform: "scale(" + (1 + Math.min(blur || 0, 30) / 100) + ")",
+      },
       draggable: false,
     }),
     createElement(

@@ -42,6 +42,7 @@ function injectCSS() {
     "#cuckoo-overlay { display: none !important; }",
     "#cuckoo-fab { display: none !important; }",
     ".cuckoo-fab { display: none !important; }",
+    "#cuckoo-status-badge { display: none !important; }",
   ].join("\n");
   style.textContent = OVERLAY_CSS + "\n" + HIDE_LEGACY;
   document.head.appendChild(style);
