@@ -9,6 +9,7 @@
  */
 import { createElement, useState, useEffect, useCallback } from "react";
 import { api, ckAlert, ckConfirm } from "../shared.js";
+import { t } from "../i18n.js";
 import { addRecent } from "../recent.js";
 import { useHideAiView } from "../use-hide-ai-view.js";
 
@@ -287,7 +288,13 @@ export function AgentsPage() {
 
   const del = useCallback(
     async (a: Agent) => {
-      if (!(await ckConfirm("确定删除该子代理文件？此操作不可恢复。"))) return;
+      if (
+        !(await ckConfirm(
+          t("确定删除该子代理文件？此操作不可恢复。"),
+          t("删除"),
+        ))
+      )
+        return;
       const anyApi = api as any;
       if (!anyApi.deleteAgentFile) return;
       try {

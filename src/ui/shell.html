@@ -6488,7 +6488,7 @@ body {
       var p = Symbol.for("react.fragment");
       var q = Symbol.for("react.strict_mode");
       var r = Symbol.for("react.profiler");
-      var t = Symbol.for("react.provider");
+      var t2 = Symbol.for("react.provider");
       var u = Symbol.for("react.context");
       var v = Symbol.for("react.forward_ref");
       var w = Symbol.for("react.suspense");
@@ -6672,7 +6672,7 @@ body {
       };
       exports.createContext = function(a) {
         a = { $$typeof: u, _currentValue: a, _currentValue2: a, _threadCount: 0, Provider: null, Consumer: null, _defaultValue: null, _globalName: null };
-        a.Provider = { $$typeof: t, _context: a };
+        a.Provider = { $$typeof: t2, _context: a };
         return a.Consumer = a;
       };
       exports.createElement = M;
@@ -6813,7 +6813,7 @@ body {
       var p;
       var q;
       var r = [];
-      var t = [];
+      var t2 = [];
       var u = 1;
       var v = null;
       var y = 3;
@@ -6825,11 +6825,11 @@ body {
       var F = "undefined" !== typeof setImmediate ? setImmediate : null;
       "undefined" !== typeof navigator && void 0 !== navigator.scheduling && void 0 !== navigator.scheduling.isInputPending && navigator.scheduling.isInputPending.bind(navigator.scheduling);
       function G(a) {
-        for (var b = h(t); null !== b; ) {
-          if (null === b.callback) k(t);
-          else if (b.startTime <= a) k(t), b.sortIndex = b.expirationTime, f(r, b);
+        for (var b = h(t2); null !== b; ) {
+          if (null === b.callback) k(t2);
+          else if (b.startTime <= a) k(t2), b.sortIndex = b.expirationTime, f(r, b);
           else break;
-          b = h(t);
+          b = h(t2);
         }
       }
       function H(a) {
@@ -6837,7 +6837,7 @@ body {
         G(a);
         if (!A) if (null !== h(r)) A = true, I3(J);
         else {
-          var b = h(t);
+          var b = h(t2);
           null !== b && K(H, b.startTime - a);
         }
       }
@@ -6862,7 +6862,7 @@ body {
           }
           if (null !== v) var w = true;
           else {
-            var m = h(t);
+            var m = h(t2);
             null !== m && K(H, m.startTime - b);
             w = false;
           }
@@ -6998,7 +6998,7 @@ body {
         }
         e = c + e;
         a = { id: u++, callback: b, priorityLevel: a, startTime: c, expirationTime: e, sortIndex: -1 };
-        c > d ? (a.sortIndex = c, f(t, a), null === h(r) && a === h(t) && (B ? (E(L), L = -1) : B = true, K(H, c - d))) : (a.sortIndex = e, f(r, a), A || z || (A = true, I3(J)));
+        c > d ? (a.sortIndex = c, f(t2, a), null === h(r) && a === h(t2) && (B ? (E(L), L = -1) : B = true, K(H, c - d))) : (a.sortIndex = e, f(r, a), A || z || (A = true, I3(J)));
         return a;
       };
       exports.unstable_shouldYield = M;
@@ -8951,16 +8951,16 @@ body {
                 case "pointerup":
                   k2 = Td;
               }
-              var t = 0 !== (b & 4), J = !t && "scroll" === a, x = t ? null !== h2 ? h2 + "Capture" : null : h2;
-              t = [];
+              var t2 = 0 !== (b & 4), J = !t2 && "scroll" === a, x = t2 ? null !== h2 ? h2 + "Capture" : null : h2;
+              t2 = [];
               for (var w = d2, u; null !== w; ) {
                 u = w;
                 var F = u.stateNode;
-                5 === u.tag && null !== F && (u = F, null !== x && (F = Kb(w, x), null != F && t.push(tf(w, F, u))));
+                5 === u.tag && null !== F && (u = F, null !== x && (F = Kb(w, x), null != F && t2.push(tf(w, F, u))));
                 if (J) break;
                 w = w.return;
               }
-              0 < t.length && (h2 = new k2(h2, n, null, c, e2), g2.push({ event: h2, listeners: t }));
+              0 < t2.length && (h2 = new k2(h2, n, null, c, e2), g2.push({ event: h2, listeners: t2 }));
             }
           }
           if (0 === (b & 7)) {
@@ -8974,38 +8974,38 @@ body {
                   if (n = c.relatedTarget || c.toElement, k2 = d2, n = n ? Wc(n) : null, null !== n && (J = Vb(n), n !== J || 5 !== n.tag && 6 !== n.tag)) n = null;
                 } else k2 = null, n = d2;
                 if (k2 !== n) {
-                  t = Bd;
+                  t2 = Bd;
                   F = "onMouseLeave";
                   x = "onMouseEnter";
                   w = "mouse";
-                  if ("pointerout" === a || "pointerover" === a) t = Td, F = "onPointerLeave", x = "onPointerEnter", w = "pointer";
+                  if ("pointerout" === a || "pointerover" === a) t2 = Td, F = "onPointerLeave", x = "onPointerEnter", w = "pointer";
                   J = null == k2 ? h2 : ue(k2);
                   u = null == n ? h2 : ue(n);
-                  h2 = new t(F, w + "leave", k2, c, e2);
+                  h2 = new t2(F, w + "leave", k2, c, e2);
                   h2.target = J;
                   h2.relatedTarget = u;
                   F = null;
-                  Wc(e2) === d2 && (t = new t(x, w + "enter", n, c, e2), t.target = u, t.relatedTarget = J, F = t);
+                  Wc(e2) === d2 && (t2 = new t2(x, w + "enter", n, c, e2), t2.target = u, t2.relatedTarget = J, F = t2);
                   J = F;
                   if (k2 && n) b: {
-                    t = k2;
+                    t2 = k2;
                     x = n;
                     w = 0;
-                    for (u = t; u; u = vf(u)) w++;
+                    for (u = t2; u; u = vf(u)) w++;
                     u = 0;
                     for (F = x; F; F = vf(F)) u++;
-                    for (; 0 < w - u; ) t = vf(t), w--;
+                    for (; 0 < w - u; ) t2 = vf(t2), w--;
                     for (; 0 < u - w; ) x = vf(x), u--;
                     for (; w--; ) {
-                      if (t === x || null !== x && t === x.alternate) break b;
-                      t = vf(t);
+                      if (t2 === x || null !== x && t2 === x.alternate) break b;
+                      t2 = vf(t2);
                       x = vf(x);
                     }
-                    t = null;
+                    t2 = null;
                   }
-                  else t = null;
-                  null !== k2 && wf(g2, h2, k2, t, false);
-                  null !== n && null !== J && wf(g2, J, n, t, true);
+                  else t2 = null;
+                  null !== k2 && wf(g2, h2, k2, t2, false);
+                  null !== n && null !== J && wf(g2, J, n, t2, true);
                 }
               }
             }
@@ -9611,22 +9611,22 @@ body {
           I3 && tg(e2, w);
           return l2;
         }
-        function t(e2, g2, h2, k2) {
+        function t2(e2, g2, h2, k2) {
           var l2 = Ka(h2);
           if ("function" !== typeof l2) throw Error(p(150));
           h2 = l2.call(h2);
           if (null == h2) throw Error(p(151));
           for (var u = l2 = null, m2 = g2, w = g2 = 0, x = null, n2 = h2.next(); null !== m2 && !n2.done; w++, n2 = h2.next()) {
             m2.index > w ? (x = m2, m2 = null) : x = m2.sibling;
-            var t2 = r(e2, m2, n2.value, k2);
-            if (null === t2) {
+            var t3 = r(e2, m2, n2.value, k2);
+            if (null === t3) {
               null === m2 && (m2 = x);
               break;
             }
-            a && m2 && null === t2.alternate && b(e2, m2);
-            g2 = f(t2, g2, w);
-            null === u ? l2 = t2 : u.sibling = t2;
-            u = t2;
+            a && m2 && null === t3.alternate && b(e2, m2);
+            g2 = f(t3, g2, w);
+            null === u ? l2 = t3 : u.sibling = t3;
+            u = t3;
             m2 = x;
           }
           if (n2.done) return c(
@@ -9703,7 +9703,7 @@ body {
                 return l2 = f2._init, J(a2, d2, l2(f2._payload), h2);
             }
             if (eb(f2)) return n(a2, d2, f2, h2);
-            if (Ka(f2)) return t(a2, d2, f2, h2);
+            if (Ka(f2)) return t2(a2, d2, f2, h2);
             Mg(a2, f2);
           }
           return "string" === typeof f2 && "" !== f2 || "number" === typeof f2 ? (f2 = "" + f2, null !== d2 && 6 === d2.tag ? (c(a2, d2.sibling), d2 = e(d2, f2), d2.return = a2, a2 = d2) : (c(a2, d2), d2 = Qg(f2, a2.mode, h2), d2.return = a2, a2 = d2), g(a2)) : c(a2, d2);
@@ -9852,12 +9852,12 @@ body {
                 next: null
               });
               a: {
-                var n = a, t = h;
+                var n = a, t2 = h;
                 r = b;
                 y = c;
-                switch (t.tag) {
+                switch (t2.tag) {
                   case 1:
-                    n = t.payload;
+                    n = t2.payload;
                     if ("function" === typeof n) {
                       q = n.call(y, q, r);
                       break a;
@@ -9867,7 +9867,7 @@ body {
                   case 3:
                     n.flags = n.flags & -65537 | 128;
                   case 0:
-                    n = t.payload;
+                    n = t2.payload;
                     r = "function" === typeof n ? n.call(y, q, r) : n;
                     if (null === r || void 0 === r) break a;
                     q = A({}, q, r);
@@ -11554,7 +11554,7 @@ body {
                 break;
               case 1:
                 if (null !== n) {
-                  var t = n.memoizedProps, J = n.memoizedState, x = b.stateNode, w = x.getSnapshotBeforeUpdate(b.elementType === b.type ? t : Ci(b.type, t), J);
+                  var t2 = n.memoizedProps, J = n.memoizedState, x = b.stateNode, w = x.getSnapshotBeforeUpdate(b.elementType === b.type ? t2 : Ci(b.type, t2), J);
                   x.__reactInternalSnapshotBeforeUpdate = w;
                 }
                 break;
@@ -11798,13 +11798,13 @@ body {
             if (d & 4) {
               try {
                 Pj(3, a, a.return), Qj(3, a);
-              } catch (t) {
-                W(a, a.return, t);
+              } catch (t2) {
+                W(a, a.return, t2);
               }
               try {
                 Pj(5, a, a.return);
-              } catch (t) {
-                W(a, a.return, t);
+              } catch (t2) {
+                W(a, a.return, t2);
               }
             }
             break;
@@ -11821,8 +11821,8 @@ body {
               var e = a.stateNode;
               try {
                 ob(e, "");
-              } catch (t) {
-                W(a, a.return, t);
+              } catch (t2) {
+                W(a, a.return, t2);
               }
             }
             if (d & 4 && (e = a.stateNode, null != e)) {
@@ -11855,8 +11855,8 @@ body {
                     ) : fb(e, !!f.multiple, f.multiple ? [] : "", false));
                 }
                 e[Pf] = f;
-              } catch (t) {
-                W(a, a.return, t);
+              } catch (t2) {
+                W(a, a.return, t2);
               }
             }
             break;
@@ -11869,8 +11869,8 @@ body {
               f = a.memoizedProps;
               try {
                 e.nodeValue = f;
-              } catch (t) {
-                W(a, a.return, t);
+              } catch (t2) {
+                W(a, a.return, t2);
               }
             }
             break;
@@ -11879,8 +11879,8 @@ body {
             ek(a);
             if (d & 4 && null !== c && c.memoizedState.isDehydrated) try {
               bd(b.containerInfo);
-            } catch (t) {
-              W(a, a.return, t);
+            } catch (t2) {
+              W(a, a.return, t2);
             }
             break;
           case 4:
@@ -11919,8 +11919,8 @@ body {
                         c = r.return;
                         try {
                           b = d, n.props = b.memoizedProps, n.state = b.memoizedState, n.componentWillUnmount();
-                        } catch (t) {
-                          W(d, c, t);
+                        } catch (t2) {
+                          W(d, c, t2);
                         }
                       }
                       break;
@@ -11943,15 +11943,15 @@ body {
                     m = q;
                     try {
                       e = q.stateNode, l ? (f = e.style, "function" === typeof f.setProperty ? f.setProperty("display", "none", "important") : f.display = "none") : (h = q.stateNode, k = q.memoizedProps.style, g = void 0 !== k && null !== k && k.hasOwnProperty("display") ? k.display : null, h.style.display = rb("display", g));
-                    } catch (t) {
-                      W(a, a.return, t);
+                    } catch (t2) {
+                      W(a, a.return, t2);
                     }
                   }
                 } else if (6 === q.tag) {
                   if (null === m) try {
                     q.stateNode.nodeValue = l ? "" : q.memoizedProps;
-                  } catch (t) {
-                    W(a, a.return, t);
+                  } catch (t2) {
+                    W(a, a.return, t2);
                   }
                 } else if ((22 !== q.tag && 23 !== q.tag || null === q.memoizedState || q === a) && null !== q.child) {
                   q.child.return = q;
@@ -12583,9 +12583,9 @@ body {
                   k = l;
                   var n = b.updateQueue;
                   if (null === n) {
-                    var t = /* @__PURE__ */ new Set();
-                    t.add(k);
-                    b.updateQueue = t;
+                    var t2 = /* @__PURE__ */ new Set();
+                    t2.add(k);
+                    b.updateQueue = t2;
                   } else n.add(k);
                   break a;
                 } else {
@@ -12830,14 +12830,14 @@ body {
                     }
                     var n = f.alternate;
                     if (null !== n) {
-                      var t = n.child;
-                      if (null !== t) {
+                      var t2 = n.child;
+                      if (null !== t2) {
                         n.child = null;
                         do {
-                          var J = t.sibling;
-                          t.sibling = null;
-                          t = J;
-                        } while (null !== t);
+                          var J = t2.sibling;
+                          t2.sibling = null;
+                          t2 = J;
+                        } while (null !== t2);
                       }
                     }
                     V = f;
@@ -13703,8 +13703,9 @@ body {
     _aiHiddenCount++;
     if (_aiHiddenCount === 1) {
       try {
-        if (api.setAiViewVisible) api.setAiViewVisible(false).catch(() => {
-        });
+        if (api.setAiViewVisible)
+          api.setAiViewVisible(false).catch(() => {
+          });
       } catch (_) {
       }
     }
@@ -13714,8 +13715,9 @@ body {
     _aiHiddenCount--;
     if (_aiHiddenCount === 0) {
       try {
-        if (api.setAiViewVisible) api.setAiViewVisible(true).catch(() => {
-        });
+        if (api.setAiViewVisible)
+          api.setAiViewVisible(true).catch(() => {
+          });
       } catch (_) {
       }
     }
@@ -13740,6 +13742,7 @@ body {
         okBtn.removeEventListener("click", onOk);
         cancelBtn.removeEventListener("click", onCancel);
         mask.removeEventListener("click", onMask);
+        document.removeEventListener("keydown", onKey);
         aiViewLeave();
       }
       function onOk() {
@@ -13756,10 +13759,26 @@ body {
           resolve(false);
         }
       }
+      function onKey(e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onOk();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          onCancel();
+        }
+      }
       okBtn.addEventListener("click", onOk);
       cancelBtn.addEventListener("click", onCancel);
       mask.addEventListener("click", onMask);
+      document.addEventListener("keydown", onKey);
       mask.classList.remove("cuckoo-hidden");
+      setTimeout(() => {
+        try {
+          okBtn.focus();
+        } catch (_) {
+        }
+      }, 50);
     });
   }
   function ckConfirm(message, title) {
@@ -15380,7 +15399,7 @@ body {
   function MainSlotPage({ item }) {
     const C = item.Component;
     const face = item.injectedProps || {};
-    const t = item.t || ((k) => k);
+    const t2 = item.t || ((k) => k);
     const pmStore = face && face.hooks ? face.hooks.pluginManager : void 0;
     const clStore = face && face.hooks ? face.hooks.configLedger : void 0;
     const usePluginManager = (0, import_react5.useCallback)(
@@ -15459,7 +15478,7 @@ body {
       usePluginManager,
       useConfigLedger,
       renderSlot,
-      t
+      t: t2
     };
     return (0, import_react5.createElement)(C, props);
   }
@@ -15683,20 +15702,20 @@ body {
         "div",
         { className: "ck-activitybar" },
         TABS.map(
-          (t) => (0, import_react5.createElement)(AbButton, {
-            key: t.id,
-            tab: t,
-            active: activeTab === t.id,
-            onClick: () => onTabClick(t.id)
+          (t2) => (0, import_react5.createElement)(AbButton, {
+            key: t2.id,
+            tab: t2,
+            active: activeTab === t2.id,
+            onClick: () => onTabClick(t2.id)
           })
         ),
         (0, import_react5.createElement)("div", { className: "ck-ab-spacer" }),
         BOTTOM_TABS.map(
-          (t) => (0, import_react5.createElement)(AbButton, {
-            key: t.id,
-            tab: t,
-            active: activeTab === t.id,
-            onClick: () => onTabClick(t.id)
+          (t2) => (0, import_react5.createElement)(AbButton, {
+            key: t2.id,
+            tab: t2,
+            active: activeTab === t2.id,
+            onClick: () => onTabClick(t2.id)
           })
         ),
         // 设置：打开全屏模态
@@ -16317,6 +16336,26 @@ body {
       ru: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u0430\u0439\u043B \u0441\u0443\u0431\u0430\u0433\u0435\u043D\u0442\u0430? \u041D\u0435\u043E\u0431\u0440\u0430\u0442\u0438\u043C\u043E.",
       en: "Delete subagent? Irreversible."
     },
+    "\u786E\u5B9A\u5220\u9664\u63D0\u793A\u8BCD\u300C": {
+      ru: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u0440\u043E\u043C\u043F\u0442 \xAB",
+      en: "Delete prompt \xAB"
+    },
+    "\u300D\uFF1F": { ru: "\xBB?", en: "\xBB?" },
+    "\u786E\u5B9A\u5220\u9664\u8BB0\u5FC6\uFF1F": {
+      ru: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u0430\u043C\u044F\u0442\u044C?",
+      en: "Delete memory?"
+    },
+    "\u786E\u5B9A\u5220\u9664\u8BE5\u5BF9\u8BDD\uFF1F": {
+      ru: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0434\u0438\u0430\u043B\u043E\u0433?",
+      en: "Delete conversation?"
+    },
+    "\u91CD\u7F6E\u8BBE\u7F6E\u5C06\u6062\u590D\u9ED8\u8BA4\uFF0C\u786E\u5B9A\uFF1F": {
+      ru: "\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0434\u043E \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0439 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E?",
+      en: "Reset settings to defaults?"
+    },
+    \u786E\u5B9A\u5220\u9664: { ru: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C", en: "Delete" },
+    \u6E05\u7A7A: { ru: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", en: "Clear" },
+    \u8BF7\u8F93\u5165: { ru: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435", en: "Enter" },
     "\u5DF2\u521B\u5EFA\uFF1A": { ru: "\u0421\u043E\u0437\u0434\u0430\u043D\u043E: ", en: "Created: " },
     "\u8FD8\u6CA1\u6709\u63D0\u793A\u8BCD\uFF0C\u70B9\u4E0A\u65B9\u65B0\u5EFA": {
       ru: "\u041D\u0435\u0442 \u043F\u0440\u043E\u043C\u043F\u0442\u043E\u0432 \u2014 \u0441\u043E\u0437\u0434\u0430\u0439\u0442\u0435 \u0432\u044B\u0448\u0435",
@@ -16410,6 +16449,11 @@ body {
       translateAll();
     } catch (_) {
     }
+  }
+  function t(chinese) {
+    const e = DICT[chinese];
+    if (!e) return chinese;
+    return currentLang === "ru" ? e.ru : e.en;
   }
   var observer = null;
   var installed = false;
@@ -16740,9 +16784,9 @@ body {
           injected = m.spec.inject({}) || {};
       } catch (e) {
       }
-      const t = typeof m.t === "function" ? m.t : (k) => k;
+      const t2 = typeof m.t === "function" ? m.t : (k) => k;
       const props = { wide: true, ...injected };
-      props.t = t;
+      props.t = t2;
       const showLabel = !!(m.spec && (m.spec.label || m.spec.text || m.spec.title));
       const hasCommand = !!(m.spec && m.spec.command);
       const panelId = m.id;
@@ -17012,8 +17056,8 @@ body {
         anyApi.onTotalUpdated((d) => setSystemTotal(d?.total || 0));
       if (anyApi.onTpsUpdated)
         anyApi.onTpsUpdated((d) => setTps(d?.tps ? String(d.tps) : "--"));
-      const t = setInterval(load, 5e3);
-      return () => clearInterval(t);
+      const t2 = setInterval(load, 5e3);
+      return () => clearInterval(t2);
     }, [load]);
     const saveAuto = (0, import_react9.useCallback)(async (enabled, threshold) => {
       const anyApi = api;
@@ -18370,7 +18414,8 @@ body {
     );
     const del = (0, import_react14.useCallback)(
       async (s) => {
-        if (!await ckConfirm("\u786E\u5B9A\u5220\u9664\u63D0\u793A\u8BCD\u300C" + s.name + "\u300D\uFF1F")) return;
+        const msg = t("\u786E\u5B9A\u5220\u9664\u63D0\u793A\u8BCD\u300C") + s.name + t("\u300D\uFF1F");
+        if (!await ckConfirm(msg, t("\u5220\u9664"))) return;
         const next = (snippets || []).filter((x) => x.id !== s.id);
         setSnippets(next);
         if (api.saveSnippets) {
@@ -18844,7 +18889,11 @@ body {
     }, []);
     const del = (0, import_react16.useCallback)(
       async (a) => {
-        if (!await ckConfirm("\u786E\u5B9A\u5220\u9664\u8BE5\u5B50\u4EE3\u7406\u6587\u4EF6\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u6062\u590D\u3002")) return;
+        if (!await ckConfirm(
+          t("\u786E\u5B9A\u5220\u9664\u8BE5\u5B50\u4EE3\u7406\u6587\u4EF6\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u6062\u590D\u3002"),
+          t("\u5220\u9664")
+        ))
+          return;
         const anyApi = api;
         if (!anyApi.deleteAgentFile) return;
         try {
@@ -19778,9 +19827,9 @@ body {
   }
   function relTime(iso) {
     if (!iso) return "";
-    const t = Date.parse(iso);
-    if (!Number.isFinite(t)) return "";
-    const diff = Date.now() - t;
+    const t2 = Date.parse(iso);
+    if (!Number.isFinite(t2)) return "";
+    const diff = Date.now() - t2;
     const min = Math.floor(diff / 6e4);
     if (min < 1) return "\u521A\u521A";
     if (min < 60) return min + "\u5206\u949F\u524D";
@@ -19807,8 +19856,8 @@ body {
   function latestTs(list) {
     let max = 0;
     for (const s of list) {
-      const t = s.updatedAt ? Date.parse(s.updatedAt) : 0;
-      if (Number.isFinite(t) && t > max) max = t;
+      const t2 = s.updatedAt ? Date.parse(s.updatedAt) : 0;
+      if (Number.isFinite(t2) && t2 > max) max = t2;
     }
     return max;
   }
@@ -19905,10 +19954,10 @@ body {
         load();
       });
       if (api.onUrlUpdated) {
-        let t = null;
+        let t2 = null;
         api.onUrlUpdated(() => {
-          if (t) clearTimeout(t);
-          t = setTimeout(() => load(), 600);
+          if (t2) clearTimeout(t2);
+          t2 = setTimeout(() => load(), 600);
         });
       }
       if (api.onSessionsChanged) api.onSessionsChanged(() => load());

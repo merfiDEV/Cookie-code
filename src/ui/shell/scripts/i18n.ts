@@ -161,6 +161,26 @@ const DICT: Record<string, { ru: string; en: string }> = {
     ru: "Удалить файл субагента? Необратимо.",
     en: "Delete subagent? Irreversible.",
   },
+  "确定删除提示词「": {
+    ru: "Удалить промпт «",
+    en: "Delete prompt «",
+  },
+  "」？": { ru: "»?", en: "»?" },
+  "确定删除记忆？": {
+    ru: "Удалить память?",
+    en: "Delete memory?",
+  },
+  "确定删除该对话？": {
+    ru: "Удалить диалог?",
+    en: "Delete conversation?",
+  },
+  "重置设置将恢复默认，确定？": {
+    ru: "Сбросить настройки до значений по умолчанию?",
+    en: "Reset settings to defaults?",
+  },
+  确定删除: { ru: "Удалить", en: "Delete" },
+  清空: { ru: "Очистить", en: "Clear" },
+  请输入: { ru: "Введите", en: "Enter" },
   "已创建：": { ru: "Создано: ", en: "Created: " },
   "还没有提示词，点上方新建": {
     ru: "Нет промптов — создайте выше",

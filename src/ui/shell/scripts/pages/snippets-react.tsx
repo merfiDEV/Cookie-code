@@ -8,6 +8,7 @@
  */
 import { createElement, useState, useEffect, useCallback } from "react";
 import { api, ckAlert, ckConfirm } from "../shared.js";
+import { t } from "../i18n.js";
 import { addRecent } from "../recent.js";
 import { useHideAiView } from "../use-hide-ai-view.js";
 
@@ -271,7 +272,8 @@ export function SnippetsPage() {
 
   const del = useCallback(
     async (s: Snippet) => {
-      if (!(await ckConfirm("确定删除提示词「" + s.name + "」？"))) return;
+      const msg = t("确定删除提示词「") + s.name + t("」？");
+      if (!(await ckConfirm(msg, t("删除")))) return;
       const next = (snippets || []).filter((x) => x.id !== s.id);
       setSnippets(next);
       if (api.saveSnippets) {
