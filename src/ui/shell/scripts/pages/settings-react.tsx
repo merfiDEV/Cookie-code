@@ -47,6 +47,137 @@ function Toggle({
   );
 }
 
+/** Превью фона: картинка с текущим blur + подпись */
+function BackgroundPreview({
+  item,
+  blur,
+  active,
+  onClick,
+}: {
+  item: any;
+  blur: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  if (!item || !item.url) return null;
+  return createElement(
+    "div",
+    {
+      className: "ck-bg-preview" + (active ? " active" : ""),
+      onClick,
+      title: item.name || item.id,
+    },
+    createElement("img", {
+      src: item.url,
+      alt: item.name || item.id,
+      style: { filter: "blur(" + (blur || 0) + "px)" },
+      draggable: false,
+    }),
+    createElement(
+      "div",
+      { className: "ck-bg-preview-label" },
+      item.name || item.id,
+    ),
+  );
+}
+
+/** Превью пета: спрайт с заданным размером */
+function PetPreview({
+  item,
+  size,
+  active,
+  onClick,
+}: {
+  item: any;
+  size: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  if (!item || !item.url) return null;
+  return createElement(
+    "div",
+    {
+      className: "ck-pet-preview" + (active ? " active" : ""),
+      onClick,
+      title: item.name || item.id,
+    },
+    createElement("img", {
+      src: item.url,
+      alt: item.name || item.id,
+      style: {
+        width: Math.min(size || 64, 96),
+        height: Math.min(size || 64, 96),
+      },
+      draggable: false,
+    }),
+    createElement(
+      "div",
+      { className: "ck-pet-preview-label" },
+      item.name || item.id,
+    ),
+  );
+}
+
+/** Превью шрифта: @font-face + образец текста */
+function FontPreview({
+  item,
+  weight,
+  color,
+  active,
+  onClick,
+}: {
+  item: any;
+  weight: number;
+  color: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const family = item.system
+    ? "inherit"
+    : '"' + (item.name || item.id).replace(/\.[^.]+$/, "") + '"';
+  const sample = "Aa Бб 0123 — Cookie Code";
+  return createElement(
+    "div",
+    {
+      className: "ck-font-preview" + (active ? " active" : ""),
+      onClick,
+      title: item.name || item.id,
+    },
+    !item.system && item.url
+      ? createElement(
+          "style",
+          null,
+          [
+            "@font-face {",
+            '  font-family: "' +
+              (item.name || item.id).replace(/\.[^.]+$/, "") +
+              '";',
+            '  src: url("' + item.url + '");',
+            "  font-weight: 100 900;",
+            "  font-display: swap;",
+            "}",
+          ].join("\n"),
+        )
+      : null,
+    createElement(
+      "div",
+      {
+        style: {
+          fontFamily: family,
+          fontWeight: weight || 400,
+          color: color || "inherit",
+        },
+      },
+      sample,
+    ),
+    createElement(
+      "div",
+      { className: "ck-font-preview-label" },
+      item.name || item.id,
+    ),
+  );
+}
+
 /** Слайдер (диапазон) */
 function Slider({
   label,
@@ -328,6 +459,27 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         ],
       }),
     ),
+    backgrounds.length
+      ? createElement(
+          "div",
+          { className: "ck-preview-grid" },
+          createElement(BackgroundPreview, {
+            item: { id: "none", name: "Нет", url: "" },
+            blur: 0,
+            active: !data.background || data.background === "none",
+            onClick: () => upd("background", "none"),
+          }),
+          ...backgrounds.map((b: any) =>
+            createElement(BackgroundPreview, {
+              key: b.id,
+              item: b,
+              blur: data.backgroundBlur || 0,
+              active: data.background === b.id,
+              onClick: () => upd("background", b.id),
+            }),
+          ),
+        )
+      : null,
     createElement(
       SettingRow,
       { label: "Размытие фона" },
@@ -354,6 +506,22 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         })),
       }),
     ),
+    fonts.length
+      ? createElement(
+          "div",
+          { className: "ck-preview-grid ck-preview-grid-fonts" },
+          ...fonts.map((f: any) =>
+            createElement(FontPreview, {
+              key: f.id,
+              item: f,
+              weight: data.fontWeight || 400,
+              color: data.fontColor || "",
+              active: (data.font || "system") === f.id,
+              onClick: () => upd("font", f.id),
+            }),
+          ),
+        )
+      : null,
     createElement(
       SettingRow,
       { label: "Толщина шрифта" },
@@ -472,6 +640,21 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         onChange: (v: number) => upd("petSize", v),
       }),
     ),
+    pets.length
+      ? createElement(
+          "div",
+          { className: "ck-preview-grid ck-preview-grid-pets" },
+          ...pets.map((p: any) =>
+            createElement(PetPreview, {
+              key: p.id,
+              item: p,
+              size: data.petSize ?? 64,
+              active: (data.petId || "") === p.id,
+              onClick: () => upd("petId", p.id),
+            }),
+          ),
+        )
+      : null,
   );
 
   const language = createElement(

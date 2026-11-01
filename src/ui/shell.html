@@ -4695,6 +4695,101 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
+/* ===== Превью фонов / шрифтов / петов в настройках ===== */
+.ck-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 12px 0 18px;
+}
+.ck-preview-grid-fonts {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+.ck-preview-grid-pets {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+.ck-bg-preview,
+.ck-font-preview,
+.ck-pet-preview {
+  position: relative;
+  border: 2px solid var(--ck-border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--ck-bg-sub);
+  transition:
+    border-color 0.15s,
+    transform 0.12s,
+    box-shadow 0.15s;
+}
+.ck-bg-preview:hover,
+.ck-font-preview:hover,
+.ck-pet-preview:hover {
+  border-color: var(--ck-primary);
+  transform: translateY(-1px);
+}
+.ck-bg-preview.active,
+.ck-font-preview.active,
+.ck-pet-preview.active {
+  border-color: var(--ck-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ck-primary) 22%, transparent);
+}
+.ck-bg-preview {
+  aspect-ratio: 16 / 10;
+}
+.ck-bg-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: filter 0.15s;
+}
+.ck-bg-preview-label,
+.ck-pet-preview-label,
+.ck-font-preview-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ck-font-preview {
+  padding: 14px 12px 26px;
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 15px;
+}
+.ck-font-preview-label {
+  color: var(--ck-text-2);
+  background: transparent;
+  text-align: center;
+  position: absolute;
+}
+.ck-pet-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 6px 24px;
+  min-height: 100px;
+}
+.ck-pet-preview img {
+  display: block;
+  object-fit: contain;
+  image-rendering: auto;
+}
+.ck-pet-preview-label {
+  text-align: center;
+}
 
       /* ===== 目录 ===== */
   .ck-dir-path {
@@ -13557,6 +13652,109 @@ body {
       )
     );
   }
+  function BackgroundPreview({
+    item,
+    blur,
+    active,
+    onClick
+  }) {
+    if (!item || !item.url) return null;
+    return (0, import_react4.createElement)(
+      "div",
+      {
+        className: "ck-bg-preview" + (active ? " active" : ""),
+        onClick,
+        title: item.name || item.id
+      },
+      (0, import_react4.createElement)("img", {
+        src: item.url,
+        alt: item.name || item.id,
+        style: { filter: "blur(" + (blur || 0) + "px)" },
+        draggable: false
+      }),
+      (0, import_react4.createElement)(
+        "div",
+        { className: "ck-bg-preview-label" },
+        item.name || item.id
+      )
+    );
+  }
+  function PetPreview({
+    item,
+    size,
+    active,
+    onClick
+  }) {
+    if (!item || !item.url) return null;
+    return (0, import_react4.createElement)(
+      "div",
+      {
+        className: "ck-pet-preview" + (active ? " active" : ""),
+        onClick,
+        title: item.name || item.id
+      },
+      (0, import_react4.createElement)("img", {
+        src: item.url,
+        alt: item.name || item.id,
+        style: {
+          width: Math.min(size || 64, 96),
+          height: Math.min(size || 64, 96)
+        },
+        draggable: false
+      }),
+      (0, import_react4.createElement)(
+        "div",
+        { className: "ck-pet-preview-label" },
+        item.name || item.id
+      )
+    );
+  }
+  function FontPreview({
+    item,
+    weight,
+    color,
+    active,
+    onClick
+  }) {
+    const family = item.system ? "inherit" : '"' + (item.name || item.id).replace(/\.[^.]+$/, "") + '"';
+    const sample = "Aa \u0411\u0431 0123 \u2014 Cookie Code";
+    return (0, import_react4.createElement)(
+      "div",
+      {
+        className: "ck-font-preview" + (active ? " active" : ""),
+        onClick,
+        title: item.name || item.id
+      },
+      !item.system && item.url ? (0, import_react4.createElement)(
+        "style",
+        null,
+        [
+          "@font-face {",
+          '  font-family: "' + (item.name || item.id).replace(/\.[^.]+$/, "") + '";',
+          '  src: url("' + item.url + '");',
+          "  font-weight: 100 900;",
+          "  font-display: swap;",
+          "}"
+        ].join("\n")
+      ) : null,
+      (0, import_react4.createElement)(
+        "div",
+        {
+          style: {
+            fontFamily: family,
+            fontWeight: weight || 400,
+            color: color || "inherit"
+          }
+        },
+        sample
+      ),
+      (0, import_react4.createElement)(
+        "div",
+        { className: "ck-font-preview-label" },
+        item.name || item.id
+      )
+    );
+  }
   function Slider({
     label,
     value,
@@ -13811,6 +14009,25 @@ body {
           ]
         })
       ),
+      backgrounds.length ? (0, import_react4.createElement)(
+        "div",
+        { className: "ck-preview-grid" },
+        (0, import_react4.createElement)(BackgroundPreview, {
+          item: { id: "none", name: "\u041D\u0435\u0442", url: "" },
+          blur: 0,
+          active: !data.background || data.background === "none",
+          onClick: () => upd("background", "none")
+        }),
+        ...backgrounds.map(
+          (b) => (0, import_react4.createElement)(BackgroundPreview, {
+            key: b.id,
+            item: b,
+            blur: data.backgroundBlur || 0,
+            active: data.background === b.id,
+            onClick: () => upd("background", b.id)
+          })
+        )
+      ) : null,
       (0, import_react4.createElement)(
         SettingRow,
         { label: "\u0420\u0430\u0437\u043C\u044B\u0442\u0438\u0435 \u0444\u043E\u043D\u0430" },
@@ -13837,6 +14054,20 @@ body {
           }))
         })
       ),
+      fonts.length ? (0, import_react4.createElement)(
+        "div",
+        { className: "ck-preview-grid ck-preview-grid-fonts" },
+        ...fonts.map(
+          (f) => (0, import_react4.createElement)(FontPreview, {
+            key: f.id,
+            item: f,
+            weight: data.fontWeight || 400,
+            color: data.fontColor || "",
+            active: (data.font || "system") === f.id,
+            onClick: () => upd("font", f.id)
+          })
+        )
+      ) : null,
       (0, import_react4.createElement)(
         SettingRow,
         { label: "\u0422\u043E\u043B\u0449\u0438\u043D\u0430 \u0448\u0440\u0438\u0444\u0442\u0430" },
@@ -13954,7 +14185,20 @@ body {
           unit: "px",
           onChange: (v) => upd("petSize", v)
         })
-      )
+      ),
+      pets.length ? (0, import_react4.createElement)(
+        "div",
+        { className: "ck-preview-grid ck-preview-grid-pets" },
+        ...pets.map(
+          (p) => (0, import_react4.createElement)(PetPreview, {
+            key: p.id,
+            item: p,
+            size: data.petSize ?? 64,
+            active: (data.petId || "") === p.id,
+            onClick: () => upd("petId", p.id)
+          })
+        )
+      ) : null
     );
     const language = (0, import_react4.createElement)(
       "div",

@@ -4,6 +4,16 @@
 const { ipcMain, dialog, shell, app, BrowserWindow } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const { pathToFileURL } = require("url");
+
+/** Абсолютный путь → file:// URL (для превью в shell). */
+function pathToFileUrl(p) {
+  try {
+    return pathToFileURL(p).href;
+  } catch (_) {
+    return "";
+  }
+}
 
 function registerShellIpc({
   windowState,
@@ -1046,7 +1056,11 @@ function registerShellIpc({
           items = JSON.parse(fs.readFileSync(regFile, "utf8")) || [];
         } catch (_) {}
       }
-      const result = items.map((it) => ({ ...it, scope: "builtin" }));
+      const result = items.map((it) => ({
+        ...it,
+        scope: "builtin",
+        url: pathToFileUrl(path.join(builtinDir, it.file || it.id + ".webp")),
+      }));
       if (fs.existsSync(customDir)) {
         for (const f of fs.readdirSync(customDir)) {
           if (/\.(png|jpg|jpeg|webp|gif)$/i.test(f)) {
@@ -1055,6 +1069,7 @@ function registerShellIpc({
               name: f,
               file: f,
               scope: "custom",
+              url: pathToFileUrl(path.join(customDir, f)),
             });
           }
         }
@@ -1086,6 +1101,7 @@ function registerShellIpc({
             name: f,
             file: f,
             scope: "custom",
+            url: pathToFileUrl(path.join(dir, f)),
           });
         }
       }
@@ -1111,7 +1127,12 @@ function registerShellIpc({
       const items = [];
       for (const f of fs.readdirSync(dir)) {
         if (/\.(png|gif|webp|jpg|jpeg)$/i.test(f)) {
-          items.push({ id: f.replace(/\.[^.]+$/, ""), name: f, file: f });
+          items.push({
+            id: f.replace(/\.[^.]+$/, ""),
+            name: f,
+            file: f,
+            url: pathToFileUrl(path.join(dir, f)),
+          });
         }
       }
       return { success: true, items };
