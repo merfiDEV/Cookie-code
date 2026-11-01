@@ -3505,3 +3505,943 @@ body {
 .ck-pet-preview-label {
   text-align: center;
 }
+.ck-git-commit-field {
+  position: relative;
+}
+.ck-git-commit-magic {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ck-surface-hover);
+  border: 1px solid var(--ck-border);
+  border-radius: 8px;
+  color: var(--ck-primary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.ck-git-commit-magic:hover:not(:disabled) {
+  background: var(--ck-primary);
+  border-color: var(--ck-primary);
+  color: #fff;
+}
+.ck-git-commit-magic:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* ===== Карточки субагентов — v2 ===== */
+.ck-agent-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--ck-bg-sub, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--ck-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.12s ease;
+  margin-bottom: 10px;
+  position: relative;
+}
+.ck-agent-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ck-primary) 4%, transparent),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.ck-agent-card:hover {
+  border-color: color-mix(in srgb, var(--ck-primary) 55%, var(--ck-border));
+  background: var(--ck-surface-hover, rgba(255, 255, 255, 0.06));
+}
+.ck-agent-card:hover::before {
+  opacity: 1;
+}
+
+/* Аватар — круг с первой буквой имени и градиентом */
+.ck-agent-card-avatar {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--ck-primary), #a855f7);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ck-primary) 30%, transparent);
+  letter-spacing: 0.5px;
+}
+
+.ck-agent-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ck-agent-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 26px;
+}
+
+.ck-agent-card-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ck-agent-card-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ck-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.15px;
+}
+
+/* Бейдж scope */
+.ck-agent-card-badge {
+  flex-shrink: 0;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  line-height: 1.4;
+}
+.ck-agent-card-badge-proj {
+  color: #7c9cff;
+  background: color-mix(in srgb, #7c9cff 14%, transparent);
+  border: 1px solid color-mix(in srgb, #7c9cff 30%, transparent);
+}
+.ck-agent-card-badge-user {
+  color: #c084fc;
+  background: color-mix(in srgb, #c084fc 14%, transparent);
+  border: 1px solid color-mix(in srgb, #c084fc 30%, transparent);
+}
+
+/* Кнопки действий */
+.ck-agent-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(4px);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  pointer-events: none;
+}
+.ck-agent-card:hover .ck-agent-card-actions {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.ck-agent-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 9px;
+  background: transparent;
+  border: 1px solid var(--ck-border);
+  border-radius: 7px;
+  color: var(--ck-text-2);
+  font-size: 11.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.ck-agent-act svg {
+  width: 13px;
+  height: 13px;
+}
+.ck-agent-act:hover {
+  border-color: var(--ck-primary);
+  color: var(--ck-primary);
+  background: color-mix(in srgb, var(--ck-primary) 10%, transparent);
+}
+
+.ck-agent-act-primary {
+  color: #fff;
+  background: var(--ck-primary);
+  border-color: var(--ck-primary);
+  padding: 0 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ck-primary) 35%, transparent);
+}
+.ck-agent-act-primary:hover {
+  background: color-mix(in srgb, var(--ck-primary) 85%, #fff);
+  border-color: color-mix(in srgb, var(--ck-primary) 85%, #fff);
+  color: #fff;
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--ck-primary) 45%, transparent);
+}
+.ck-agent-act-icon {
+  font-size: 8px;
+  line-height: 1;
+  transform: translateY(0.5px);
+}
+
+.ck-agent-act-danger:hover {
+  border-color: #e5484d;
+  color: #e5484d;
+  background: rgba(229, 72, 77, 0.12);
+}
+
+/* Описание */
+.ck-agent-card-desc {
+  font-size: 12px;
+  color: var(--ck-text-2);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Мобильная адаптация: кнопки всегда видимы, если узко */
+@media (max-width: 520px) {
+  .ck-agent-card-actions {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .ck-agent-act span:not(.ck-agent-act-icon) {
+    display: none;
+  }
+}
+/* ===== Git — дизайн v2 (IDE-style sidebar) ===== */
+.ck-git {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: transparent;
+}
+
+/* Header */
+.ck-git-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--ck-border);
+  background: linear-gradient(to bottom, var(--ck-surface), transparent);
+}
+.ck-git-head-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ck-git-head-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(249, 115, 22, 0.12);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.22);
+}
+.ck-git-head-text {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ck-text);
+  letter-spacing: 0.2px;
+}
+.ck-git-head-actions {
+  display: flex;
+  gap: 4px;
+}
+.ck-git-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--ck-text-2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ck-git-iconbtn:hover:not(:disabled) {
+  background: var(--ck-hover-bg, var(--ck-surface-hover));
+  border-color: var(--ck-border);
+  color: var(--ck-text);
+}
+.ck-git-iconbtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Scroll area */
+.ck-git-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Cards */
+.ck-git-card {
+  background: var(--ck-surface);
+  border: 1px solid var(--ck-border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+/* Branch card */
+.ck-git-branch-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ck-git-branch-picker-wrap {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+}
+.ck-git-branch-trigger2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--ck-text);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.12s;
+  min-width: 0;
+}
+.ck-git-branch-trigger2:hover:not(:disabled) {
+  background: var(--ck-hover-bg, rgba(255, 255, 255, 0.05));
+  border-color: var(--ck-border);
+}
+.ck-git-branch-trigger2:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.ck-git-branch-trigger2 > svg:first-child {
+  color: var(--ck-primary);
+  flex-shrink: 0;
+}
+.ck-git-branch-name {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.ck-git-branch-chev {
+  display: inline-flex;
+  color: var(--ck-text-dim);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.ck-git-branch-trigger2:hover .ck-git-branch-chev {
+  color: var(--ck-primary);
+}
+
+.ck-git-upstream-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.22);
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-family: ui-monospace, monospace;
+  color: #86efac;
+  max-width: 160px;
+}
+.ck-git-upstream-badge-warn {
+  background: rgba(234, 179, 8, 0.08);
+  border-color: rgba(234, 179, 8, 0.22);
+  color: #fbbf24;
+}
+.ck-git-upstream-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ck-git-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: ck-pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+/* Branch dropdown */
+.ck-git-branch-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 240px;
+  max-width: 320px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--ck-bg);
+  border: 1px solid var(--ck-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.ck-git-branch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  color: var(--ck-text);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ck-git-branch-item:hover {
+  background: var(--ck-hover-bg, rgba(255, 255, 255, 0.05));
+}
+.ck-git-branch-item.active {
+  color: var(--ck-primary);
+  font-weight: 600;
+}
+.ck-git-branch-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, monospace;
+}
+.ck-git-branch-item-tag {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  color: var(--ck-text-dim);
+  background: var(--ck-surface);
+}
+.ck-git-branch-item-check {
+  color: var(--ck-primary);
+  display: inline-flex;
+}
+.ck-git-branch-empty {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--ck-text-dim);
+}
+
+/* Bottom row: ahead/behind */
+.ck-git-branch-bottom {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ck-border);
+}
+.ck-git-ab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 11.5px;
+}
+.ck-git-ab-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-weight: 600;
+}
+.ck-git-ab-badge.on.ck-git-ab-ahead {
+  background: rgba(74, 222, 128, 0.1);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.22);
+}
+.ck-git-ab-badge.on.ck-git-ab-behind {
+  background: rgba(234, 179, 8, 0.1);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.22);
+}
+.ck-git-ab-badge.off {
+  color: var(--ck-text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+}
+.ck-git-ab-note {
+  margin-left: auto;
+  color: var(--ck-text-2);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+/* Toolbar: 4 actions */
+.ck-git-toolbar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.ck-git-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 9px 4px;
+  background: var(--ck-surface);
+  border: 1px solid var(--ck-border);
+  border-radius: 10px;
+  color: var(--ck-text-2);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.ck-git-tool:hover:not(:disabled) {
+  background: var(--ck-hover-bg, var(--ck-surface-hover));
+  border-color: var(--ck-border-strong);
+  color: var(--ck-text);
+}
+.ck-git-tool:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ck-git-tool-primary {
+  background: color-mix(in srgb, var(--ck-primary) 12%, var(--ck-surface));
+  border-color: color-mix(in srgb, var(--ck-primary) 40%, transparent);
+  color: var(--ck-primary);
+}
+.ck-git-tool-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ck-primary) 20%, var(--ck-surface));
+  border-color: var(--ck-primary);
+  color: var(--ck-primary);
+}
+
+/* Composer */
+.ck-git-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ck-git-composer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ck-git-composer-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ck-text-2);
+}
+.ck-git-composer-title svg {
+  color: #fbbf24;
+}
+.ck-git-composer-count {
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+}
+.ck-git-link {
+  background: transparent;
+  border: none;
+  color: var(--ck-text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.15s;
+}
+.ck-git-link:hover:not(:disabled) {
+  color: var(--ck-primary);
+}
+.ck-git-link:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Conventional chips */
+.ck-git-chips {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.ck-git-chips::-webkit-scrollbar {
+  display: none;
+}
+.ck-git-chip {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  background: var(--ck-surface);
+  border: 1px solid var(--ck-border);
+  border-radius: 5px;
+  color: var(--ck-text-2);
+  font-family: ui-monospace, monospace;
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ck-git-chip:hover {
+  background: var(--ck-hover-bg, rgba(255, 255, 255, 0.06));
+  border-color: var(--ck-border-strong);
+  color: var(--ck-text);
+}
+
+/* Input with AI */
+.ck-git-input-wrap {
+  border: 1px solid var(--ck-border);
+  border-radius: 10px;
+  background: var(--ck-bg);
+  overflow: hidden;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.ck-git-input-wrap:focus-within {
+  border-color: var(--ck-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ck-primary) 15%, transparent);
+}
+.ck-git-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--ck-text);
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 58px;
+}
+.ck-git-textarea::placeholder {
+  color: var(--ck-text-dim);
+}
+.ck-git-input-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--ck-surface) 50%, transparent);
+  border-top: 1px solid var(--ck-border);
+}
+.ck-git-aibtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--ck-primary) 18%, transparent),
+    color-mix(in srgb, #a855f7 18%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--ck-primary) 35%, transparent);
+  border-radius: 6px;
+  color: var(--ck-primary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ck-git-aibtn:hover:not(:disabled) {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--ck-primary) 28%, transparent),
+    color-mix(in srgb, #a855f7 28%, transparent)
+  );
+  border-color: var(--ck-primary);
+}
+.ck-git-aibtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ck-git-aibtn svg {
+  color: #ec4899;
+}
+.ck-git-kbd {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--ck-text-dim);
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--ck-surface);
+  border: 1px solid var(--ck-border);
+}
+
+/* Commit buttons */
+.ck-git-commit-row {
+  display: flex;
+  gap: 0;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ck-primary) 45%, transparent);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--ck-primary) 20%, transparent);
+}
+.ck-git-commit-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 8px 12px;
+  background: linear-gradient(
+    to right,
+    var(--ck-primary),
+    color-mix(in srgb, var(--ck-primary) 85%, #8b5cf6)
+  );
+  border: none;
+  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.ck-git-commit-main:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.ck-git-commit-main:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ck-git-commit-main-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ck-git-commit-main-sub {
+  font-family: ui-monospace, monospace;
+  font-size: 9.5px;
+  opacity: 0.75;
+}
+.ck-git-commit-split {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  background: color-mix(in srgb, var(--ck-primary) 82%, #000);
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.ck-git-commit-split:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.ck-git-commit-split:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Files list */
+.ck-git-files {
+  padding: 4px 2px;
+}
+.ck-git-files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 8px;
+  font-family: ui-monospace, monospace;
+}
+.ck-git-files-title {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+  color: var(--ck-text-dim);
+}
+.ck-git-files-count {
+  font-size: 10px;
+  color: var(--ck-text-dim);
+}
+.ck-git-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-family: ui-monospace, monospace;
+}
+.ck-git-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: var(--ck-text-2);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ck-git-file:hover {
+  background: var(--ck-hover-bg, rgba(255, 255, 255, 0.05));
+  color: var(--ck-text);
+}
+.ck-git-file-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ck-git-file-dot-m {
+  background: #fbbf24;
+}
+.ck-git-file-dot-a {
+  background: #4ade80;
+}
+.ck-git-file-dot-d {
+  background: #f87171;
+}
+.ck-git-file-dot-r {
+  background: #60a5fa;
+}
+.ck-git-file-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ck-git-file-badge {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.ck-git-file-badge-m {
+  color: #fbbf24;
+}
+.ck-git-file-badge-a {
+  color: #4ade80;
+}
+.ck-git-file-badge-d {
+  color: #f87171;
+}
+.ck-git-file-badge-r {
+  color: #60a5fa;
+}
+
+/* Toast */
+.ck-git-toast2 {
+  position: absolute;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  animation: ck-toast-in 0.2s ease;
+  white-space: nowrap;
+}
+.ck-git-toast2.ok {
+  background: rgba(74, 222, 128, 0.15);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  color: #86efac;
+}
+.ck-git-toast2.err {
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+@keyframes ck-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Footer */
+.ck-git-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--ck-surface) 50%, transparent);
+  border-top: 1px solid var(--ck-border);
+  font-family: ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--ck-text-dim);
+}
+.ck-git-footer-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ck-git-footer-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+}
+.ck-git-footer-right {
+  color: var(--ck-text-dim);
+}

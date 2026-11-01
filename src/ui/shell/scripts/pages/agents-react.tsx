@@ -276,6 +276,7 @@ export function AgentsPage() {
     load();
   }, [load]);
 
+  // Клик по карточке — вставка промпта в поле ввода (без отправки).
   const click = useCallback(async (a: Agent) => {
     if (api.appendSnippet) {
       try {
@@ -283,6 +284,32 @@ export function AgentsPage() {
       } catch (_) {}
     }
     addRecent("agent", a.name);
+  }, []);
+
+  // Кнопка «Вызвать» — отправляет run_agent через инструмент (сабмитит в чат).
+  const invokeAgent = useCallback(async (a: Agent) => {
+    const anyApi = api as any;
+    const prompt =
+      "Используй инструмент run_agent(" + a.name + ", ...). Задача: ";
+    try {
+      if (anyApi.sendNormalMessage) {
+        const r = await anyApi.sendNormalMessage(prompt);
+        if (r && r.success) {
+          addRecent("agent", a.name);
+          return;
+        }
+      }
+      // fallback — просто вставить в инпут
+      if (anyApi.appendSnippet) {
+        await anyApi.appendSnippet(prompt);
+      }
+    } catch (_) {
+      if (anyApi.appendSnippet) {
+        try {
+          await anyApi.appendSnippet(prompt);
+        } catch (_) {}
+      }
+    }
   }, []);
 
   const del = useCallback(
@@ -310,46 +337,83 @@ export function AgentsPage() {
       "div",
       {
         key: a.agentPath,
-        className: "ck-skill-item ck-agent-item",
+        className: "ck-agent-card",
         onClick: () => click(a),
       },
       createElement(
         "div",
-        { className: "ck-skill-top" },
-        createElement("span", { className: "ck-skill-name" }, a.name),
-        createElement(
-          "div",
-          { className: "ck-agent-actions" },
-          createElement(
-            "button",
-            {
-              className: "ck-snip-icon-btn",
-              title: "编辑",
-              onClick: (e: any) => {
-                e.stopPropagation();
-                setModal({ open: true, editing: a });
-              },
-            },
-            createElement(Svg, { d: I.edit }),
-          ),
-          createElement(
-            "button",
-            {
-              className: "ck-snip-icon-btn danger",
-              title: "删除",
-              onClick: (e: any) => {
-                e.stopPropagation();
-                del(a);
-              },
-            },
-            createElement(Svg, { d: I.del }),
-          ),
-        ),
+        { className: "ck-agent-card-avatar" },
+        a.name.charAt(0).toUpperCase(),
       ),
       createElement(
         "div",
-        { className: "ck-skill-desc" },
-        a.description || "（无描述）",
+        { className: "ck-agent-card-body" },
+        createElement(
+          "div",
+          { className: "ck-agent-card-head" },
+          createElement(
+            "div",
+            { className: "ck-agent-card-title" },
+            createElement("span", { className: "ck-agent-card-name" }, a.name),
+            createElement(
+              "span",
+              {
+                className:
+                  "ck-agent-card-badge " +
+                  (a.source === "project"
+                    ? "ck-agent-card-badge-proj"
+                    : "ck-agent-card-badge-user"),
+              },
+              a.source === "project" ? "проект" : "пользователь",
+            ),
+          ),
+          createElement(
+            "div",
+            { className: "ck-agent-card-actions" },
+            createElement(
+              "button",
+              {
+                className: "ck-agent-act ck-agent-act-primary",
+                title: "Запустить агента",
+                onClick: (e: any) => {
+                  e.stopPropagation();
+                  invokeAgent(a);
+                },
+              },
+              createElement("span", { className: "ck-agent-act-icon" }, "▶"),
+              createElement("span", null, "Запустить"),
+            ),
+            createElement(
+              "button",
+              {
+                className: "ck-agent-act",
+                title: "Редактировать",
+                onClick: (e: any) => {
+                  e.stopPropagation();
+                  setModal({ open: true, editing: a });
+                },
+              },
+              createElement(Svg, { d: I.edit }),
+            ),
+            createElement(
+              "button",
+              {
+                className: "ck-agent-act ck-agent-act-danger",
+                title: "Удалить",
+                onClick: (e: any) => {
+                  e.stopPropagation();
+                  del(a);
+                },
+              },
+              createElement(Svg, { d: I.del }),
+            ),
+          ),
+        ),
+        createElement(
+          "div",
+          { className: "ck-agent-card-desc" },
+          a.description || "Без описания",
+        ),
       ),
     );
 

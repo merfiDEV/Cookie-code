@@ -102,6 +102,10 @@ export interface ShellAPI {
   gitListBranches?: () => Promise<any>;
   gitCheckout?: (opts?: { branch?: string; remote?: boolean }) => Promise<any>;
   gitCommit?: (message: string) => Promise<any>;
+  gitCommitPush?: (message: string) => Promise<any>;
+  gitChangedFiles?: () => Promise<any>;
+  gitStageAll?: () => Promise<any>;
+  generateCommitMessage?: () => Promise<any>;
   gitPush?: (opts?: any) => Promise<any>;
   gitPull?: (opts?: any) => Promise<any>;
   gitFetch?: (opts?: any) => Promise<any>;
@@ -118,6 +122,7 @@ export interface ShellAPI {
   triggerSnippet?: (content: string, autoSend?: boolean) => Promise<any>;
   appendSnippet?: (text: string) => Promise<any>;
   onSnippetsChanged?: (cb: () => void) => void;
+  onCommitMessage?: (cb: (data: { message: string }) => void) => void;
   // 技能 / 子代理
   listSkills?: () => Promise<any>;
   listAgents?: () => Promise<any>;

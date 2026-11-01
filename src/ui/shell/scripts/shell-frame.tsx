@@ -27,8 +27,9 @@ import {
 } from "./dsh-client-runtime.js";
 
 const SIDEBAR_COLLAPSED = 46;
-const MIN_WIDTH = 320;
+const MIN_WIDTH = 360;
 const MAX_WIDTH = 4000;
+const DEFAULT_WIDTH = 400;
 const WIDTH_KEY = "cuckoo-sidebar-width";
 
 /** 读持久化宽度 */
@@ -37,8 +38,11 @@ function savedWidth(): number {
     const v = Number(localStorage.getItem(WIDTH_KEY));
     if (Number.isFinite(v) && v >= MIN_WIDTH && v <= MAX_WIDTH)
       return Math.round(v);
+    // Если сохранённое значение меньше нового MIN_WIDTH (после апгрейда),
+    // поднимаем до дефолта, чтобы текст влезал.
+    if (Number.isFinite(v) && v > 0 && v < MIN_WIDTH) return DEFAULT_WIDTH;
   } catch (_) {}
-  return 320;
+  return DEFAULT_WIDTH;
 }
 
 /** 展开侧栏（若收起）：恢复宽度，并通知主进程重排 */

@@ -739,6 +739,18 @@ function registerShellIpc({
       }
     },
   );
+  ipcMain.handle("shell-send-normal-message", async (event, { text } = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    if (!ctx || !ctx.view) return { success: false, error: "no ai view" };
+    const t = String(text || "").trim();
+    if (!t) return { success: false, error: "empty message" };
+    try {
+      ctx.view.webContents.send("fill-input", { text: t, autoSend: true });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
   ipcMain.handle("shell-append-snippet", async (event, { text } = {}) => {
     const ctx = windowState.getContextByWebContents(event.sender);
     if (!ctx || !ctx.view) return { success: false };
@@ -1271,6 +1283,64 @@ function registerShellIpc({
     if (!dir) return { ok: false, error: "no project" };
     try {
       return await gitOps.checkout(dir, opts || {});
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle("shell-generate-commit-message", async (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    if (!ctx || !ctx.view || !ctx.view.webContents)
+      return { ok: false, error: "no ai view" };
+    try {
+      // Модель: получает diff через bash, формулирует сообщение и вызывает
+      // инструмент generate_commit_message(message) — тот вставит текст в поле.
+      const prompt =
+        "Сгенерируй сообщение для git-коммита и вставь его в поле коммита.\n" +
+        "Порядок действий:\n" +
+        '1. Получи изменения: bash("git status --short && git diff").\n' +
+        "2. Сформулируй Conventional Commits (feat/fix/refactor/docs/chore/style/" +
+        "test/build/ci/perf/revert): одна строка ≤72 символа, без markdown, без " +
+        "кавычек, на русском.\n" +
+        "3. Вызови инструмент generate_commit_message(message) с готовым текстом — " +
+        "он вставит его в поле коммита на странице Git.\n" +
+        "Не коммить и не пушь. Не выводи текст в чат — только вставь через инструмент.";
+      ctx.view.webContents.send("fill-input", {
+        text: prompt,
+        autoSend: true,
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle("shell-git-changed-files", async (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, files: [], error: "no project" };
+    try {
+      return await gitOps.getChangedFiles(dir);
+    } catch (e) {
+      return { ok: false, files: [], error: e.message };
+    }
+  });
+  ipcMain.handle("shell-git-stage-all", async (event) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.stageAll(dir);
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle("shell-git-commit-push", async (event, { message } = {}) => {
+    const ctx = windowState.getContextByWebContents(event.sender);
+    const dir = gitProjectDir(ctx);
+    if (!dir) return { ok: false, error: "no project" };
+    try {
+      return await gitOps.commitAndPush(dir, message);
     } catch (e) {
       return { ok: false, error: e.message };
     }

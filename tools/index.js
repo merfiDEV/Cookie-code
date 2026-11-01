@@ -47,6 +47,7 @@ const { RunAgentTool } = require("./RunAgentTool");
 const { ListAgentsTool, ReadAgentTool } = require("./AgentTools");
 const { CreateAgentTool } = require("./CreateAgentTool");
 const { ReadRulesTool } = require("./ReadRulesTool");
+const { GenerateCommitMessageTool } = require("./GenerateCommitMessageTool");
 
 // 创建全局工具注册表
 const registry = new ToolRegistry();
@@ -95,6 +96,7 @@ registry.register(new ListAgentsTool());
 registry.register(new ReadAgentTool());
 registry.register(new CreateAgentTool());
 registry.register(new ReadRulesTool());
+registry.register(new GenerateCommitMessageTool());
 
 // 导出
 module.exports = {
@@ -140,6 +142,7 @@ module.exports = {
   ReadAgentTool,
   CreateAgentTool,
   ReadRulesTool,
+  GenerateCommitMessageTool,
   // 便捷方法
   getAllTools: () => registry,
   getToolDescriptions: () => registry.getDescriptions(),

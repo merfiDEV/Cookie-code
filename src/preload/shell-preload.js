@@ -110,8 +110,12 @@ const shellAPI = {
   triggerSnippet: (content, autoSend) =>
     ipcRenderer.invoke("shell-trigger-snippet", { content, autoSend }),
   appendSnippet: (text) => ipcRenderer.invoke("shell-append-snippet", { text }),
+  sendNormalMessage: (text) =>
+    ipcRenderer.invoke("shell-send-normal-message", { text }),
   onSnippetsChanged: (cb) =>
     ipcRenderer.on("shell-snippets-changed", () => cb()),
+  onCommitMessage: (cb) =>
+    ipcRenderer.on("shell-fill-commit-message", (_e, d) => cb(d)),
 
   // ===== Скиллы / агенты =====
   listSkills: () => ipcRenderer.invoke("shell-list-skills"),
@@ -198,6 +202,24 @@ const shellAPI = {
   gitListBranches: () => ipcRenderer.invoke("shell-git-list-branches"),
   gitCheckout: (opts) => ipcRenderer.invoke("shell-git-checkout", opts || {}),
   gitCommit: (message) => ipcRenderer.invoke("shell-git-commit", { message }),
+  gitCommitPush: (message) =>
+    ipcRenderer.invoke("shell-git-commit-push", { message }),
+  gitChangedFiles: () => ipcRenderer.invoke("shell-git-changed-files"),
+  gitStageAll: () => ipcRenderer.invoke("shell-git-stage-all"),
+  gitCommitPush: (message) =>
+    ipcRenderer.invoke("shell-git-commit-push", { message }),
+  gitChangedFiles: () => ipcRenderer.invoke("shell-git-changed-files"),
+  gitStageAll: () => ipcRenderer.invoke("shell-git-stage-all"),
+  gitCommitPush: (message) =>
+    ipcRenderer.invoke("shell-git-commit-push", { message }),
+  gitChangedFiles: () => ipcRenderer.invoke("shell-git-changed-files"),
+  gitStageAll: () => ipcRenderer.invoke("shell-git-stage-all"),
+  gitCommitPush: (message) =>
+    ipcRenderer.invoke("shell-git-commit-push", { message }),
+  gitChangedFiles: () => ipcRenderer.invoke("shell-git-changed-files"),
+  gitStageAll: () => ipcRenderer.invoke("shell-git-stage-all"),
+  generateCommitMessage: () =>
+    ipcRenderer.invoke("shell-generate-commit-message"),
   gitPush: (opts) => ipcRenderer.invoke("shell-git-push", opts || {}),
   gitPull: (opts) => ipcRenderer.invoke("shell-git-pull", opts || {}),
   gitFetch: (opts) => ipcRenderer.invoke("shell-git-fetch", opts || {}),

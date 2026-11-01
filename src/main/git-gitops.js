@@ -116,6 +116,64 @@ async function getBranchStatus(projectDir) {
   };
 }
 
+/** Список изменённых файлов со статусами (M/A/D/R). */
+async function getChangedFiles(projectDir) {
+  const r = await runGit(projectDir, ["status", "--porcelain=v1"]);
+  if (!r.ok) return { ok: false, files: [], error: r.stderr };
+  const files = [];
+  for (const line of r.stdout.split(/\r?\n/)) {
+    if (!line) continue;
+    const status = line.substring(0, 2);
+    const filePath = line.substring(3);
+    let kind = "M";
+    if (status.includes("?")) kind = "A";
+    else if (status.includes("R")) kind = "R";
+    else if (status.includes("A")) kind = "A";
+    else if (status.includes("D")) kind = "D";
+    else if (status.includes("M")) kind = "M";
+    files.push({ path: filePath, status: kind, raw: status });
+  }
+  return { ok: true, files };
+}
+
+/** Проиндексировать все изменения (git add -A). */
+async function stageAll(projectDir) {
+  const r = await runGit(projectDir, ["add", "-A"]);
+  if (!r.ok) return { ok: false, error: r.stderr || "git add failed" };
+  return { ok: true };
+}
+
+/** Коммит + push одним действием. */
+async function commitAndPush(projectDir, message) {
+  const c = await commitAll(projectDir, message);
+  if (!c.ok) return c;
+  const p = await push(projectDir, {});
+  if (!p.ok)
+    return { ok: false, error: p.error, code: p.code, committed: true };
+  return { ok: true };
+}
+
+/** Собрать diff + статус для генерации сообщения коммита. */
+async function getDiffSummary(projectDir, maxChars = 6000) {
+  const status = await runGit(projectDir, ["status", "--short"]);
+  const staged = await runGit(projectDir, ["diff", "--cached"]);
+  const unstaged = await runGit(projectDir, ["diff"]);
+  const untracked = status.stdout || "";
+  let diff = (staged.stdout || "") + "\n" + (unstaged.stdout || "");
+  let truncated = false;
+  if (diff.length > maxChars) {
+    diff = diff.slice(0, maxChars);
+    truncated = true;
+  }
+  return {
+    ok: true,
+    status: untracked,
+    diff,
+    truncated,
+    hasChanges: !!untracked.trim() || !!diff.trim(),
+  };
+}
+
 /** Закоммитить все изменения (git add -A && git commit -m). */
 async function commitAll(projectDir, message) {
   if (!message || !String(message).trim())
@@ -306,6 +364,10 @@ module.exports = {
   listBranches,
   checkout,
   commitAll,
+  getDiffSummary,
+  getChangedFiles,
+  stageAll,
+  commitAndPush,
   push,
   pull,
   fetchRemote,
