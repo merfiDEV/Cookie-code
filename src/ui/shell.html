@@ -4821,213 +4821,6 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
-/* ===== Карточки субагентов — v2 ===== */
-.ck-agent-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 14px 16px;
-  background: var(--ck-bg-sub, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--ck-border);
-  border-radius: 12px;
-  cursor: pointer;
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease,
-    transform 0.12s ease;
-  margin-bottom: 10px;
-  position: relative;
-}
-.ck-agent-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--ck-primary) 4%, transparent),
-    transparent 60%
-  );
-  opacity: 0;
-  transition: opacity 0.18s ease;
-  pointer-events: none;
-}
-.ck-agent-card:hover {
-  border-color: color-mix(in srgb, var(--ck-primary) 55%, var(--ck-border));
-  background: var(--ck-surface-hover, rgba(255, 255, 255, 0.06));
-}
-.ck-agent-card:hover::before {
-  opacity: 1;
-}
-
-/* Аватар — круг с первой буквой имени и градиентом */
-.ck-agent-card-avatar {
-  flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, var(--ck-primary), #a855f7);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--ck-primary) 30%, transparent);
-  letter-spacing: 0.5px;
-}
-
-.ck-agent-card-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ck-agent-card-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 26px;
-}
-
-.ck-agent-card-title {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ck-agent-card-name {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--ck-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  letter-spacing: 0.15px;
-}
-
-/* Бейдж scope */
-.ck-agent-card-badge {
-  flex-shrink: 0;
-  font-size: 9.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  padding: 2px 7px;
-  border-radius: 5px;
-  line-height: 1.4;
-}
-.ck-agent-card-badge-proj {
-  color: #7c9cff;
-  background: color-mix(in srgb, #7c9cff 14%, transparent);
-  border: 1px solid color-mix(in srgb, #7c9cff 30%, transparent);
-}
-.ck-agent-card-badge-user {
-  color: #c084fc;
-  background: color-mix(in srgb, #c084fc 14%, transparent);
-  border: 1px solid color-mix(in srgb, #c084fc 30%, transparent);
-}
-
-/* Кнопки действий */
-.ck-agent-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  opacity: 0;
-  transform: translateX(4px);
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-  pointer-events: none;
-}
-.ck-agent-card:hover .ck-agent-card-actions {
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
-}
-
-.ck-agent-act {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 28px;
-  min-width: 28px;
-  padding: 0 9px;
-  background: transparent;
-  border: 1px solid var(--ck-border);
-  border-radius: 7px;
-  color: var(--ck-text-2);
-  font-size: 11.5px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-.ck-agent-act svg {
-  width: 13px;
-  height: 13px;
-}
-.ck-agent-act:hover {
-  border-color: var(--ck-primary);
-  color: var(--ck-primary);
-  background: color-mix(in srgb, var(--ck-primary) 10%, transparent);
-}
-
-.ck-agent-act-primary {
-  color: #fff;
-  background: var(--ck-primary);
-  border-color: var(--ck-primary);
-  padding: 0 12px;
-  font-weight: 600;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--ck-primary) 35%, transparent);
-}
-.ck-agent-act-primary:hover {
-  background: color-mix(in srgb, var(--ck-primary) 85%, #fff);
-  border-color: color-mix(in srgb, var(--ck-primary) 85%, #fff);
-  color: #fff;
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--ck-primary) 45%, transparent);
-}
-.ck-agent-act-icon {
-  font-size: 8px;
-  line-height: 1;
-  transform: translateY(0.5px);
-}
-
-.ck-agent-act-danger:hover {
-  border-color: #e5484d;
-  color: #e5484d;
-  background: rgba(229, 72, 77, 0.12);
-}
-
-/* Описание */
-.ck-agent-card-desc {
-  font-size: 12px;
-  color: var(--ck-text-2);
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Мобильная адаптация: кнопки всегда видимы, если узко */
-@media (max-width: 520px) {
-  .ck-agent-card-actions {
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
-  }
-  .ck-agent-act span:not(.ck-agent-act-icon) {
-    display: none;
-  }
-}
 /* ===== Git — дизайн v2 (IDE-style sidebar) ===== */
 .ck-git {
   display: flex;
@@ -5035,8 +4828,6 @@ body {
   height: 100%;
   background: transparent;
 }
-
-/* Header */
 .ck-git-head {
   display: flex;
   align-items: center;
@@ -5095,7 +4886,6 @@ body {
   cursor: default;
 }
 
-/* Scroll area */
 .ck-git-scroll {
   flex: 1;
   overflow-y: auto;
@@ -5105,7 +4895,6 @@ body {
   gap: 12px;
 }
 
-/* Cards */
 .ck-git-card {
   background: var(--ck-surface);
   border: 1px solid var(--ck-border);
@@ -5113,7 +4902,6 @@ body {
   padding: 12px;
 }
 
-/* Branch card */
 .ck-git-branch-top {
   display: flex;
   align-items: center;
@@ -5204,7 +4992,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Branch dropdown */
 .ck-git-branch-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -5264,7 +5051,6 @@ body {
   color: var(--ck-text-dim);
 }
 
-/* Bottom row: ahead/behind */
 .ck-git-branch-bottom {
   margin-top: 10px;
   padding-top: 10px;
@@ -5307,7 +5093,6 @@ body {
   font-size: 11px;
 }
 
-/* Toolbar: 4 actions */
 .ck-git-toolbar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -5351,7 +5136,6 @@ body {
   color: var(--ck-primary);
 }
 
-/* Composer */
 .ck-git-composer {
   display: flex;
   flex-direction: column;
@@ -5399,7 +5183,6 @@ body {
   cursor: not-allowed;
 }
 
-/* Conventional chips */
 .ck-git-chips {
   display: flex;
   gap: 4px;
@@ -5428,7 +5211,6 @@ body {
   color: var(--ck-text);
 }
 
-/* Input with AI */
 .ck-git-input-wrap {
   border: 1px solid var(--ck-border);
   border-radius: 10px;
@@ -5510,7 +5292,6 @@ body {
   border: 1px solid var(--ck-border);
 }
 
-/* Commit buttons */
 .ck-git-commit-row {
   display: flex;
   gap: 0;
@@ -5582,7 +5363,6 @@ body {
   cursor: not-allowed;
 }
 
-/* Files list */
 .ck-git-files {
   padding: 4px 2px;
 }
@@ -5668,7 +5448,6 @@ body {
   color: #60a5fa;
 }
 
-/* Toast */
 .ck-git-toast2 {
   position: absolute;
   bottom: 56px;
@@ -5702,33 +5481,6 @@ body {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
-}
-
-/* Footer */
-.ck-git-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-  background: color-mix(in srgb, var(--ck-surface) 50%, transparent);
-  border-top: 1px solid var(--ck-border);
-  font-family: ui-monospace, monospace;
-  font-size: 10.5px;
-  color: var(--ck-text-dim);
-}
-.ck-git-footer-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.ck-git-footer-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #4ade80;
-}
-.ck-git-footer-right {
-  color: var(--ck-text-dim);
 }
 
       /* ===== 目录 ===== */
@@ -19080,29 +18832,6 @@ body {
       }
       addRecent("agent", a.name);
     }, []);
-    const invokeAgent = (0, import_react16.useCallback)(async (a) => {
-      const anyApi = api;
-      const prompt = "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439 \u0438\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442 run_agent(" + a.name + ", ...). \u0417\u0430\u0434\u0430\u0447\u0430: ";
-      try {
-        if (anyApi.sendNormalMessage) {
-          const r = await anyApi.sendNormalMessage(prompt);
-          if (r && r.success) {
-            addRecent("agent", a.name);
-            return;
-          }
-        }
-        if (anyApi.appendSnippet) {
-          await anyApi.appendSnippet(prompt);
-        }
-      } catch (_) {
-        if (anyApi.appendSnippet) {
-          try {
-            await anyApi.appendSnippet(prompt);
-          } catch (_2) {
-          }
-        }
-      }
-    }, []);
     const del = (0, import_react16.useCallback)(
       async (a) => {
         if (!await ckConfirm("\u786E\u5B9A\u5220\u9664\u8BE5\u5B50\u4EE3\u7406\u6587\u4EF6\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u6062\u590D\u3002")) return;
@@ -19125,79 +18854,46 @@ body {
       "div",
       {
         key: a.agentPath,
-        className: "ck-agent-card",
+        className: "ck-skill-item ck-agent-item",
         onClick: () => click(a)
       },
       (0, import_react16.createElement)(
         "div",
-        { className: "ck-agent-card-avatar" },
-        a.name.charAt(0).toUpperCase()
+        { className: "ck-skill-top" },
+        (0, import_react16.createElement)("span", { className: "ck-skill-name" }, a.name),
+        (0, import_react16.createElement)(
+          "div",
+          { className: "ck-agent-actions" },
+          (0, import_react16.createElement)(
+            "button",
+            {
+              className: "ck-snip-icon-btn",
+              title: "\u7F16\u8F91",
+              onClick: (e) => {
+                e.stopPropagation();
+                setModal({ open: true, editing: a });
+              }
+            },
+            (0, import_react16.createElement)(Svg3, { d: I2.edit })
+          ),
+          (0, import_react16.createElement)(
+            "button",
+            {
+              className: "ck-snip-icon-btn danger",
+              title: "\u5220\u9664",
+              onClick: (e) => {
+                e.stopPropagation();
+                del(a);
+              }
+            },
+            (0, import_react16.createElement)(Svg3, { d: I2.del })
+          )
+        )
       ),
       (0, import_react16.createElement)(
         "div",
-        { className: "ck-agent-card-body" },
-        (0, import_react16.createElement)(
-          "div",
-          { className: "ck-agent-card-head" },
-          (0, import_react16.createElement)(
-            "div",
-            { className: "ck-agent-card-title" },
-            (0, import_react16.createElement)("span", { className: "ck-agent-card-name" }, a.name),
-            (0, import_react16.createElement)(
-              "span",
-              {
-                className: "ck-agent-card-badge " + (a.source === "project" ? "ck-agent-card-badge-proj" : "ck-agent-card-badge-user")
-              },
-              a.source === "project" ? "\u043F\u0440\u043E\u0435\u043A\u0442" : "\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C"
-            )
-          ),
-          (0, import_react16.createElement)(
-            "div",
-            { className: "ck-agent-card-actions" },
-            (0, import_react16.createElement)(
-              "button",
-              {
-                className: "ck-agent-act ck-agent-act-primary",
-                title: "\u0417\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u044C \u0430\u0433\u0435\u043D\u0442\u0430",
-                onClick: (e) => {
-                  e.stopPropagation();
-                  invokeAgent(a);
-                }
-              },
-              (0, import_react16.createElement)("span", { className: "ck-agent-act-icon" }, "\u25B6"),
-              (0, import_react16.createElement)("span", null, "\u0417\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u044C")
-            ),
-            (0, import_react16.createElement)(
-              "button",
-              {
-                className: "ck-agent-act",
-                title: "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
-                onClick: (e) => {
-                  e.stopPropagation();
-                  setModal({ open: true, editing: a });
-                }
-              },
-              (0, import_react16.createElement)(Svg3, { d: I2.edit })
-            ),
-            (0, import_react16.createElement)(
-              "button",
-              {
-                className: "ck-agent-act ck-agent-act-danger",
-                title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C",
-                onClick: (e) => {
-                  e.stopPropagation();
-                  del(a);
-                }
-              },
-              (0, import_react16.createElement)(Svg3, { d: I2.del })
-            )
-          )
-        ),
-        (0, import_react16.createElement)(
-          "div",
-          { className: "ck-agent-card-desc" },
-          a.description || "\u0411\u0435\u0437 \u043E\u043F\u0438\u0441\u0430\u043D\u0438\u044F"
-        )
+        { className: "ck-skill-desc" },
+        a.description || "\uFF08\u65E0\u63CF\u8FF0\uFF09"
       )
     );
     return (0, import_react16.createElement)(

@@ -3536,213 +3536,6 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
-/* ===== Карточки субагентов — v2 ===== */
-.ck-agent-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 14px 16px;
-  background: var(--ck-bg-sub, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--ck-border);
-  border-radius: 12px;
-  cursor: pointer;
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease,
-    transform 0.12s ease;
-  margin-bottom: 10px;
-  position: relative;
-}
-.ck-agent-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--ck-primary) 4%, transparent),
-    transparent 60%
-  );
-  opacity: 0;
-  transition: opacity 0.18s ease;
-  pointer-events: none;
-}
-.ck-agent-card:hover {
-  border-color: color-mix(in srgb, var(--ck-primary) 55%, var(--ck-border));
-  background: var(--ck-surface-hover, rgba(255, 255, 255, 0.06));
-}
-.ck-agent-card:hover::before {
-  opacity: 1;
-}
-
-/* Аватар — круг с первой буквой имени и градиентом */
-.ck-agent-card-avatar {
-  flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, var(--ck-primary), #a855f7);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--ck-primary) 30%, transparent);
-  letter-spacing: 0.5px;
-}
-
-.ck-agent-card-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ck-agent-card-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 26px;
-}
-
-.ck-agent-card-title {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ck-agent-card-name {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--ck-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  letter-spacing: 0.15px;
-}
-
-/* Бейдж scope */
-.ck-agent-card-badge {
-  flex-shrink: 0;
-  font-size: 9.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  padding: 2px 7px;
-  border-radius: 5px;
-  line-height: 1.4;
-}
-.ck-agent-card-badge-proj {
-  color: #7c9cff;
-  background: color-mix(in srgb, #7c9cff 14%, transparent);
-  border: 1px solid color-mix(in srgb, #7c9cff 30%, transparent);
-}
-.ck-agent-card-badge-user {
-  color: #c084fc;
-  background: color-mix(in srgb, #c084fc 14%, transparent);
-  border: 1px solid color-mix(in srgb, #c084fc 30%, transparent);
-}
-
-/* Кнопки действий */
-.ck-agent-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  opacity: 0;
-  transform: translateX(4px);
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-  pointer-events: none;
-}
-.ck-agent-card:hover .ck-agent-card-actions {
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
-}
-
-.ck-agent-act {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 28px;
-  min-width: 28px;
-  padding: 0 9px;
-  background: transparent;
-  border: 1px solid var(--ck-border);
-  border-radius: 7px;
-  color: var(--ck-text-2);
-  font-size: 11.5px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-.ck-agent-act svg {
-  width: 13px;
-  height: 13px;
-}
-.ck-agent-act:hover {
-  border-color: var(--ck-primary);
-  color: var(--ck-primary);
-  background: color-mix(in srgb, var(--ck-primary) 10%, transparent);
-}
-
-.ck-agent-act-primary {
-  color: #fff;
-  background: var(--ck-primary);
-  border-color: var(--ck-primary);
-  padding: 0 12px;
-  font-weight: 600;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--ck-primary) 35%, transparent);
-}
-.ck-agent-act-primary:hover {
-  background: color-mix(in srgb, var(--ck-primary) 85%, #fff);
-  border-color: color-mix(in srgb, var(--ck-primary) 85%, #fff);
-  color: #fff;
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--ck-primary) 45%, transparent);
-}
-.ck-agent-act-icon {
-  font-size: 8px;
-  line-height: 1;
-  transform: translateY(0.5px);
-}
-
-.ck-agent-act-danger:hover {
-  border-color: #e5484d;
-  color: #e5484d;
-  background: rgba(229, 72, 77, 0.12);
-}
-
-/* Описание */
-.ck-agent-card-desc {
-  font-size: 12px;
-  color: var(--ck-text-2);
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Мобильная адаптация: кнопки всегда видимы, если узко */
-@media (max-width: 520px) {
-  .ck-agent-card-actions {
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
-  }
-  .ck-agent-act span:not(.ck-agent-act-icon) {
-    display: none;
-  }
-}
 /* ===== Git — дизайн v2 (IDE-style sidebar) ===== */
 .ck-git {
   display: flex;
@@ -3750,8 +3543,6 @@ body {
   height: 100%;
   background: transparent;
 }
-
-/* Header */
 .ck-git-head {
   display: flex;
   align-items: center;
@@ -3810,7 +3601,6 @@ body {
   cursor: default;
 }
 
-/* Scroll area */
 .ck-git-scroll {
   flex: 1;
   overflow-y: auto;
@@ -3820,7 +3610,6 @@ body {
   gap: 12px;
 }
 
-/* Cards */
 .ck-git-card {
   background: var(--ck-surface);
   border: 1px solid var(--ck-border);
@@ -3828,7 +3617,6 @@ body {
   padding: 12px;
 }
 
-/* Branch card */
 .ck-git-branch-top {
   display: flex;
   align-items: center;
@@ -3919,7 +3707,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Branch dropdown */
 .ck-git-branch-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -3979,7 +3766,6 @@ body {
   color: var(--ck-text-dim);
 }
 
-/* Bottom row: ahead/behind */
 .ck-git-branch-bottom {
   margin-top: 10px;
   padding-top: 10px;
@@ -4022,7 +3808,6 @@ body {
   font-size: 11px;
 }
 
-/* Toolbar: 4 actions */
 .ck-git-toolbar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -4066,7 +3851,6 @@ body {
   color: var(--ck-primary);
 }
 
-/* Composer */
 .ck-git-composer {
   display: flex;
   flex-direction: column;
@@ -4114,7 +3898,6 @@ body {
   cursor: not-allowed;
 }
 
-/* Conventional chips */
 .ck-git-chips {
   display: flex;
   gap: 4px;
@@ -4143,7 +3926,6 @@ body {
   color: var(--ck-text);
 }
 
-/* Input with AI */
 .ck-git-input-wrap {
   border: 1px solid var(--ck-border);
   border-radius: 10px;
@@ -4225,7 +4007,6 @@ body {
   border: 1px solid var(--ck-border);
 }
 
-/* Commit buttons */
 .ck-git-commit-row {
   display: flex;
   gap: 0;
@@ -4297,7 +4078,6 @@ body {
   cursor: not-allowed;
 }
 
-/* Files list */
 .ck-git-files {
   padding: 4px 2px;
 }
@@ -4383,7 +4163,6 @@ body {
   color: #60a5fa;
 }
 
-/* Toast */
 .ck-git-toast2 {
   position: absolute;
   bottom: 56px;
@@ -4417,31 +4196,4 @@ body {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
-}
-
-/* Footer */
-.ck-git-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-  background: color-mix(in srgb, var(--ck-surface) 50%, transparent);
-  border-top: 1px solid var(--ck-border);
-  font-family: ui-monospace, monospace;
-  font-size: 10.5px;
-  color: var(--ck-text-dim);
-}
-.ck-git-footer-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.ck-git-footer-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #4ade80;
-}
-.ck-git-footer-right {
-  color: var(--ck-text-dim);
 }

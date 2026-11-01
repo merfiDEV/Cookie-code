@@ -30,7 +30,10 @@ userData/
 
 # Temp
 *.tmp
+.tmp/
 temp/
+plan.md
+release.bat
 
 # Project specific
 .cuckooCode/
