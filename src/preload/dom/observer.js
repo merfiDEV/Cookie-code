@@ -36,6 +36,28 @@ const { hasTool, toolNamesList } = require("../tool-names");
 const { t } = require("../i18n/i18n");
 const state = require("./state");
 const { safe } = require("./safe");
+const { createTpsMeter } = require("./tps");
+
+// Fallback-TPS по длине текста (для ChatGPT/Claude и как страховка, если серверный
+// accumulated_token_usage не приходит).
+const textTpsMeter = createTpsMeter();
+let lastTextTpsSentAt = 0;
+function reportTextTps(text, finished) {
+  try {
+    const tps = textTpsMeter.update(text, finished, null);
+    if (!finished && tps > 0) {
+      const now = Date.now();
+      if (now - lastTextTpsSentAt < 400) return;
+      lastTextTpsSentAt = now;
+      if (
+        window.electronAPI &&
+        typeof window.electronAPI.statsRecordTps === "function"
+      ) {
+        window.electronAPI.statsRecordTps({ tps });
+      }
+    }
+  } catch (_) {}
+}
 
 /**
  * 手动解析按钮点击处理
@@ -273,6 +295,30 @@ async function executeJsBlocksWithRetry(initialBlocks, markdown, force) {
     );
   }
   if (results.length > 0) {
+    // goal_done через cuckoo-блок (JS-путь): останавливаем goal-цикл
+    // СИНХРОННО до sendCombinedJsResultsToChat, иначе AI получит результат
+    // и стартует новый раунд, а goal-engine уже не должен продвигаться.
+    try {
+      const goalCalled = results.some(
+        (item) =>
+          item &&
+          typeof item.code === "string" &&
+          /\bgoal_?done\s*\(/i.test(item.code),
+      );
+      if (goalCalled) {
+        const goalEngine = require("./goal-engine");
+        goalEngine.onGoalDone();
+        console.log(
+          "[Cookie Code] goal_done (JS): goal-engine остановлен синхронно",
+        );
+      }
+    } catch (e) {
+      console.warn(
+        "[Cookie Code] goal_done (JS): не удалось остановить движок:",
+        e.message,
+      );
+    }
+
     // Инлайн: прикрепляем каждый результат прямо в его карточку вызова,
     // чтобы пользователь видел результат под кодом, а не отдельным сообщением.
     for (const item of results) {
@@ -933,6 +979,23 @@ function startObserver() {
       if (latestForMeta) responseMeta.startTimer(latestForMeta);
     } catch (_) {}
 
+    // Fallback-TPS по длине текста (ChatGPT/Claude, страховка).
+    if (isGenerating()) {
+      try {
+        const cands = getMessageCandidates();
+        const last = cands.length > 0 ? cands[cands.length - 1] : null;
+        if (last) {
+          const md = getMessageMarkdown(last);
+          const text = md && md.textContent ? md.textContent : "";
+          reportTextTps(text, false);
+        }
+      } catch (_) {}
+    } else {
+      try {
+        reportTextTps("", true);
+      } catch (_) {}
+    }
+
     // 回复结束后读取最新 AI 回复；完成判定内部已含必要等待
     if (hasNewContent && !isProcessingResponse) {
       // 若最后一条 AI 消息已处理过，则跳过，避免反复打印和等待
@@ -1058,7 +1121,7 @@ async function handleJsToolScript(code) {
   // 方向 C：不强制弹面板
   isExecuting = true;
   notifyJsScriptDetected(code);
-  setTaskStatus(true);
+  setTaskStatus(true, "Выполняется JS-скрипт");
   showToast(t("overlay.toast.execStarted"));
 
   const callId =
@@ -1174,9 +1237,25 @@ async function handleToolCall(toolCall) {
   const { toolName, params, callId } = toolCall;
   console.log(`[Cookie Code] 执行工具: ${toolName}`, params);
 
+  // goal_done — особый случай: останавливаем goal-цикл СИНХРОННО здесь,
+  // не дожидаясь IPC 'goal-done' из main (гонка с nudge-таймером).
+  // Если ждать IPC, observer успевает отправить «продолжай» до прихода события.
+  if (toolName === "goal_done" || toolName === "goalDone") {
+    try {
+      const goalEngine = require("./goal-engine");
+      goalEngine.onGoalDone();
+      console.log("[Cookie Code] goal_done: goal-engine остановлен синхронно");
+    } catch (e) {
+      console.warn(
+        "[Cookie Code] goal_done: не удалось остановить движок:",
+        e.message,
+      );
+    }
+  }
+
   // 方向 C：不强制弹面板
   isExecuting = true;
-  setTaskStatus(true);
+  setTaskStatus(true, "Инструмент: " + toolName);
   showToast(t("overlay.toast.execStarted"));
 
   try {

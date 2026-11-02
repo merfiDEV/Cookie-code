@@ -85,6 +85,13 @@ jobs:
               dist/*.zip
               dist/*.blockmap
               dist/latest-mac.yml
+          - os: ubuntu-latest
+            command: build:linux:local
+            artifact: Linux-build
+            paths: |
+              dist/*.AppImage
+              dist/*.tar.gz
+              dist/latest-linux.yml
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -139,6 +146,12 @@ jobs:
           name: macOS-build
           path: artifacts/mac
 
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Linux-build
+          path: artifacts/linux
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -149,3 +162,4 @@ jobs:
           files: |
             artifacts/win/*
             artifacts/mac/*
+            artifacts/linux/*

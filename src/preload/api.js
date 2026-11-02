@@ -45,6 +45,11 @@ let electronAPI = {
   killProcess: () => {
     return ipcRenderer.invoke("kill-process");
   },
+  // Broadcast task/status/history в shell-сайдбар (React Home)
+  shellBroadcastTask: (payload) =>
+    ipcRenderer.send("shell-broadcast-task", payload),
+  // Точный TPS из preload (accumulated_token_usage diff) → main → shell
+  statsRecordTps: (payload) => ipcRenderer.send("stats-record-tps", payload),
   // ===== Telegram-бот =====
   telegramApply: () => ipcRenderer.invoke("telegram-apply"),
   telegramStatus: () => ipcRenderer.invoke("telegram-status"),
@@ -104,6 +109,9 @@ let electronAPI = {
   },
   statsRecordTokens: (ev) => {
     return ipcRenderer.invoke("stats-record-tokens", ev);
+  },
+  statsRecordTps: (ev) => {
+    ipcRenderer.send("stats-record-tps", ev);
   },
   statsRecordSession: (ev) => {
     return ipcRenderer.invoke("stats-record-session", ev);

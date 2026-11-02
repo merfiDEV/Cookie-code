@@ -122,6 +122,7 @@ class ProcessManager {
         } catch (__) {}
       }
     }
+    this._notifyTelegramKilled([numPid]);
     return { success: true, killed: true };
   }
 
@@ -166,7 +167,23 @@ class ProcessManager {
 
     await Promise.all(killPromises);
     this.activeProcesses.clear();
+    this._notifyTelegramKilled(list.map((c) => c && c.pid));
     return { success: true, count: killedCount };
+  }
+
+  /**
+   * Убрать кнопку «Убить процесс» из Telegram, если процесс остановлен с ПК.
+   * @param {Array<number>} pids
+   */
+  _notifyTelegramKilled(pids) {
+    try {
+      const clean = (pids || []).map(Number).filter((n) => n > 0);
+      if (clean.length === 0) return;
+      const bot = require("../../botsrc");
+      if (bot && typeof bot.notifyProcessKilled === "function") {
+        bot.notifyProcessKilled(clean).catch(() => {});
+      }
+    } catch (_) {}
   }
 }
 

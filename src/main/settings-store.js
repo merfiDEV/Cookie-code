@@ -1,15 +1,24 @@
 /**
- * Пользовательские настройки Cookie Code (settings.json в userData).
- * Простой key-value store с дефолтами.
+ * Персистентные настройки Cookie Code.
  *
- * Файл: <userData>/cuckoo-settings.json
- * Пример содержимого:
- *   { "background": "miku" }
+ * Хранилище: плоский JSON <userData>/cuckoo-settings.json.
+ * Контракт: DEFAULTS — единственный источник истины для схемы; всё, чего нет
+ * в файле или в DEFAULTS, считается отсутствующим. Чтение всегда возвращает
+ * полный объект (DEFAULTS ⊕ файл), поэтому потребителям не нужны проверки на
+ * undefined.
+ *
+ * Инвариант: ключи языка (language/telegramLanguage) при отсутствии в файле
+ * заполняются из локали ОС. Это состояние "пользователь ещё не выбирал" —
+ * важно не перезаписывать его дефолтом "ru" при сохранении (см. writeSettings:
+ * merge идёт от DEFAULTS, но фактическое значение берётся из прочитанного).
  */
 const fs = require("fs");
 const path = require("path");
 const { app } = require("electron");
 
+// Регэкспы команд, которые approval-gate считает разрушительными по умолчанию.
+// ВАЖНО: это эвристика, а не песочница — не полагаться на неё как на границу
+// безопасности; пользователь может расширять список через настройки.
 const DEFAULT_DANGEROUS_PATTERNS = [
   "^rm\\s+-rf\\s+/",
   "^format\\s+",
@@ -24,99 +33,117 @@ const DEFAULT_DANGEROUS_PATTERNS = [
 
 const DEFAULTS = {
   customizationEnabled: true,
+
+  // === Оформление ===
   background: "miku",
-  // Шрифт интерфейса Cookie Code и страницы DeepSeek.
-  // "system" — системный по умолчанию; "<id>" — встроенный или "custom:<имя>".
+  // "system" | "<built-in-id>" | "custom:<name>". Разрешается на стороне UI.
   font: "system",
-  // Жирность шрифта (100–900). Применяется и к системному, и к кастомному.
+  // 100–900; применяется к любому шрифту (системному и кастомному).
   fontWeight: 400,
-  // Кастомный цвет текста ("#rrggbb"). "" — системный (не переопределять).
+  // "#rrggbb" или "" — пусто значит "не переопределять".
   fontColor: "",
-  backgroundBlur: 0, // px — размытие самой картинки фона
-  headerBlur: 12, // px — стекло верхней панели
-  sidebarBlur: 12, // px — стекло левого сайдбара
-  headerOpacity: 45, // % — плотность фона шапки (0 = прозрачно)
-  sidebarOpacity: 45, // % — плотность фона сайдбара (0 = прозрачно)
-  toolBlockOpacity: 55, // % — плотность фона tool-блоков в чате
-  toolBlockBlur: 0, // px — стекло tool-блоков в чате
-  rgbUsername: true, // Переливание ника пользователя (по умолчанию вкл)
-  // Стиль переливания ника: 'rgb' (радуга) | 'blood' (чёрно-красный «кровь»).
+  backgroundBlur: 0, // px, размытие картинки фона
+  headerBlur: 12, // px, backdrop-blur шапки
+  sidebarBlur: 12, // px, backdrop-blur сайдбара
+  headerOpacity: 45, // %, непрозрачность подложки шапки (0 = прозрачно)
+  sidebarOpacity: 45, // %, непрозрачность подложки сайдбара
+  toolBlockOpacity: 55, // %, непрозрачность фона tool-блоков
+  toolBlockBlur: 0, // px, backdrop-blur tool-блоков
+  rgbUsername: true, // анимированный градиент на нике пользователя
+  // 'rgb' — радуга; 'blood' — тёмно-красный.
   rgbUsernameStyle: "rgb",
-  dangerousPatterns: DEFAULT_DANGEROUS_PATTERNS, // список regex-паттернов опасных команд
-  language: "ru", // язык UI: 'ru' | 'en'
-  formattersEnabled: true, // авто-форматирование после write/edit (prettier/gofmt/ruff/...)
-  // ===== Панель Cookie Code =====
-  overlayOpacity: 72, // % — плотность фона панели оверлея
-  overlayBlur: 12, // px — размытие стекла панели
-  overlayWidth: 300, // px — ширина панели
-  overlayBgColor: "#111322", // цвет подложки панели
-  overlayPrimaryColor: "#8b93ff", // основной цвет кнопок панели
-  overlayBtnRadius: 10, // px — скругление кнопок панели
-  // ===== Telegram-бот (botsrc/) =====
-  telegramEnabled: false, // включить бота (polling + уведомления)
-  telegramBotToken: "", // токен от @BotFather
-  telegramLanguage: "ru", // язык бота: 'ru' | 'en' (дефолт — системный)
-  telegramChatId: "", // id твоего чата с ботом
-  telegramAllowedUserId: "", // id пользователя TG (если задан — только он может писать)
-  telegramNotifyTools: false, // присылать уведомления о результате tool
-  // Список имён tool, уведомления о которых НЕ отправлять (по одному в строке).
-  // Актуально только при включённом telegramNotifyTools.
-  // "read"/"readLines" здесь НЕ исключаем: чтение файлов — заметное действие,
-  // и в компактных уведомлениях оно показывается как «📖 Reading <path>».
-  // todoWrite исключён из ignore: у него своя красивая карточка со списком задач
-  // в боте (см. _renderTodoWrite в botsrc/index.js).
+
+  // Список регэкспов опасных команд (approval-gate, режим 'risky').
+  dangerousPatterns: DEFAULT_DANGEROUS_PATTERNS,
+
+  // 'ru' | 'en'. При отсутствии в файле подменяется локалью ОС (readSettings).
+  language: "ru",
+  // Автоформат после write/edit (prettier/gofmt/ruff/... — по типу файла).
+  formattersEnabled: true,
+
+  // === Панель Cookie Code (overlay) ===
+  overlayOpacity: 72, // %, непрозрачность подложки
+  overlayBlur: 12, // px, backdrop-blur
+  overlayWidth: 300, // px
+  overlayBgColor: "#111322",
+  overlayPrimaryColor: "#8b93ff",
+  overlayBtnRadius: 10, // px
+
+  // === Telegram-бот (botsrc/) ===
+  telegramEnabled: false, // polling + уведомления
+  telegramBotToken: "", // @BotFather
+  // 'ru' | 'en'; как language — при отсутствии подменяется локалью ОС.
+  telegramLanguage: "ru",
+  telegramChatId: "", // целевой чат для уведомлений
+  // Если задан — бот принимает сообщения только от этого TG user id.
+  telegramAllowedUserId: "",
+  // Уведомления о завершении tool-вызовов.
+  telegramNotifyTools: false,
+  // Denylist имён tool (применяется только при telegramNotifyTools).
+  // read/readLines намеренно НЕ в списке — чтение файла показывается как
+  // «📖 Reading <path>» и полезно в ленте. todoWrite тоже не здесь: у него
+  // отдельная карточка (_renderTodoWrite в botsrc/index.js).
   telegramToolNotifyIgnore: ["glob", "grep"],
-  telegramChatFeed: false, // принимать сообщения из TG в чат DeepSeek
-  // ===== Распознавание голосовых (локальный Whisper, botsrc/whisper.js) =====
-  telegramVoiceEnabled: false, // распознавать голосовые из TG локальным Whisper
-  telegramVoiceModel: "light", // размер модели: 'light' | 'medium' | 'heavy'
-  telegramWhisperLang: "auto", // язык для whisper (-l): 'auto' | 'ru' | 'en' | ...
-  telegramWhisperExePath: "", // путь к whisper-cli.exe (пусто — авто, <userData>/whisper/bin)
-  telegramWhisperFfmpegPath: "", // путь к ffmpeg (пусто — искать в PATH)
-  // ===== Подтверждение tool-вызовов (approval gate) =====
-  // 'off'    — выполнять всё автоматически (прежнее поведение)
-  // 'risky'  — спрашивать подтверждение только для рискованных инструментов
-  //            (bash/pwsh/write/edit/mysql/inject_js/...)
-  // 'all'    — спрашивать подтверждение для каждого tool-вызова и JS-блока
+  // Приём сообщений из TG в активный чат DeepSeek.
+  telegramChatFeed: false,
+
+  // === Голосовые из TG → локальный Whisper (botsrc/whisper.js) ===
+  telegramVoiceEnabled: false,
+  telegramVoiceModel: "light", // 'light' | 'medium' | 'heavy'
+  telegramWhisperLang: "auto", // -l для whisper: 'auto' | 'ru' | 'en' | ...
+  telegramWhisperExePath: "", // "" → <userData>/whisper/bin
+  telegramWhisperFfmpegPath: "", // "" → искать в PATH
+
+  // === Approval gate ===
+  // 'off'   — без подтверждений (историческое поведение);
+  // 'risky' — только разрушительные инструменты (bash/pwsh/write/edit/mysql/inject_js/...);
+  // 'all'   — каждый tool-вызов и JS-блок.
   toolApprovalMode: "off",
-  // Скрывать служебные сообщения в чате (результаты инструментов, JS-сводки,
-  // системный промпт) — они по-прежнему уходят в AI, но не показываются в UI.
+
+  // Скрыть служебные сообщения (результаты инструментов, JS-сводки, system prompt)
+  // в UI. В AI они всё равно уходят — флаг чисто презентационный.
   hideSystemMessages: false,
-  // Превращать абсолютные пути к файлам в ответах AI в кликабельные чипы
-  // (клик открывает файл в VS Code / проводнике).
+
+  // Абсолютные пути в ответах AI → кликабельные чипы (открытие в редакторе/проводнике).
   fileChipEnabled: true,
-  // Показывать под ответом AI блок «Затронуто» с файлами из успешных write/edit
+  // Блок «Затронуто» под ответом (файлы из успешных write/edit).
   showProducedFiles: true,
-  // Показывать блок «Токены диалога» в оверлее (по умолчанию выключено).
+  // Блок «Токены диалога» в оверлее.
   showConvTokens: false,
-  // ===== Пет (чубрик) на поле ввода =====
-  // Режим: 'docked' — привязан к полю ввода, 'center' — свободно таскается.
+
+  // === Пет (чубрик) ===
+  // 'docked' — привязан к полю ввода; 'center' — свободно перетаскивается.
   petMode: "docked",
-  // Точка посадки в долях поля ввода (0..1). Y=0 — верхняя граница поля.
+  // Точка посадки в долях поля ввода [0..1]; Y=0 — верхняя граница поля.
   petRatioX: 0.939,
   petRatioY: 0.016,
-  // Размер пета в px.
-  petSize: 64,
-  // Имя файла спрайта в <userData>/pets без расширения. "" — взять первый попавшийся.
-  petId: "",
-  // Пет включён (показывается на экране). По умолчанию — да.
+  petSize: 64, // px
+  petId: "", // имя спрайта в <userData>/pets без расширения; "" → первый найденный
   petEnabled: true,
-  // Debug-режим пета: разблокирует горячие клавиши F8/F9/F10/F11.
-  petDebugMode: false,
-  // ===== Статистика использования (дашборд на home-странице) =====
-  // Копить локальную статистику (сессии/сообщения/токены/дни).
-  statsEnabled: true,
-  // Debug-режим дашборда: горячие клавиши и отладочная рамка.
-  statsDebugMode: false,
-  // Показывать сам дашборд на домашней странице (независимо от сбора статистики).
-  statsDashboardEnabled: true,
-  // ===== Таймаут выполнения JS-скриптов (секунды) =====
-  // Общий дедлайн для одного cuckoo-блока (RUN_DEADLINE в tools/JsRunner.js).
-  // Минимум 10 сек, максимум 1000 сек. Синхронный vm-таймаут остаётся 30 сек.
+  petDebugMode: false, // открывает F8/F9/F10/F11
+
+  // === Статистика (дашборд на home) ===
+  statsEnabled: true, // собирать сессии/сообщения/токены/дни локально
+  statsDebugMode: false, // горячие клавиши + отладочная рамка
+  statsDashboardEnabled: true, // показывать дашборд (независимо от сбора)
+
+  // === Таймаут JS-скриптов (сек) ===
+  // Дедлайн одного cuckoo-блока (RUN_DEADLINE в tools/JsRunner.js).
+  // Валидный диапазон 10..1000; синхронный vm-таймаут отдельно — 30с.
   jsTimeoutSec: 60,
 };
 
 let cachedPath = null;
+
+/**
+ * Заполнить language/telegramLanguage локалью ОС (для случая "файла нет").
+ * @param {object} s
+ * @returns {object}
+ */
+function withSystemLanguage(s) {
+  const lang = getSystemLanguage();
+  return { ...s, language: lang, telegramLanguage: lang };
+}
 
 function getSettingsPath() {
   if (!cachedPath) {
@@ -126,9 +153,9 @@ function getSettingsPath() {
 }
 
 /**
- * Язык системы в виде 'ru' | 'en'.
- * Русскоязычные и близкие локали → 'ru', всё остальное → 'en'.
- * Используется как дефолт, если пользователь ещё не выбрал язык явно.
+ * Локаль ОС → поддерживаемый язык UI ('ru' | 'en').
+ * Кириллические и близкие локали маппятся в 'ru', всё прочее — в 'en'.
+ * Применяется как дефолт, пока пользователь не выбрал язык явно.
  */
 function getSystemLanguage() {
   let locale = "";
@@ -142,35 +169,41 @@ function getSystemLanguage() {
   return RU_LIKE.includes(lang) ? "ru" : "en";
 }
 
+/**
+ * Прочитать настройки: DEFAULTS ⊕ файл.
+ *
+ * Гарантии:
+ *  - всегда возвращает полный объект (никаких undefined у потребителей);
+ *  - отсутствующий файл/битый JSON не бросают — отдаём DEFAULTS;
+ *  - language/telegramLanguage при отсутствии в файле берутся из локали ОС
+ *    (сигнал "пользователь ещё не выбирал" — не путать с явным "ru").
+ */
 function readSettings() {
   try {
     const file = getSettingsPath();
-    if (!fs.existsSync(file))
-      return {
-        ...DEFAULTS,
-        language: getSystemLanguage(),
-        telegramLanguage: getSystemLanguage(),
-      };
-    const raw = fs.readFileSync(file, "utf-8");
-    const parsed = JSON.parse(raw);
+    if (!fs.existsSync(file)) return withSystemLanguage({ ...DEFAULTS });
+
+    const parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
     const merged = { ...DEFAULTS, ...parsed };
-    // Пользователь ещё не выбирал язык — подтягиваем язык системы.
+
+    // Явный выбор пользователя уважаем; отсутствие ключа = "ещё не выбирал".
     if (!parsed || parsed.language == null)
       merged.language = getSystemLanguage();
-    // То же для языка Telegram-бота.
     if (!parsed || parsed.telegramLanguage == null)
       merged.telegramLanguage = getSystemLanguage();
+
     return merged;
   } catch (err) {
     console.error("[Cookie Code] 读取 settings.json 失败:", err.message);
-    return {
-      ...DEFAULTS,
-      language: getSystemLanguage(),
-      telegramLanguage: getSystemLanguage(),
-    };
+    return withSystemLanguage({ ...DEFAULTS });
   }
 }
 
+/**
+ * Записать настройки (merge поверх DEFAULTS, чтобы файл всегда был полным).
+ * Возвращает записанный объект либо null при ошибке I/O — вызывающий код
+ * должен проверять результат, а не полагаться на исключение.
+ */
 function writeSettings(settings) {
   try {
     const file = getSettingsPath();
@@ -185,7 +218,9 @@ function writeSettings(settings) {
 }
 
 /**
- * Частичное обновление одного ключа.
+ * Обновить один ключ (read-modify-write).
+ * Не атомарно по отношению к параллельным записям — вызывать из main-процесса
+ * последовательно; для UI-настроек этого достаточно.
  */
 function setSetting(key, value) {
   const current = readSettings();
@@ -193,9 +228,7 @@ function setSetting(key, value) {
   return writeSettings(current);
 }
 
-/**
- * Получить значение одного ключа.
- */
+/** Значение одного ключа (с учётом DEFAULTS и системного языка). */
 function getSetting(key) {
   const s = readSettings();
   return s[key];

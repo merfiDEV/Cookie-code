@@ -116,6 +116,19 @@ function sendMessageToChat(msg, tag) {
  * 将 JSON 工具执行结果发送回 DeepSeek 聊天，让 AI 看到结果并继续工作
  */
 function sendToolResultToChat(toolCall, result) {
+  // goal_done — НЕ回传 результат в чат: цель закрыта, AI не должен начинать
+  // новый раунд «продолжай». Иначе после успешного goal_done AI получает
+  // «【工具执行结果】goal_done 执行成功» и генерирует ещё ответ, а
+  // goal-engine уже остановлен → пользователь видит лишний раунд.
+  if (
+    toolCall &&
+    (toolCall.toolName === "goal_done" || toolCall.toolName === "goalDone")
+  ) {
+    console.log(
+      "[Cookie Code] goal_done: результат не回传 в чат (цель закрыта)",
+    );
+    return;
+  }
   // 构造回传消息（明确的成功/失败信息，AI 可据此修正并继续）
   // 拒绝类失败（denied）单独措辞：告诉 AI 不要重试，等待用户指示。
   const denied = result.denied === true || isDenialError(result.error);
@@ -168,6 +181,21 @@ function sendToolResultToChat(toolCall, result) {
  */
 function sendCombinedJsResultsToChat(results) {
   if (!Array.isArray(results) || results.length === 0) return;
+
+  // goal_done через cuckoo-блок (JS-путь): цель закрыта, результат в чат
+  // не отправляем — иначе AI стартует новый раунд «продолжай».
+  const goalCalled = results.some(
+    (item) =>
+      item &&
+      typeof item.code === "string" &&
+      /\bgoal_?done\s*\(/i.test(item.code),
+  );
+  if (goalCalled) {
+    console.log(
+      "[Cookie Code] goal_done (JS): результат не回传 в чат (цель закрыта)",
+    );
+    return;
+  }
 
   const MAX_OUTPUT = 15000;
   const sep = String.fromCharCode(10);
@@ -414,6 +442,40 @@ function registerIpcListeners() {
     applyInitialPrompt(content);
   });
 
+  // Вставка из Telegram (и др. источников) — заполнить + отправить
+  ipcRenderer.on("fill-input", (_event, data) => {
+    try {
+      const text = (data && data.text) || "";
+      const autoSend = !!(data && data.autoSend);
+      if (!text) return;
+      const input = findInputArea();
+      if (!input) return;
+      if (!setInputContent(input, text)) return;
+      if (autoSend) {
+        setTimeout(() => triggerSend(input), 300);
+      }
+    } catch (err) {
+      console.error("[Cookie Code] fill-input error:", err.message);
+    }
+  });
+
+  // Дописать в input (без очистки)
+  ipcRenderer.on("append-input", (_event, data) => {
+    try {
+      const text = (data && data.text) || "";
+      if (!text) return;
+      const input = findInputArea();
+      if (!input) return;
+      const cur =
+        input.tagName === "TEXTAREA" || input.tagName === "INPUT"
+          ? String(input.value || "")
+          : String(input.textContent || "");
+      setInputContent(input, cur ? cur + " " + text : text);
+    } catch (err) {
+      console.error("[Cookie Code] append-input error:", err.message);
+    }
+  });
+
   // Pull-модель: если push initial-prompt потерялся (окно субагента долго
   // грузилось и не успело подписаться на канал), через 20с сами запросим его
   // у main-процесса. Актуально только для окна-субагента.
@@ -443,6 +505,50 @@ function registerIpcListeners() {
       }, 20000);
     }
   } catch (_) {}
+
+  // Overlay-кнопки из shell-сайдбара: выполняем ту же логику, что была в overlay.
+  ipcRenderer.on("overlay-action", async (_event, data) => {
+    const action = data && data.action;
+    try {
+      const events = require("../overlay/events");
+      switch (action) {
+        case "gen-doc": {
+          const msg =
+            "根据当前项目生成一个项目说明文件，并将文件放到当前项目 .cuckooCode/CUCKOO.md";
+          sendToChat(msg, "生成文档", 300);
+          break;
+        }
+        case "immersive": {
+          const msg =
+            "现在你的任何疑问,或没有疑问的选择都需要和我确认 , 确认的方式是 你问一个问题我回答一个问题,然后你再问下一个问题, 最好给我选项, 也要给我个其他的选项, 谢谢 爱你哦";
+          sendToChat(msg, "沉浸式交流", 300);
+          break;
+        }
+        case "manual-parse": {
+          const { handleManualParse } = require("./observer");
+          handleManualParse();
+          break;
+        }
+        case "context-port": {
+          const contextPort = require("./context-port");
+          await contextPort.startTransfer();
+          break;
+        }
+        case "prompts": {
+          require("../overlay/prompts-panel").open();
+          break;
+        }
+        case "diff": {
+          require("../overlay/diff-panel").toggleDiffPanel();
+          break;
+        }
+        default:
+          console.warn("[Cookie Code] неизвестный overlay-action:", action);
+      }
+    } catch (err) {
+      console.error("[Cookie Code] overlay-action error:", err && err.message);
+    }
+  });
 
   // Ответ из окна кастомного уведомления — сразу вставляем в чат и отправляем.
   ipcRenderer.on("cuckoo-notif-reply", (_event, text) => {

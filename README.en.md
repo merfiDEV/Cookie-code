@@ -16,82 +16,99 @@
 </p>
 
 <p align="center">
-  <img src="assets/photo_1_2026-09-12_19-02-00.jpg" alt="Cookie Code — main window" width="900">
+  <img src="assets/photo_2026-10-31_15-05-24.jpg" alt="Cookie Code main window" width="900">
 </p>
 
-**Turn DeepSeek into a real coding assistant.** Cookie Code bridges the gap between AI chat and your actual codebase — no API tokens, no copy-paste, just pure automation.
+**Cookie Code** turns the DeepSeek web chat into a developer workstation. The AI opens files in your project, runs commands, edits code, and commits, and you stay in the same chat.
+
+The app works through your regular DeepSeek web account. No API key, and you do not pay per token.
 
 ---
 
-## 🎯 Why Cookie Code?
+## Why this exists
 
-**The Problem:** DeepSeek is smart, but blind to your project. It can't read files, run commands, or commit changes. You're stuck copy-pasting code back and forth.
+The DeepSeek web chat thinks well, but it cannot see your project. It cannot open a file, run a test, or make a commit, so you end up copying code back and forth.
 
-**The Solution:** Cookie Code injects a local execution layer into the DeepSeek web chat:
+Cookie Code adds a local executor to the chat. The AI writes a block that calls a tool, the app intercepts the block, runs it in a Node sandbox, and streams the result back into the chat. The loop then repeats: think, act, read the result.
 
-✅ **Zero token cost** — uses your free DeepSeek web account, no API keys  
-✅ **Real agent loop** — AI reads files → writes code → runs tests → commits changes  
-✅ **Subagents** — AI delegates tasks to isolated agents (own context, own tool whitelist)  
-✅ **Git integration** — see diffs, browse history, review changes in a visual panel  
-✅ **Telegram control** — code from your phone, get notifications, approve commands remotely  
-✅ **Beautiful UI** — glass effects, custom themes, animated pets, dark mode
+What you get:
+
+- A workflow on your regular DeepSeek web account, with no API keys and no per-token billing.
+- A full agent loop: file reads, edits, shell commands, SQL queries, MCP tools.
+- Subagents in separate windows with their own context and their own tool allowlist.
+- Git inside the app: diff, history, commit, push.
+- Control from your phone through Telegram.
+- A UI you can rebuild: wallpapers, glass effects, fonts, themes.
 
 ---
 
-## ✨ Key Features
+## Features
 
-### 🤖 **AI Agent That Actually Does Things**
+### An AI agent that works on your code
 
-The AI can now:
+The AI can:
 
-- 📖 **Read your files** — entire project structure, grep patterns, file contents
-- ✏️ **Write & edit code** — create files, apply patches, delete old code
-- 💻 **Run commands** — bash, PowerShell, database queries, any shell script
-- 🔍 **Search & navigate** — find files by glob, search content with regex
-- 📊 **Manage tasks** — create, track, and complete todo lists
-- 🌐 **Fetch data** — HTTP requests, API calls, web scraping
-- 🔧 **MCP tools** — connect any MCP server for extended capabilities
-- 🧠 **Two-level memory** — AI remembers both you and the project: **global** memory (`<userData>/memory.md`) holds user/system facts, **project** memory (`<projectDir>/.cookie/memory/ProjectMemory.md`) holds conventions, architecture and key paths
-- 📜 **Project rules** — a `.cookie/rules.md` file sets rules the AI must accept via `readrules()`. Until accepted, mutating tools are locked. No file — no lock. Subagents bypass the gate.
+- Read files: project structure, file contents, pattern search.
+- Write and edit code: create files, apply patches, delete stale code.
+- Run commands: bash, PowerShell, SQL queries, any shell script.
+- Search the project: files by glob, contents by regular expression.
+- Keep a task list: create, update, delete.
+- Fetch data over HTTP and call APIs.
+- Connect MCP servers and call their tools.
+- Remember you and the project in two memory levels.
+- Follow project rules from `.cookie/rules.md`.
 
-**How it works:**
+What the loop looks like:
 
-1. You ask: "Show me recent changes in auth.js"
-2. AI emits: `` `cuckoo const r = await grep('auth.js', 'login');` ``
-3. Cookie Code intercepts, executes, streams result back to AI
-4. AI sees the output and continues working
+1. You type: "Show recent changes in auth.js".
+2. The AI replies with a ```cuckoo block that calls grep.
+3. Cookie Code runs the call and streams the result into the chat.
+4. The AI reads the output and continues.
 
-### 🚀 **Subagents — AI Builds Its Own Helpers**
+### Two-level memory
+
+The AI remembers both you and the project:
+
+- Global memory (`<userData>/memory.md`) holds facts about you and your system.
+- Project memory (`<projectDir>/.cookie/memory/ProjectMemory.md`) holds conventions, architectural decisions, and key paths for that project.
+
+The `memorySave`, `memoryRead`, and `memoryClear` tools take a `scope` argument with the values `project`, `global`, or `all`. Both files can be opened and cleared from Settings.
+
+### Project rules
+
+A `.cookie/rules.md` file sets rules the AI must accept through `readrules()`. Until the rules are accepted, tools that change files stay locked. No file means no lock. Subagents bypass this gate.
+
+### Subagents
 
 <p align="center">
-  <img src="assets/photo_2026-10-06_18-24-20.jpg" alt="Cookie Code — subagents" width="440">
-  <img src="assets/photo_2026-10-06_18-24-55.jpg" alt="Cookie Code — control panel" width="440">
+  <img src="assets/photo_2026-10-06_18-24-20.jpg" alt="Cookie Code subagents" width="440">
+  <img src="assets/photo_2026-10-06_18-24-55.jpg" alt="Cookie Code control panel" width="440">
 </p>
 
-Cookie Code can **delegate tasks to isolated AI agents**, each in its own window with its own context. The subagent's drafts, searches, and tool calls **never pollute the main conversation** — only the final summary comes back to the parent.
+The AI delegates tasks to isolated agents. Each one runs in its own window with its own context, and only the final summary returns to the main conversation. Drafts and intermediate tool calls never pollute the parent chat.
 
-**How it works:**
+How it works:
 
-1. You: _"Delegate to explore: find all calls to apiFetch"_
-2. AI calls `run_agent("explore", "find all calls to apiFetch")`
-3. A **separate window** opens using the same DeepSeek login
-4. The subagent works in isolation: `glob → read → grep → ...`
-5. When done, the window closes and **only the summary** appears in the chat
+1. You ask: "Delegate to explore: find every call to apiFetch".
+2. The AI calls `run_agent("explore", "...", "...")`.
+3. A separate window opens with the same DeepSeek login.
+4. The subagent works in isolation: `glob → read → grep`.
+5. When it finishes, the window closes and the summary appears in the chat.
 
-**Three ways to create an agent:**
+Three ways to create an agent:
 
-- **Manually** — drop `cookie/agents/<name>.md` with frontmatter into your project
-- **Via AI** — say _"Create an agent for SQL migration review"_ → AI calls `create_agent` and uses it immediately
-- **Built-in** — `explore`, `code-reviewer`, `git-committer`, `changelog-writer` ship with the project
+- Manually: drop `cookie/agents/<name>.md` with frontmatter into the project.
+- Through the AI: say "Create an agent for SQL migration review", and the AI calls `create_agent` and uses it right away.
+- Use a built-in one: `explore`, `code-reviewer`, `git-committer`, `changelog-writer`, and `page-scripter` already ship in the project.
 
-**Safety rails:**
+What constrains a subagent:
 
-- 🔒 **Tool whitelist** — put `tools: read, grep` in the agent's frontmatter → it **physically cannot** call `bash` or `mysql`
-- 🚫 **Anti-recursion** — a subagent cannot spawn another subagent
-- ⏱ **maxTurns** — breaks infinite loops (e.g., 40 steps for the committer)
-- ⏲ **10-min timeout** — force-closes a hung window
+- Tool allowlist. Set `tools: read, grep`, and the agent physically cannot call `bash` or `mysql`.
+- No recursion. A subagent cannot spawn another subagent.
+- A step limit (`maxTurns`) that breaks infinite loops.
+- A 10-minute timeout that closes a hung window.
 
-**Agent example:**
+Agent example:
 
 ```markdown
 ---
@@ -104,388 +121,223 @@ maxTurns: 20
 You are an experienced code review expert...
 ```
 
----
+### Goals
 
-### 🎯 **Goals — Autonomous Multi-Round Tasks**
+The `/goal` command turns a task into a self-driving loop: the AI advances step by step without input from you between steps.
 
-The `/goal` command turns a single task into a **self-driving multi-round loop**: the AI keeps advancing step by step until the goal is done — no input from you between steps.
+- `/goal <description>` sets a goal, `/goal` shows status, and `/goal stop|pause|resume` controls it.
+- When a response round ends, Cookie Code sends "continue" to the AI automatically.
+- The goal completes when the AI calls the `goalDone()` tool.
+- Loop protection: a 50-iteration limit and a stop after three rounds without progress.
+- The Goal panel on the left shows the goal text, the iteration number, a timer, and Pause and Exit buttons.
+- Every chat has its own goal.
+- You can set and manage goals from Telegram with `/goal`, and start and completion notifications arrive there.
 
-**How it works:**
+### Interface
 
-1. Type `/goal <goal description>` in chat (or set a goal from Telegram: `/goal <description>`)
-2. The AI receives the goal instruction and starts working
-3. When a response round ends (no tool calls), Cookie Code **automatically** sends the AI "continue"
-4. When done, the AI calls the `goalDone()` tool and the loop stops
+- Glass panels with configurable blur and opacity.
+- 27 wallpapers included.
+- Animated pets that react to your work.
+- Dark and light themes, switched automatically or by hand.
+- Your own typeface: drop a file in the folder and pick it in Settings.
+- An RGB glow for the username.
 
-**Controls:**
+### Safety
 
-| Command                        | Action              |
-| ------------------------------ | ------------------- |
-| `/goal <text>`                 | Set a goal          |
-| `/goal`                        | Show current status |
-| `/goal stop`                   | Stop the goal       |
-| `/goal pause` / `/goal resume` | Pause / resume      |
+- Tool approval: risky commands run only after you confirm them.
+- Dangerous patterns: regular expressions for commands that must never run.
+- Hidden service messages: the chat stays clean while the AI still sees the full context.
+- Session allowlist: approve a tool once and it runs freely until reload.
+- Project rules: the AI accepts them through `readrules()` before starting work.
+- Plan mode: the AI writes a plan to `plan.md` instead of changing code. You approve or reject the plan, and you can leave comments on its lines.
 
-**Goal panel:** a floating panel on the left shows the goal text, iteration number, elapsed time and **Pause** / **Exit** buttons. It can be dragged.
+### Project prompts
 
-**Loop protection:**
+Prompts live in `.cookie/prompts/*.md`, and the Prompts button opens them in the overlay. You can create, edit, delete, and insert a prompt into the input with one click. The `/prompts` command does the same from Telegram.
 
-- ⏱ **Iteration limit** — 50 rounds by default (setting `cuckoo-goal-max-iterations`)
-- 🔁 **No progress** — 3 identical rounds in a row stop the goal
-- ⏸ **Manual stop** — `/goal stop` or the "Exit" button instantly break the loop
+### Telegram bot
 
-**Per-session:** each chat has its own goal — switching sessions keeps them separate.
+Control the app from your phone:
 
-**Telegram notifications:** you get notified on goal start and completion, and can set/manage goals right from the bot.
+- `/status` shows the current project, active processes, and task count.
+- `/diff` sends uncommitted changes with syntax highlighting.
+- `/log` browses commit history and shows the diff of a selected commit.
+- `/todos` manages the task list.
+- `/prompts` opens project prompts.
+- `/screen` takes a screenshot of the active window.
+- `/stop` kills runaway processes.
 
----
+Incoming messages are typed into the chat. Voice messages are transcribed by local Whisper and sent to the AI. Photos and files are attached to the input field.
 
-### 🎨 **Beautiful & Customizable**
+### Git
 
-<p align="center">
-  <img src="assets/photo_3_2026-09-12_19-02-00.jpg" alt="Inline tool block" width="800">
-</p>
+A built-in diff viewer:
 
-- **Glass UI** — frosted glass panels with custom blur and opacity
-- **27 wallpapers** — hand-picked backgrounds built-in
-- **Animated pets** — cute mascots that react to your work
-- **Dark/Light themes** — automatic or manual switching
-- **Custom fonts** — bring your own typeface
-- **RGB effects** — animated username glow
+- The Changes tab shows uncommitted edits line by line.
+- The History tab browses commits, and a click opens the full diff.
+- Navigation jumps between hunks and filters added and removed lines.
+- A minimap gives an overview of the whole change.
+- Inline diff highlights character-level differences.
+- The Commit button assembles the unified diff of every changed file and posts a message to the chat asking for a commit. You can then summon the `git-committer` agent or commit yourself.
 
-### 🔒 **Smart Safety Gates**
+### Hotkeys
 
-- **Tool approval** — confirm risky commands (bash, file writes) before execution
-- **Dangerous patterns** — regex blacklist for commands you never want to run
-- **Hidden service messages** — clean chat UI, but AI still sees full context
-- **Session-based whitelist** — approve a tool once, it runs freely until reload
-
-### 📱 **Telegram Bot Integration**
-
-Control everything from your phone:
-
-- `/status` — current project, active processes, todo count
-- `/diff` — see uncommitted changes with syntax highlighting
-- `/log` — browse git history, show commit diffs
-- `/todos` — manage task list remotely
-- `/prompts` — project prompts from the bot: list with Insert/Delete and a step-by-step Create (name → text)
-- `/screen` — take a screenshot of the active window
-- `/stop` — kill runaway processes
-
-**Incoming messages** → typed into chat automatically  
-**Voice messages** → transcribed via local Whisper and sent to AI  
-**Photos/files** → attached to the chat input field
-
-### 🧠 **Two-Level Memory**
-
-The AI remembers **both you and the project** — memory is split into two independent levels:
-
-| Level     | Location                                       | What it remembers                                                      |
-| --------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
-| 🌍 Global | `<userData>/memory.md`                         | User and system facts: name, OS, GPU, code style preferences           |
-| 🗂 Project | `<projectDir>/.cookie/memory/ProjectMemory.md` | Conventions, architectural decisions, key paths, stack of this project |
-
-- Tools `memorySave(text, scope?)`, `memoryRead(scope?)`, `memoryClear(scope?)` accept `scope`: `'project'` | `'global'` (`memoryRead` also `'all'`).
-- By default `memorySave` writes to **project** memory if the project is initialized, otherwise to global.
-- Absolute paths to both files are injected into the system prompt and exposed in JS scripts as `globalThis.memoryPath` and `globalThis.projectMemoryPath`.
-- Files can be opened, cleared, and their stats viewed separately per level in **Settings → Cookie Code**.
-- Project memory lives in `.gitignore` — the AI's personal notes are never committed.
-
-### ⌨️ **Hotkeys**
-
-| Key    | Action                                      |
-| ------ | ------------------------------------------- |
-| **F1** | Show the current CHANGELOG (What's New box) |
-
-The What's New window (F1) is **draggable by its header** and adapts its width to the screen.
-
-### 📊 **Git Integration**
-
-<p align="center">
-  <img src="assets/photo_5_2026-09-12_19-02-00.jpg" alt="Git diff viewer" width="800">
-</p>
-
-Built-in diff viewer:
-
-- **Changes tab** — see uncommitted changes, file-by-file diffs
-- **History tab** — browse commits, click to see full diff
-- **Navigation** — jump between hunks, filter added/deleted lines
-- **Mini-map** — visual overview of changes
-- **Inline diff** — character-level highlighting for precise edits
-- **Commit button** — stitches the unified diff of **all** changed files and posts a ready message to the chat asking to commit (you can summon the `git-committer` agent or commit yourself)
-
-### 📈 **Statistics Dashboard**
-
-Track your productivity:
-
-- **Activity heatmap** — GitHub-style contribution graph
-- **Token usage** — daily/weekly trends
-- **Favorite models** — which AI you use most
-- **Streak tracking** — longest consecutive days of coding
+| Key     | Action                                      |
+| ------- | ------------------------------------------- |
+| **F1**  | Show the current CHANGELOG (What's New box) |
+| **F11** | Fullscreen mode                             |
+| **F12** | Developer tools (DevTools)                  |
 
 ---
 
-## 🚀 Quick Start
+## What's new
 
-### Option 1: Download Binary (Recommended)
+Recent major changes:
 
-**Windows:**
+- **A new VS Code style shell.** The UI was rewritten: an activity bar on the left, a page panel (Home, Workspaces, Files, Prompts, Skills, Subagents, MCP, Token, About), and a status bar. The window has no system frame and uses its own buttons, and F11 goes fullscreen.
+- **Project file tree.** Folders and subfolders expand, up to 6 levels deep and 500 entries per folder. The **@** button inserts `User mentioned file: <absolute path>` into the chat, or `User mentioned folder: <absolute path>` for a folder. Name and path search, a Monaco preview, and open-in-system are included.
+- **Subagents in separate lightweight windows.** The window opens straight into a DeepSeek chat with the prompt and its own context, with no extra panels.
+- **Speed and tokens.** Output speed is computed from the difference in the server-side `accumulated_token_usage` and shown in real time. Context and speed appear in the status bar.
+- **A "Task detected" block and History.** Home shows the current command or task, a progress indicator, a **Kill** button, and a collapsible history of executed commands instead of an empty placeholder.
+- **Project prompts.** Stored in `.cookie/prompts/*.md`, created, edited, and deleted in the UI, and inserted into the input with one click.
+- **Updates.** The "Check for updates" button reports an honest result: up to date, a new version available, the update downloaded, an error, or unavailable in dev mode. The version on the About page comes from the latest `CHANGELOG.md` entry.
 
-1. Download [CookieCode-Setup.exe](https://github.com/merfiDEV/Cookie-code/releases/latest)
-2. Run installer
-3. Launch Cookie Code
+### Statistics
 
-**macOS:**
+- A GitHub style activity heatmap.
+- Token usage by day and by week.
+- Your most used models.
+- Your longest coding streak.
 
-1. Download [CookieCode.dmg](https://github.com/merfiDEV/Cookie-code/releases/latest)
-2. Drag to Applications
-3. Open (right-click → Open if Gatekeeper blocks)
+---
 
-### Option 2: Build from Source
+## Quick start
+
+### Download a build
+
+**Windows:** download [CookieCode-Setup.exe](https://github.com/merfiDEV/Cookie-code/releases/latest), run the installer, open the app.
+
+**macOS:** download [CookieCode.dmg](https://github.com/merfiDEV/Cookie-code/releases/latest), drag it to Applications, open it.
+
+### Build from source
 
 ```bash
-# Clone the repo
 git clone https://github.com/merfiDEV/Cookie-code.git
 cd Cookie-code
-
-# Install dependencies
 npm install
-
-# Run in development mode
 npm start
-
-# Or build for your platform
-npm run build:win      # Windows installer
-npm run build:mac      # macOS .dmg
 ```
 
-**Requirements:** Node.js 16+ (18+ recommended)
+You need Node.js 16 or newer.
 
 ---
 
-## 📖 How to Use
+## Usage
 
-### 1️⃣ **First Launch**
+### First launch
 
-On first run, Cookie Code opens the DeepSeek chat and shows a setup wizard:
+1. Pick a project directory.
+2. Pick a theme: wallpaper, glass effects, pet.
+3. Optionally set up the Telegram bot.
 
-1. **Pick a project directory** — this is your working folder
-2. **Choose a theme** — wallpaper, glass effects, pet
-3. **(Optional)** Set up Telegram bot for remote control
+### Working
 
-### 2️⃣ **Start Coding**
-
-Just chat naturally with the AI:
+Just talk to the AI:
 
 ```
-You: "Review the changes I made today"
-AI: Let me check... [runs git diff]
-    You modified 3 files: auth.js, api.js, README.md
-    [shows inline diff blocks]
+You: "Show the changes I made today"
+AI: runs git diff and lists three changed files
 
 You: "Write tests for the login function"
-AI: [reads auth.js, creates auth.test.js, runs npm test]
-    ✅ All 5 tests passing
+AI: reads auth.js, creates the tests, runs them, and reports the result
 
-You: "Commit this with a good message"
-AI: [runs git add + git commit]
-    Committed: "feat(auth): add comprehensive login tests"
+You: "Commit this"
+AI: runs git commit with the message "feat(auth): add login tests"
 ```
 
-### 3️⃣ **Explore Tools**
-
-Open the side panel (Cookie Code logo) to:
-
-- 🗂️ **Browse sessions** — switch between project contexts
-- 📝 **Manage todos** — see AI-created task lists
-- 🔄 **View git diff** — visual file changes
-- ⚙️ **Adjust settings** — themes, tools, Telegram
+The side panel opens sessions, the task list, the git diff, and settings.
 
 ---
 
-## 🎓 Advanced Features
+## Built-in tools
 
-### Project-Wide Context (Coming Soon)
+The app registers 44 tools. The main ones:
 
-**Current limitation:** AI only knows files it explicitly reads.
+| Tool                | Description                    |
+| ------------------- | ------------------------------ |
+| `read`              | Read file contents             |
+| `write`             | Create or overwrite a file     |
+| `edit`              | Apply a targeted patch         |
+| `glob`              | Find files by pattern          |
+| `grep`              | Search file contents           |
+| `bash` / `pwsh`     | Run shell commands             |
+| `mysql`             | SQL queries                    |
+| `webFetch`          | HTTP requests                  |
+| `todoWrite`         | Task lists                     |
+| `mcpCall`           | Call an MCP server tool        |
+| `skillLoad`         | Load a custom skill            |
+| `run_agent`         | Delegate a task to a subagent  |
+| `memorySave`        | Write a fact to memory         |
+| `goalDone`          | Complete a `/goal`             |
+| `readrules`         | Accept project rules           |
+| `ask_user_question` | Ask a clarifying question      |
+| `exitPlanMode`      | Submit the plan from `plan.md` |
+| `attachFile`        | Attach a file to the chat      |
+| `cityTime`          | Current time and city          |
 
-**Planned feature:** Full project indexing
-
-- Embed all source files into a vector database
-- AI can semantic search: "Where's the auth logic?"
-- Instant jump-to-definition for any symbol
-- RAG (Retrieval-Augmented Generation) for better answers
-
-### MCP Server Support
-
-Connect any [Model Context Protocol](https://modelcontextprotocol.io) server:
-
-```json
-{
-  "mcpServers": {
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": { "GITHUB_TOKEN": "..." }
-    }
-  }
-}
-```
-
-Now AI can create PRs, review code, manage issues — all through natural language.
-
-### Custom Tool Scripts
-
-Drop `.js` files into `tools/custom/` to extend Cookie Code:
-
-```javascript
-// tools/custom/deploy.js
-module.exports = {
-  name: "deploy",
-  description: "Deploy to production",
-  params: { target: "string" },
-  async execute({ target }) {
-    // Your deployment logic
-    return { success: true, url: "..." };
-  },
-};
-```
-
-AI can now call `deploy` like any built-in tool.
+Full TypeScript declarations live in [`tools/cuckoo-tools.d.ts`](tools/cuckoo-tools.d.ts).
 
 ---
 
-## 🛠️ Built-in Tools
+## Customization
 
-Cookie Code ships with 20+ tools out of the box:
+**Themes:** background blur, panel opacity, glass color.
 
-| Tool        | Description               | Example                                 |
-| ----------- | ------------------------- | --------------------------------------- |
-| `read`      | Read file contents        | `read('src/auth.js')`                   |
-| `write`     | Create or overwrite file  | `write('test.js', code)`                |
-| `edit`      | Apply targeted patch      | `edit('app.js', oldCode, newCode)`      |
-| `glob`      | Find files by pattern     | `glob('**/*.test.js')`                  |
-| `grep`      | Search file contents      | `grep('TODO', { include: '*.js' })`     |
-| `bash`      | Run shell command         | `bash('npm test')`                      |
-| `pwsh`      | Run PowerShell script     | `pwsh('Get-Process')`                   |
-| `git`       | Git operations            | `git('status')`                         |
-| `mysql`     | SQL queries               | `mysql('SELECT * FROM users')`          |
-| `webFetch`  | HTTP requests             | `webFetch('https://api.example.com')`   |
-| `todoWrite` | Manage task lists         | `todoWrite([{content: 'Fix bug'}])`     |
-| `mcpCall`   | Call MCP server tool      | `mcpCall('github', 'create_pr', {...})` |
-| `goalDone`  | Complete a goal (`/goal`) | `goalDone()`                            |
-| `readrules` | Accept project rules      | `readrules()`                           |
+**Pets:** drop PNG or GIF files into `userData/pets/` and pick one from the grid.
 
-[Full tool reference →](docs/TOOLS.md)
+**Fonts:** drop `.ttf` or `.woff` files into `userData/fonts/` and pick one from the list.
+
+**Skills:** a folder with `SKILL.md` and an optional `tool.js` in `.cuckoo/skills/<name>/` for one project, or in `<userData>/skills/<name>/` for every project. A global skill overrides a project skill with the same name.
 
 ---
 
-## 🎨 Customization
+## Contributing
 
-### Themes
+1. Fork the repo.
+2. Create a branch: `git checkout -b feature/amazing`.
+3. Make your changes.
+4. Run the tests: `npm test`.
+5. Commit: `git commit -m 'feat: add feature'`.
+6. Push the branch and open a pull request.
 
-**Settings → Cookie Code → Theme & Glass**
+Where help is welcome:
 
-- **Background blur** — 0-30px frosted glass effect
-- **Panel opacity** — 0-100% transparency
-- **Glass colors** — custom hex colors for panels
-- **Button styles** — border radius, hover effects
-
-### Pets
-
-**Settings → Cookie Code → Pets**
-
-Drop PNG/GIF files into `userData/pets/`, pick from grid. Animated pets react to tool execution success/failure.
-
-### Fonts
-
-**Settings → Cookie Code → Font**
-
-Drop `.ttf`/`.otf`/`.woff` files into `userData/fonts/`, select from dropdown. Applies to entire UI.
-
-### Skills
-
-Add a folder in `.cuckoo/skills/<name>/` with `SKILL.md` (and optional `tool.js`) — callable via `skillList`, `skillLoad`, `skillExecute`. Skills are two-level: **global** (`<userData>/skills/<name>/`) and **project** (`<projectDir>/.cuckoo/skills/<name>/`); a global skill overrides a project one with the same name.
-
-### Project Prompts
-
-Store reusable prompts in `.cookie/prompts/*.md` (one file per prompt). The **Prompts** button in the overlay opens a panel to create / edit / delete a prompt and insert its text into the input (text only, no send). From Telegram — the `/prompts` command.
-
-### Project Rules
-
-A `.cookie/rules.md` file sets rules the AI must accept via `readrules()` before working. Until accepted, tools (except `read`, `read_lines`, `file_read`, `memoryRead`, `readrules`) are locked. No file — no lock; subagents bypass the gate.
-
-### Plan Mode & Comments
-
-The **Plan** toggle (next to DeepSeek toggles) makes the AI explore only and write a plan to `plan.md` instead of changing code; it submits the plan via `exit_plan_mode()`.
-
-- **Line comments** — select a fragment of the plan → a 💬 button appears → leave a note right under that line (multiple lines supported).
-- On **reject**, comments return to the model (text + source line + selection).
-- On **approve**, comments are appended to the "work according to the plan" request and sent to chat; the plan can also be approved from Telegram.
+- Translations.
+- Documentation.
+- Bug reports.
+- New tools.
 
 ---
 
-## 🤝 Contributing
+## License
 
-We welcome contributions! Here's how:
-
-1. **Fork** the repo
-2. **Create a branch** — `git checkout -b feature/amazing-feature`
-3. **Make changes** — add features, fix bugs, improve docs
-4. **Test** — `npm test` (402 tests, 100% critical path coverage)
-5. **Commit** — `git commit -m 'feat: add amazing feature'`
-6. **Push** — `git push origin feature/amazing-feature`
-7. **Open PR** — describe what changed and why
-
-### Areas We Need Help
-
-- 🌍 **Translations** — add more languages to `src/preload/i18n/`
-- 📚 **Documentation** — improve guides, add video tutorials
-- 🐛 **Bug reports** — test on different systems, report edge cases
-- ✨ **New tools** — implement tool ideas from the [wishlist](https://github.com/merfiDEV/Cookie-code/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
+MIT. Use, modify, and redistribute freely, including in commercial projects.
 
 ---
 
-## 📜 License
+## Credits
 
-MIT License — see [LICENSE](LICENSE) for details.
+Built with [Electron](https://electronjs.org/), [DeepSeek](https://deepseek.com/), and [Telegraf](https://github.com/telegraf/telegraf).
 
-Free to use, modify, and distribute. Commercial use allowed.
-
----
-
-## 🙏 Credits
-
-Built with:
-
-- [Electron](https://www.electronjs.org/) — desktop app framework
-- [DeepSeek](https://www.deepseek.com/) — AI chat interface
-- [Telegraf](https://github.com/telegraf/telegraf) — Telegram bot framework
-- [gifenc](https://github.com/mattdesl/gifenc) — GIF processing
-
-Inspired by:
-
-- [Aider](https://github.com/paul-gauthier/aider) — AI pair programming in terminal
-- [Claude Desktop](https://claude.ai/download) — MCP protocol pioneer
-- [Cursor](https://cursor.sh/) — AI-first code editor
+Inspired by [Aider](https://github.com/paul-gauthier/aider), [Claude Desktop](https://claude.ai/download), and [Cursor](https://cursor.sh/).
 
 ---
 
-## ⭐ Star History
+## Star history
 
 [![Star History Chart](https://api.star-history.com/svg?repos=merfiDEV/Cookie-code&type=Date)](https://star-history.com/#merfiDEV/Cookie-code&Date)
 
-If Cookie Code saves you time, consider giving it a star! It helps others discover the project.
-
----
-
-## 🔗 Links
-
-- **Documentation:** [docs/](docs/)
-- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
-- **Roadmap:** [GitHub Projects](https://github.com/merfiDEV/Cookie-code/projects)
-- **Discord:** [Join the community](https://discord.gg/...) _(coming soon)_
-- **Twitter:** [@CookieCodeAI](https://twitter.com/...) _(coming soon)_
+If Cookie Code saves you time, give it a star.
 
 ---
 

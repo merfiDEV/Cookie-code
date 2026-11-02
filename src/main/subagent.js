@@ -12,6 +12,7 @@
  * циклического require main → subagent → main.
  */
 const windowState = require("./window");
+const { getAIWebContents } = windowState;
 const { buildInitPrompt } = require("./project-context");
 
 let _createWindow = null;
@@ -104,7 +105,7 @@ function sendInitPromptWhenReady(win, projectDir, extraPrompt, timeoutMs) {
         try {
           initPrompts.set(win.id, combined);
         } catch (_) {}
-        win.webContents.send("initial-prompt", combined);
+        getAIWebContents(win).send("initial-prompt", combined);
         sent = true;
         console.log(
           "[Subagent] initial-prompt отправлен в окно (len=" +
@@ -121,7 +122,7 @@ function sendInitPromptWhenReady(win, projectDir, extraPrompt, timeoutMs) {
       }
     };
     // DeepSeek на холодном старте монтирует React долго — ждём дольше.
-    win.webContents.once("did-finish-load", () => setTimeout(send, 3000));
+    getAIWebContents(win).once("did-finish-load", () => setTimeout(send, 3000));
     // Повторная попытка, если первая не сработала (окно догрузилось позже).
     setTimeout(send, 8000);
     setTimeout(send, 15000);

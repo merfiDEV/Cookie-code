@@ -66,6 +66,22 @@ function requestUserQuestion(sender, questions) {
 }
 
 /**
+ * WebContents AI-страницы окна.
+ * В shell-режиме AI живёт в ctx.view (WebContentsView), а win.webContents —
+ * это сама оболочка. Грузить DeepSeek в win.webContents нельзя: это ломает shell.
+ * @param {object} ctx контекст окна из windowState
+ * @returns {Electron.WebContents|null}
+ */
+function aiWebContents(ctx) {
+  if (!ctx) return null;
+  if (ctx.view && ctx.view.webContents && !ctx.view.webContents.isDestroyed())
+    return ctx.view.webContents;
+  if (ctx.win && !ctx.win.isDestroyed() && ctx.win.webContents)
+    return ctx.win.webContents;
+  return null;
+}
+
+/**
  * Резолв вопроса, отвеченного в Telegram (вызывается из botsrc).
  * @returns {boolean} true, если нашли ожидающий вопрос.
  */
@@ -683,14 +699,13 @@ function registerIpcHandlers() {
   ipcMain.handle("navigate-session", async (event, { sessionId }) => {
     if (!sessionId) return { success: false, error: "缺少会话ID" };
     const ctx = windowState.getContextByWebContents(event.sender);
-    const win = ctx ? ctx.win : null;
-    if (!win || win.isDestroyed())
-      return { success: false, error: "窗口已关闭" };
+    const wc = aiWebContents(ctx);
+    if (!wc) return { success: false, error: "窗口已关闭" };
     // 按当前 provider 拼会话 URL（DeepSeek /chat/s/ 等）
     let url = null;
     try {
       const { getProviderByUrl } = require("../providers");
-      const provider = getProviderByUrl(win.webContents.getURL());
+      const provider = getProviderByUrl(wc.getURL());
       if (
         provider &&
         typeof provider.sessionUrlBase === "string" &&
@@ -703,7 +718,7 @@ function registerIpcHandlers() {
     }
     if (!url) url = "https://chat.deepseek.com/a/chat/s/" + sessionId;
     try {
-      await win.webContents.loadURL(url);
+      await wc.loadURL(url);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -716,9 +731,8 @@ function registerIpcHandlers() {
   ipcMain.handle("chat-delete", async (event, { sessionId } = {}) => {
     if (!sessionId) return { success: false, error: "缺少会话ID" };
     const ctx = windowState.getContextByWebContents(event.sender);
-    const win = ctx ? ctx.win : null;
-    if (!win || win.isDestroyed())
-      return { success: false, error: "窗口已关闭" };
+    const wc = aiWebContents(ctx);
+    if (!wc) return { success: false, error: "窗口已关闭" };
     const safeId = JSON.stringify(String(sessionId));
     const script = `(async function(){
       const sid = ${safeId};
@@ -751,7 +765,7 @@ function registerIpcHandlers() {
       return { success: true, removed: gone };
     })()`;
     try {
-      const result = await win.webContents.executeJavaScript(script, true);
+      const result = await wc.executeJavaScript(script, true);
       if (!result || result.success !== true) {
         return {
           success: false,
@@ -780,9 +794,8 @@ function registerIpcHandlers() {
       return { success: false, error: "缺少新名称" };
     }
     const ctx = windowState.getContextByWebContents(event.sender);
-    const win = ctx ? ctx.win : null;
-    if (!win || win.isDestroyed())
-      return { success: false, error: "窗口已关闭" };
+    const wc = aiWebContents(ctx);
+    if (!wc) return { success: false, error: "窗口已关闭" };
 
     const safeId = JSON.stringify(String(sessionId));
     const safeTitle = JSON.stringify(String(title).trim());
@@ -844,7 +857,7 @@ function registerIpcHandlers() {
       })()`;
 
     try {
-      const result = await win.webContents.executeJavaScript(script, true);
+      const result = await wc.executeJavaScript(script, true);
       if (!result || result.success !== true) {
         return {
           success: false,
@@ -860,18 +873,19 @@ function registerIpcHandlers() {
   // Открыть новый чат (переход на домашнюю страницу провайдера).
   ipcMain.handle("new-chat", async (event) => {
     const ctx = windowState.getContextByWebContents(event.sender);
-    const win = ctx ? ctx.win : null;
-    if (!win || win.isDestroyed())
-      return { success: false, error: "窗口已关闭" };
+    // В shell-режиме AI-страница живёт в ctx.view, а не в win.webContents.
+    // Загрузка DeepSeek в win.webContents уничтожает оболочку.
+    const wc = aiWebContents(ctx);
+    if (!wc) return { success: false, error: "窗口已关闭" };
     let url = null;
     try {
       const { getProviderByUrl } = require("../providers");
-      const provider = getProviderByUrl(win.webContents.getURL());
+      const provider = getProviderByUrl(wc.getURL());
       if (provider && provider.homeUrl) url = provider.homeUrl;
     } catch (_) {}
     if (!url) url = "https://chat.deepseek.com/";
     try {
-      await win.webContents.loadURL(url);
+      await wc.loadURL(url);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -934,12 +948,51 @@ function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("stats-record-tokens", async (_event, ev = {}) => {
+  ipcMain.handle("stats-record-tokens", async (event, ev = {}) => {
     try {
-      return { success: true, stats: statsStore.recordTokens(ev) };
+      const stats = statsStore.recordTokens(ev);
+      // stats-recorder шлёт { sessionId, tokens }, но некоторые источники могут слать { delta }.
+      const incomingDelta =
+        Number(ev.delta != null ? ev.delta : ev.tokens) || 0;
+      try {
+        const ws = require("./window");
+        // Найдём контекст по отправителю (AI view), иначе broadcast во все окна.
+        const senderCtx = ws.getContextByWebContents(event.sender);
+        const contexts = senderCtx ? [senderCtx] : ws.getAllContexts();
+        for (const ctx of contexts) {
+          const prevTotal = (ctx.tokenUsage && ctx.tokenUsage.total) || 0;
+          const total = prevTotal + incomingDelta;
+          ctx.tokenUsage = {
+            total,
+            delta: incomingDelta,
+            context: total,
+            at: Date.now(),
+          };
+          try {
+            ctx.win.webContents.send("shell-token-updated", ctx.tokenUsage);
+          } catch (_) {}
+          // TPS теперь приходит точным каналом (stats-record-tps) из preload:
+          // token-interceptor (accumulated diff) + observer (fallback по тексту).
+          // Старое дельта-окно отключено, чтобы не перебивать точное значение.
+        }
+      } catch (_) {}
+      return { success: true, stats };
     } catch (err) {
       return { success: false, error: err.message };
     }
+  });
+
+  // Точный TPS из preload (token-interceptor / observer) → broadcast в shell.
+  ipcMain.on("stats-record-tps", (event, payload = {}) => {
+    try {
+      const tps = Number(payload.tps);
+      if (!Number.isFinite(tps) || tps <= 0) return;
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (!ctx || !ctx.win || ctx.win.isDestroyed()) return;
+      const rounded = Math.round(tps * 10) / 10;
+      ctx._tpsLast = { at: Date.now(), tps: rounded };
+      ctx.win.webContents.send("shell-tps-updated", { tps: rounded });
+    } catch (_) {}
   });
 
   ipcMain.handle("stats-record-session", async (_event, ev = {}) => {
@@ -1303,6 +1356,16 @@ function registerIpcHandlers() {
     }
   });
 
+  // Трансляция task/status/history из AI-страницы в shell-сайдбар (React Home)
+  ipcMain.on("shell-broadcast-task", (event, payload) => {
+    try {
+      const ctx = windowState.getContextByWebContents(event.sender);
+      if (ctx && ctx.win && !ctx.win.isDestroyed()) {
+        ctx.win.webContents.send("shell-task-update", payload || {});
+      }
+    } catch (_) {}
+  });
+
   // Остановить текущую задачу окна и активные дочерние процессы.
   // AI-ответ может выполняться без child process, поэтому одного killAll() недостаточно.
   ipcMain.handle("kill-process", async (event) => {
@@ -1312,15 +1375,11 @@ function registerIpcHandlers() {
       const { processManager } = require("./process-manager");
       const result = await processManager.killAll();
       const ctx = windowState.getContextByWebContents(event.sender);
-      const win = ctx && ctx.win;
-      if (
-        win &&
-        !win.isDestroyed() &&
-        win.webContents &&
-        !win.webContents.isDestroyed()
-      ) {
+      // Останавливаем генерацию AI-страницы, а не оболочку.
+      const wc = aiWebContents(ctx);
+      if (wc) {
         try {
-          win.webContents.stop();
+          wc.stop();
         } catch (_) {}
       }
       return { success: true, stopped: true, count: result.count };

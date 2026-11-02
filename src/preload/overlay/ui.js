@@ -35,7 +35,16 @@ try {
  */
 function injectCSS() {
   const style = document.createElement("style");
-  style.textContent = OVERLAY_CSS;
+  style.id = "cuckoo-overlay-css";
+  // Shell-режим: старая панель и FAB не нужны (кнопки в сайдбаре),
+  // но модалы (diff / window-manager / mcp / goal) остаются рабочими.
+  const HIDE_LEGACY = [
+    "#cuckoo-overlay { display: none !important; }",
+    "#cuckoo-fab { display: none !important; }",
+    ".cuckoo-fab { display: none !important; }",
+    "#cuckoo-status-badge { display: none !important; }",
+  ].join("\n");
+  style.textContent = OVERLAY_CSS + "\n" + HIDE_LEGACY;
   document.head.appendChild(style);
 }
 
@@ -393,11 +402,20 @@ function hideBannerNotification() {
  * 设置任务状态（检测到任务：后面的执行中提示）
  * @param {boolean} running - 是否执行中
  */
-function setTaskStatus(running) {
+function setTaskStatus(running, label) {
   const status = document.getElementById("cuckoo-task-status");
   if (status) {
     status.classList.toggle("cuckoo-hidden", !running);
   }
+  try {
+    if (window.electronAPI && window.electronAPI.shellBroadcastTask) {
+      window.electronAPI.shellBroadcastTask({
+        kind: "status",
+        running: !!running,
+        label: running && label ? String(label) : "",
+      });
+    }
+  } catch (_) {}
 }
 
 /**
@@ -458,6 +476,16 @@ function displayCommand(cmdData) {
   if (preview) preview.textContent = cmdData.command;
   if (resultSection) resultSection.classList.add("cuckoo-hidden");
   showToast("发现可执行的命令");
+  try {
+    if (window.electronAPI && window.electronAPI.shellBroadcastTask) {
+      window.electronAPI.shellBroadcastTask({
+        kind: "task",
+        command: cmdData.command,
+        timestamp: cmdData.timestamp,
+        id: cmdData.id,
+      });
+    }
+  } catch (_) {}
 }
 
 /**
@@ -480,6 +508,15 @@ function addHistory(entry) {
   commandHistory.unshift(entry);
   if (commandHistory.length > 50) commandHistory.pop();
   renderHistory();
+  // Broadcast в shell-сайдбар (React)
+  try {
+    if (window.electronAPI && window.electronAPI.shellBroadcastTask) {
+      window.electronAPI.shellBroadcastTask({
+        kind: "history",
+        history: commandHistory.slice(0, 20),
+      });
+    }
+  } catch (_) {}
 }
 
 /**

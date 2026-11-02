@@ -112,8 +112,10 @@ async function init() {
     safe("init.goalEngine", () => goalEngine.init());
     safe("init.goalCommand", () => goalCommand.install());
 
-    // Базовая UI-инфраструктура нужна всегда: оверлей (кнопка), стили, события
+    // CSS кастомизации (фон/шрифты/прозрачность/tool-блоки/чипы/мета) — нужен всегда.
+    // Сама панель (injectOverlay) отключена — она теперь в shell.html.
     safe("init.injectCSS", () => ui.injectCSS());
+
     safe("init.injectOverlay", () => ui.injectOverlay());
     // Перенос контекста: если мы в середине операции (после reload) — продолжаем.
     safe("init.contextPortResume", () => contextPort.resume());
@@ -146,6 +148,8 @@ async function init() {
     safe("init.initProjectDirSection", () =>
       projectDir.initProjectDirSection(),
     );
+    // Overlay-кнопки теперь в shell-сайдбаре, но bindEvents нужен для модалов
+    // (diff / window-manager / mcp / goal). Сама панель скрыта через CSS.
     safe("init.bindEvents", () => bindEvents());
     safe("init.updateHomeMode", () => ui.updateHomeMode());
 
@@ -193,7 +197,8 @@ async function init() {
     safe("init.startStealthWatcher", () => stealth.startStealthWatcher());
 
     // 启动设置面板标签注入
-    safe("init.settingsTabStart", () => settingsTab.start());
+    // SHELL MODE: settings-tab отключён (настройки теперь в shell)
+    // safe("init.settingsTabStart", () => settingsTab.start());
 
     // Slash-команды: автодополнение (review/summarize)
     safe("init.commandsStart", () => commands.start());
@@ -214,6 +219,7 @@ async function init() {
     safe("init.fileChipSetEnabled", () =>
       fileChip.setEnabled(state.fileChipEnabled !== false),
     );
+
     safe("init.fileChipStart", () => fileChip.startWatch());
 
     // Блок «Затронуто» под ответом AI — вкл/выкл через настройки

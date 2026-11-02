@@ -93,10 +93,9 @@ function recordSession() {
 function start() {
   if (started) return;
   started = true;
-  window.addEventListener("cuckoo:token-update", (e) => {
-    const d = (e && e.detail) || {};
-    recordTokens(d.delta);
-  });
+  // Токены теперь шлются напрямую из token-interceptor.publish() в main через
+  // electronAPI.statsRecordTokens (см. src/preload/dom/token-interceptor.js).
+  // Здесь listener не нужен, иначе двойной счёт.
   recordSession();
 }
 
