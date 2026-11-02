@@ -57,3 +57,4 @@ test/coverage.lcov
 # Пользовательские агенты лежат в ~/cookie/agents (вне репозитория).
 # Ранее здесь был /cookie/agents — убрано, иначе новые агенты untracked.
 /.cookie/memory
+/.cookie/prompts

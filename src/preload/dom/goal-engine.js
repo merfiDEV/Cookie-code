@@ -227,6 +227,8 @@ function resumeGoal() {
 
 /** Завершение цели (вызывается по goal-done от AI или вручную). */
 function onGoalDone() {
+  // Отменяем взведённый nudge до любых проверок — чтобы «продолжай» не ушёл
+  // в чат даже если таймер был установлен observer'ом в этом же тике.
   cancelNudge();
   if (goal && !goal.done) {
     goal.done = true;
@@ -236,6 +238,9 @@ function onGoalDone() {
     saveGoalState();
     notifyUpdate();
     console.log("[Goal] цель завершена (goalDone)");
+  } else if (!goal) {
+    // Цели нет — всё равно блокируем любые будущие nudge до следующего startGoal.
+    console.log("[Goal] onGoalDone при отсутствии активной цели — игнор");
   }
   return { success: true, goal: getState() };
 }
@@ -278,10 +283,14 @@ function checkProgress(text) {
  */
 function scheduleGoalNudge() {
   if (!isActive()) return false;
+  // Жёсткий guard: цель могла завершиться синхронно (goalDone из preload),
+  // не дожидаясь IPC. Если goal.done — авто-продвижение не нужно.
+  if (goal && goal.done) return false;
   cancelNudge();
   nudgeTimer = setTimeout(() => {
     nudgeTimer = null;
-    if (!isActive()) return;
+    // Двойная проверка: цель могла быть завершена за время NUDGE_DELAY.
+    if (!isActive() || (goal && goal.done)) return;
 
     // Предохранитель: лимит итераций.
     if (goal.maxIterations && goal.round >= goal.maxIterations) {

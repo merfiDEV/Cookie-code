@@ -295,6 +295,30 @@ async function executeJsBlocksWithRetry(initialBlocks, markdown, force) {
     );
   }
   if (results.length > 0) {
+    // goal_done через cuckoo-блок (JS-путь): останавливаем goal-цикл
+    // СИНХРОННО до sendCombinedJsResultsToChat, иначе AI получит результат
+    // и стартует новый раунд, а goal-engine уже не должен продвигаться.
+    try {
+      const goalCalled = results.some(
+        (item) =>
+          item &&
+          typeof item.code === "string" &&
+          /\bgoal_?done\s*\(/i.test(item.code),
+      );
+      if (goalCalled) {
+        const goalEngine = require("./goal-engine");
+        goalEngine.onGoalDone();
+        console.log(
+          "[Cookie Code] goal_done (JS): goal-engine остановлен синхронно",
+        );
+      }
+    } catch (e) {
+      console.warn(
+        "[Cookie Code] goal_done (JS): не удалось остановить движок:",
+        e.message,
+      );
+    }
+
     // Инлайн: прикрепляем каждый результат прямо в его карточку вызова,
     // чтобы пользователь видел результат под кодом, а не отдельным сообщением.
     for (const item of results) {
@@ -1212,6 +1236,22 @@ async function handleJsToolScript(code) {
 async function handleToolCall(toolCall) {
   const { toolName, params, callId } = toolCall;
   console.log(`[Cookie Code] 执行工具: ${toolName}`, params);
+
+  // goal_done — особый случай: останавливаем goal-цикл СИНХРОННО здесь,
+  // не дожидаясь IPC 'goal-done' из main (гонка с nudge-таймером).
+  // Если ждать IPC, observer успевает отправить «продолжай» до прихода события.
+  if (toolName === "goal_done" || toolName === "goalDone") {
+    try {
+      const goalEngine = require("./goal-engine");
+      goalEngine.onGoalDone();
+      console.log("[Cookie Code] goal_done: goal-engine остановлен синхронно");
+    } catch (e) {
+      console.warn(
+        "[Cookie Code] goal_done: не удалось остановить движок:",
+        e.message,
+      );
+    }
+  }
 
   // 方向 C：不强制弹面板
   isExecuting = true;

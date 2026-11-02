@@ -116,6 +116,19 @@ function sendMessageToChat(msg, tag) {
  * 将 JSON 工具执行结果发送回 DeepSeek 聊天，让 AI 看到结果并继续工作
  */
 function sendToolResultToChat(toolCall, result) {
+  // goal_done — НЕ回传 результат в чат: цель закрыта, AI не должен начинать
+  // новый раунд «продолжай». Иначе после успешного goal_done AI получает
+  // «【工具执行结果】goal_done 执行成功» и генерирует ещё ответ, а
+  // goal-engine уже остановлен → пользователь видит лишний раунд.
+  if (
+    toolCall &&
+    (toolCall.toolName === "goal_done" || toolCall.toolName === "goalDone")
+  ) {
+    console.log(
+      "[Cookie Code] goal_done: результат не回传 в чат (цель закрыта)",
+    );
+    return;
+  }
   // 构造回传消息（明确的成功/失败信息，AI 可据此修正并继续）
   // 拒绝类失败（denied）单独措辞：告诉 AI 不要重试，等待用户指示。
   const denied = result.denied === true || isDenialError(result.error);
@@ -168,6 +181,21 @@ function sendToolResultToChat(toolCall, result) {
  */
 function sendCombinedJsResultsToChat(results) {
   if (!Array.isArray(results) || results.length === 0) return;
+
+  // goal_done через cuckoo-блок (JS-путь): цель закрыта, результат в чат
+  // не отправляем — иначе AI стартует новый раунд «продолжай».
+  const goalCalled = results.some(
+    (item) =>
+      item &&
+      typeof item.code === "string" &&
+      /\bgoal_?done\s*\(/i.test(item.code),
+  );
+  if (goalCalled) {
+    console.log(
+      "[Cookie Code] goal_done (JS): результат не回传 в чат (цель закрыта)",
+    );
+    return;
+  }
 
   const MAX_OUTPUT = 15000;
   const sep = String.fromCharCode(10);
